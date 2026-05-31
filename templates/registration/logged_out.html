@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Models</a>
+    <span class="breadcrumb-current">Signed out</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<section class="admin-page-hero admin-logout-hero">
+    <div>
+        <span class="admin-kicker">Secure Session</span>
+        <h1>You are signed out</h1>
+        <p>Your staff session has ended. Sign in again when you are ready to continue managing the platform.</p>
+    </div>
+    <div class="admin-hero-actions">
+        <a class="button default" href="{% url 'admin:index' %}">{% translate 'Sign in again' %}</a>
+    </div>
+</section>
+{% endblock %}

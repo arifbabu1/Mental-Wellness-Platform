@@ -1,0 +1,887 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard | Mental Wellness Consultation</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/patient-dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+<script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+<script src="{% static 'js/navigation.js' %}" defer></script>
+<script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Emergency Top Bar -->
+    <div class="emergency-top-bar">
+        <span>Need immediate help? Call our hotline: <strong>16101</strong></span>
+        <a href="{% url 'emergency' %}" class="btn-base">Get Support</a>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'blogs' %}">Blogs</a></li>
+                <li><a href="{% url 'about' %}">About Us</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Dashboard Section -->
+    <section class="dashboard-container">
+        <div class="container">
+            <div class="welcome-section">
+                <h1>Welcome back, {{ user.username }}!</h1>
+                <p>How are you feeling today?</p>
+                
+                <!-- Notification Badge -->
+                {% if unread_notifications %}
+                <div class="notification-alert">
+                    <i class="fas fa-bell"></i>
+                    You have {{ unread_notifications|length }} new notification(s)
+                    <button onclick="viewNotifications()" class="btn-view">View</button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Daily Tasks Section - NEW -->
+            <section class="daily-tasks-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-tasks"></i> Today's Health Tasks</h2>
+                    <div class="task-progress">
+                        <span class="progress-text">{{ completed_tasks }}/{{ total_tasks }} Completed</span>
+                        {% if total_tasks > 0 %}
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {% widthratio completed_tasks total_tasks 100 %}%"></div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if today_tasks %}
+                    {% for task_item in today_tasks %}
+                    <div class="task-card {% if task_item.completion.is_completed %}completed{% endif %}">
+                        <div class="task-header">
+                            <div class="task-info">
+                                <div class="task-icon">
+                                    <i class="{{ task_item.task.icon }}"></i>
+                                </div>
+                                <div class="task-details">
+                                    <h4>{{ task_item.task.title }}</h4>
+                                    <p class="task-category">{{ task_item.task.category|title }}</p>
+                                </div>
+                            </div>
+                            <div class="task-status">
+                                {% if task_item.completion.is_completed %}
+                                    <span class="completed-badge">
+                                        <i class="fas fa-check-circle"></i> 
+                                        Completed at {{ task_item.completion.completed_at|time:"g:i A" }}
+                                    </span>
+                                {% else %}
+                                    <button onclick="completeTask({{ task_item.task.id }})" class="btn-complete">
+                                        <i class="fas fa-check"></i> Mark Complete
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="task-description">
+                            <p>{{ task_item.task.description }}</p>
+                        </div>
+                        
+                        {% if task_item.completion.patient_notes %}
+                        <div class="patient-notes">
+                            <strong>Your notes:</strong> {{ task_item.completion.patient_notes }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="task-meta">
+                            <small>
+                                <i class="fas fa-user-md"></i> Assigned by Dr. {{ task_item.task.doctor.user.get_full_name }}
+                                {% if task_item.task.end_date %}
+                                | <i class="fas fa-calendar"></i> Until {{ task_item.task.end_date|date:"M d, Y" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-tasks">
+                        <div class="no-tasks-icon">
+                            <i class="fas fa-clipboard-check"></i>
+                        </div>
+                        <h3>No tasks for today</h3>
+                        <p>Great job! You don't have any assigned tasks for today.</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Quick Actions -->
+            <div class="stats-grid">
+                <div class="card" id="assessment-card">
+                    <div class="card-body">
+                        <div class="quick-action-icon">🧠</div>
+                        <h3>Take Assessment</h3>
+                        <p>Check your mental wellness</p>
+                    </div>
+                </div>
+
+                <div class="card" id="doctors-card">
+                    <div class="card-body">
+                        <div class="quick-action-icon">👨‍⚕️</div>
+                        <h3>Find Doctors</h3>
+                        <p>Connect with professionals</p>
+                    </div>
+                </div>
+
+                <div class="card" id="appointments-card">
+                    <div class="card-body">
+                        <div class="quick-action-icon">📅</div>
+                        <h3>My Appointments</h3>
+                        <p>Manage your sessions</p>
+                    </div>
+                </div>
+
+                <div class="card" id="blogs-card">
+                    <div class="card-body">
+                        <div class="quick-action-icon">📚</div>
+                        <h3>Mental Health Blogs</h3>
+                        <p>Read expert articles</p>
+                    </div>
+                </div>
+
+                <div class="card" id="emergency-card">
+                    <div class="card-body">
+                        <div class="quick-action-icon">📞</div>
+                        <h3>Emergency Help</h3>
+                        <p>24/7 support available</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- Three Column Layout for Recent Assessments, Upcoming Appointments, Recent Prescriptions -->
+                <div class="dashboard-cards-row">
+                    <!-- Recent Assessments -->
+                    <div class="card dashboard-card">
+                        <div class="card-header">
+                            <h3>Recent Assessments</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_assessments %}
+                                {% for assessment in recent_assessments|slice:":3" %}
+                                    <div class="assessment-item">
+                                        <div class="assessment-header">
+                                            <div class="assessment-title">
+                                                Stress Level: 
+                                                <span class="badge badge-{{ assessment.stress_level }}">
+                                                    {{ assessment.stress_level|title }}
+                                                </span>
+                                            </div>
+                                            <div class="assessment-score">
+                                                {{ assessment.total_score }}
+                                            </div>
+                                        </div>
+                                        <div class="assessment-date">
+                                            {{ assessment.created_at|date:"M d, Y" }}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                <div class="text-center">
+                                    <a href="{% url 'assessment' %}" class="btn-base btn-gradient">Take New Assessment</a>
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📋</div>
+                                    <h4>No assessments yet</h4>
+                                    <p>Take your first mental health assessment</p>
+                                    <a href="{% url 'assessment' %}" class="btn-base btn-gradient">Start Assessment</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Appointments -->
+                    <div class="card dashboard-card">
+                        <div class="card-header">
+                            <h3>Upcoming Appointments</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if upcoming_appointments %}
+                                {% for appointment in upcoming_appointments %}
+                                    <div class="appointment-item">
+                                        <div class="appointment-header">
+                                            <div>
+                                                <div class="appointment-doctor">
+                                                    Dr. {{ appointment.doctor.user.get_full_name|default:appointment.doctor.user.username }}
+                                                </div>
+                                                <div class="appointment-date">
+                                                    {{ appointment.appointment_date|date:"M d, Y H:i" }}
+                                                </div>
+                                                <div class="appointment-status">
+                                                    <span class="badge badge-info">{{ appointment.status|title }}</span>
+                                                    {% if appointment.can_join_consultation %}
+                                                        <a href="{% url 'consultation_room' appointment.id %}" class="join-session-btn">Join Session</a>
+                                                    {% elif appointment.consultation_access_message %}
+                                                        <small>{{ appointment.consultation_access_message }}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                <div class="text-center">
+                                    <a href="{% url 'patient_appointments' %}" class="btn-base btn-secondary">View All Appointments</a>
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📅</div>
+                                    <h4>No upcoming appointments</h4>
+                                    <p>Book a session with a mental health professional</p>
+                                    <a href="{% url 'doctors_list' %}" class="btn-base btn-gradient">Find Doctors</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Recent Prescriptions -->
+                    <div class="card dashboard-card">
+                        <div class="card-header">
+                            <h3>Recent Prescriptions</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_prescriptions %}
+                                {% for prescription in recent_prescriptions %}
+                                    <div class="prescription-item">
+                                        <div class="prescription-header">
+                                            <div>
+                                                <div class="prescription-doctor">
+                                                    Dr. {{ prescription.doctor.user.get_full_name|default:prescription.doctor.user.username }}
+                                                </div>
+                                                <div class="prescription-date">
+                                                    {{ prescription.created_at|date:"M d, Y" }}
+                                                </div>
+                                                <div class="prescription-status">
+                                                    <span class="badge badge-success">Active</span>
+                                                </div>
+                                            </div>
+                                            <div class="prescription-actions">
+                                                <button onclick="viewPrescriptionDetails({{ prescription.id }})" class="btn-base btn-outline btn-sm">
+                                                    <i class="fas fa-eye"></i> View Details
+                                                </button>
+                                                <a href="{% url 'download_prescription_pdf' prescription.id %}" class="btn-base btn-primary btn-sm">
+                                                    <i class="fas fa-download"></i> Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="prescription-medications">
+                                            <strong>Medications:</strong>
+                                            <ul>
+                                                {% for medication in prescription.medications %}
+                                                    <li><strong>{{ medication.name }}</strong> - {{ medication.dosage }}{% if medication.frequency %} ({{ medication.frequency }}){% endif %}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            {% if prescription.prescription_text %}
+                                                <div class="prescription-notes">
+                                                    <strong>Notes:</strong> {{ prescription.prescription_text }}
+                                                </div>
+                                            {% endif %}
+                                            {% if prescription.instructions %}
+                                                <div class="prescription-instructions">
+                                                    <strong>Instructions:</strong> {{ prescription.instructions }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                <div class="text-center">
+                                    <a href="{% url 'patient_appointments' %}" class="btn-base btn-secondary">View All Prescriptions</a>
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">💊</div>
+                                    <h4>No prescriptions yet</h4>
+                                    <p style="color: var(--text-light); margin-bottom: 20px;">Your prescriptions will appear here after consultations</p>
+                                    <a href="{% url 'doctors_list' %}" class="btn-base btn-gradient">Book Consultation</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Prescription Details Modal -->
+    <div id="prescriptionModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-medical"></i> Prescription Details</h3>
+                <button class="modal-close" onclick="closePrescriptionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="prescriptionDetails">
+                    <!-- Prescription details will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closePrescriptionModal()" class="btn-base btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div id="notificationModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-bell"></i> Notifications</h3>
+                <button class="modal-close" onclick="closeNotificationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="notificationsList">
+                    <!-- Notifications will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="markAllAsRead()" class="btn-base btn-outline">Mark All as Read</button>
+                <button onclick="closeNotificationModal()" class="btn-base btn-primary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" style="margin-bottom: 10px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <script>
+        // Dashboard functionality
+        function navigateToPage(url) {
+            window.location.href = url;
+        }
+
+        // Task Management Functions
+        function completeTask(taskId) {
+            const notes = prompt('Add any notes about this task (optional):');
+            if (notes === null) return;
+            
+            const btn = event.target;
+            const originalHTML = btn.innerHTML;
+            const originalDisabled = btn.disabled;
+            
+            btn.style.background = '#28a745';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+            
+            // Get CSRF token
+            const csrfToken = getCookie('csrftoken');
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                showNotification('Security token missing. Please refresh the page.', 'error');
+                resetButton();
+                return;
+            }
+            
+            fetch(`/api/complete-task/${taskId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: `notes=${encodeURIComponent(notes || '')}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification('Task completed successfully!', 'success');
+                    // Update the task card UI immediately without page reload
+                    const taskCard = btn.closest('.task-card');
+                    if (taskCard) {
+                        taskCard.classList.add('completed');
+                        const taskStatus = taskCard.querySelector('.task-status');
+                        if (taskStatus) {
+                            taskStatus.innerHTML = `
+                                <span class="completed-badge">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Completed at ${data.completed_at}
+                                </span>
+                            `;
+                        }
+                    }
+                    // Update progress bar
+                    updateTaskProgress();
+                } else {
+                    showNotification(data.error || 'Error completing task', 'error');
+                    resetButton();
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                showNotification('Network error. Please try again.', 'error');
+                resetButton();
+            });
+            
+            function resetButton() {
+                btn.style.background = '';
+                btn.innerHTML = originalHTML;
+                btn.disabled = originalDisabled;
+            }
+        }
+
+        function updateTaskProgress() {
+            // Update the progress bar and count
+            const totalTasks = document.querySelectorAll('.task-card').length;
+            const completedTasks = document.querySelectorAll('.task-card.completed').length;
+            const progressText = document.querySelector('.progress-text');
+            const progressBar = document.querySelector('.progress-fill');
+            
+            if (progressText) {
+                progressText.textContent = `${completedTasks}/${totalTasks} Completed`;
+            }
+            
+            if (progressBar && totalTasks > 0) {
+                const percentage = Math.round((completedTasks / totalTasks) * 100);
+                progressBar.style.width = `${percentage}%`;
+            }
+        }
+
+        function viewNotifications() {
+            fetch('/api/notifications/', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    displayNotifications(data.notifications);
+                    document.getElementById('notificationModal').style.display = 'block';
+                } else {
+                    showNotification(data.error || 'Error loading notifications', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification(`Network error: ${error.message}`, 'error');
+            });
+        }
+
+        function displayNotifications(notifications) {
+            const container = document.getElementById('notificationsList');
+            
+            if (notifications.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No notifications</p>';
+                return;
+            }
+            
+            let html = '';
+            notifications.forEach(notification => {
+                const unreadClass = notification.is_read ? '' : 'unread';
+                const icon = getNotificationIcon(notification.notification_type);
+                const time = formatNotificationTime(notification.created_at);
+                
+                html += `
+                    <div class="notification-item ${unreadClass}" onclick="markAsRead(${notification.id})">
+                        <div class="notification-icon">
+                            <i class="${icon}"></i>
+                        </div>
+                        <div class="notification-content">
+                            <h4>${notification.title}</h4>
+                            <p>${notification.message}</p>
+                            <small class="notification-time">${time}</small>
+                        </div>
+                        <div class="notification-actions">
+                            ${!notification.is_read ? '<span class="unread-dot"></span>' : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function getNotificationIcon(type) {
+            const icons = {
+                'appointment': 'fas fa-calendar-check',
+                'message': 'fas fa-envelope',
+                'payment': 'fas fa-credit-card',
+                'system': 'fas fa-info-circle',
+                'task': 'fas fa-tasks'
+            };
+            return icons[type] || 'fas fa-bell';
+        }
+
+        function formatNotificationTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return Math.floor(diff / 60000) + ' minutes ago';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + ' hours ago';
+            if (diff < 604800000) return Math.floor(diff / 86400000) + ' days ago';
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function closeNotificationModal() {
+            document.getElementById('notificationModal').style.display = 'none';
+        }
+
+        function markAsRead(notificationId) {
+            fetch(`/api/notifications/${notificationId}/read/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload notifications
+                    viewNotifications();
+                    // Update notification count
+                    updateNotificationCount();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function markAllAsRead() {
+            const unreadNotifications = document.querySelectorAll('.notification-item.unread');
+            if (unreadNotifications.length === 0) {
+                showNotification('All notifications are already read', 'info');
+                return;
+            }
+            
+            // Show loading state
+            event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            event.target.disabled = true;
+            
+            fetch('/api/notifications/mark-all-read/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('All notifications marked as read', 'success');
+                    // Reload notifications to update UI
+                    viewNotifications();
+                    // Update notification count after a short delay
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showNotification(data.error || 'Error marking all as read', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Network error. Please try again.', 'error');
+            })
+            .finally(() => {
+                // Restore button state
+                event.target.innerHTML = 'Mark All as Read';
+                event.target.disabled = false;
+            });
+        }
+
+        function updateNotificationCount() {
+            // Reload the page to update the notification count
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        }
+
+        // Prescription Management Functions
+        function viewPrescriptionDetails(prescriptionId) {
+            fetch(`/api/prescription/${prescriptionId}/details/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayPrescriptionDetails(data.prescription);
+                    document.getElementById('prescriptionModal').style.display = 'block';
+                } else {
+                    showNotification(data.error || 'Error loading prescription details', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Network error loading prescription details', 'error');
+            });
+        }
+
+        function displayPrescriptionDetails(prescription) {
+            const container = document.getElementById('prescriptionDetails');
+            
+            let medicationsHtml = '';
+            if (prescription.medications && prescription.medications.length > 0) {
+                medicationsHtml = '<div class="medications-list"><h4>Medications:</h4><ul>';
+                prescription.medications.forEach(med => {
+                    medicationsHtml += `<li><strong>${med.name}</strong> - ${med.dosage}${med.frequency ? ` (${med.frequency})` : ''}</li>`;
+                });
+                medicationsHtml += '</ul></div>';
+            }
+            
+            const html = `
+                <div class="prescription-detail-view">
+                    <div class="prescription-info">
+                        <div class="info-row">
+                            <strong>Doctor:</strong> Dr. ${prescription.doctor_name}
+                        </div>
+                        <div class="info-row">
+                            <strong>Date:</strong> ${prescription.date}
+                        </div>
+                        <div class="info-row">
+                            <strong>Status:</strong> <span class="badge badge-success">${prescription.status}</span>
+                        </div>
+                    </div>
+                    
+                    ${medicationsHtml}
+                    
+                    ${prescription.notes ? `<div class="prescription-section"><h4>Notes:</h4><p>${prescription.notes}</p></div>` : ''}
+                    ${prescription.instructions ? `<div class="prescription-section"><h4>Instructions:</h4><p>${prescription.instructions}</p></div>` : ''}
+                    
+                    <div class="prescription-actions-detail">
+                        <a href="/patient/prescription/${prescription.id}/download/" class="btn-base btn-primary">
+                            <i class="fas fa-download"></i> Download PDF
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function closePrescriptionModal() {
+            document.getElementById('prescriptionModal').style.display = 'none';
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                padding: 15px 20px;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                animation: slideInRight 0.3s ease;
+            `;
+            
+            if (type === 'success') {
+                notification.style.background = '#d4edda';
+                notification.style.color = '#155724';
+                notification.style.border = '1px solid #c3e6cb';
+            } else if (type === 'error') {
+                notification.style.background = '#f8d7da';
+                notification.style.color = '#721c24';
+                notification.style.border = '1px solid #f5c6cb';
+            } else {
+                notification.style.background = '#d1ecf1';
+                notification.style.color = '#0c5460';
+                notification.style.border = '1px solid #bee5eb';
+            }
+            
+            notification.innerHTML = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Check for notifications periodically
+        setInterval(() => {
+            fetch('/api/notifications/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.unread_count > 0) {
+                        // Update notification badge if needed
+                        const badge = document.querySelector('.notification-badge');
+                        if (badge) {
+                            badge.textContent = data.unread_count;
+                            badge.style.display = 'block';
+                        }
+                    }
+                })
+                .catch(error => {
+                // Silently handle notification errors
+            });
+        }, 30000); // Check every 30 seconds
+
+                
+        function makeEmergencyCall() {
+            const phoneNumber = '16101';
+            
+            // Show confirmation dialog
+            const confirmed = confirm(`Are you sure you want to call the emergency hotline?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
+            
+            if (confirmed) {
+                // Try to make the call
+                window.location.href = `tel:${phoneNumber}`;
+                
+                                
+                // Show a message after a short delay
+                setTimeout(() => {
+                    alert('Connecting you to the emergency hotline...\n\nIf the call doesn\'t connect automatically, please dial: ' + phoneNumber);
+                }, 500);
+            }
+        }
+        
+        // Initialize dashboard functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click event listeners to cards
+            const assessmentCard = document.getElementById('assessment-card');
+            if (assessmentCard) {
+                assessmentCard.addEventListener('click', function() {
+                    window.location.href = '{% url "assessment" %}';
+                });
+            }
+            
+            const doctorsCard = document.getElementById('doctors-card');
+            if (doctorsCard) {
+                doctorsCard.addEventListener('click', function() {
+                    window.location.href = '{% url "doctors_list" %}';
+                });
+            }
+            
+            const appointmentsCard = document.getElementById('appointments-card');
+            if (appointmentsCard) {
+                appointmentsCard.addEventListener('click', function() {
+                    window.location.href = '{% url "patient_appointments" %}';
+                });
+            }
+            
+            const blogsCard = document.getElementById('blogs-card');
+            if (blogsCard) {
+                blogsCard.addEventListener('click', function() {
+                    window.location.href = '{% url "blogs" %}';
+                });
+            }
+            
+            const emergencyCard = document.getElementById('emergency-card');
+            if (emergencyCard) {
+                emergencyCard.addEventListener('click', function() {
+                    makeEmergencyCall();
+                });
+            }
+            
+            // Add hover effects to cards
+            const allCards = document.querySelectorAll('.card');
+            allCards.forEach(function(card) {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // Add keyboard navigation for accessibility
+            document.addEventListener('keydown', function(e) {
+                // Alt + 1 for Assessment
+                if (e.altKey && e.key === '1') {
+                    e.preventDefault();
+                    navigateToPage('{% url "assessment" %}');
+                }
+                
+                // Alt + 2 for Doctors
+                if (e.altKey && e.key === '2') {
+                    e.preventDefault();
+                    navigateToPage('{% url "doctors_list" %}');
+                }
+                
+                // Alt + 3 for Appointments
+                if (e.altKey && e.key === '3') {
+                    e.preventDefault();
+                    navigateToPage('{% url "patient_appointments" %}');
+                }
+                
+                // Alt + E for Emergency
+                if (e.altKey && e.key === 'e') {
+                    e.preventDefault();
+                    makeEmergencyCall();
+                }
+            });
+            
+            // Add visual feedback for button clicks
+            const allButtons = document.querySelectorAll('.card, .btn-base');
+            allButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    // Add a subtle animation
+                    this.style.transform = 'scale(0.95)';
+                    var self = this;
+                    setTimeout(function() {
+                        self.style.transform = '';
+                    }, 100);
+                });
+            });
+        });
+
+        
+            </script>
+</body>
+</html>

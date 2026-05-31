@@ -1,0 +1,666 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Schedule | Doctor Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/doctor-schedule.css' %}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'doctor_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'doctor_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'doctor_schedule' %}" class="active">My Schedule</a></li>
+                <li><a href="{% url 'doctor_blog_management' %}">My Blogs</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="dashboard-container">
+        <div class="dashboard-header">
+            <h1><i class="fas fa-calendar-alt"></i> My Availability Schedule</h1>
+        </div>
+
+        <p class="section-description">
+            Set your available time slots so patients can book consultations with you. 
+            Patients will only be able to select times within your defined availability.
+        </p>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Add Schedule Form -->
+        <section class="schedule-form-section">
+            <h2 class="form-section-title">
+                <i class="fas fa-plus-circle"></i> Add New Availability
+            </h2>
+
+            <!-- Interactive Day Selector -->
+            <div class="day-selector">
+                <label class="day-card" data-day="0" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="0" required>
+                    <span class="day-letter">M</span>
+                    <span class="day-name">Mon</span>
+                </label>
+                <label class="day-card" data-day="1" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="1">
+                    <span class="day-letter">T</span>
+                    <span class="day-name">Tue</span>
+                </label>
+                <label class="day-card" data-day="2" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="2">
+                    <span class="day-letter">W</span>
+                    <span class="day-name">Wed</span>
+                </label>
+                <label class="day-card" data-day="3" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="3">
+                    <span class="day-letter">T</span>
+                    <span class="day-name">Thu</span>
+                </label>
+                <label class="day-card" data-day="4" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="4">
+                    <span class="day-letter">F</span>
+                    <span class="day-name">Fri</span>
+                </label>
+                <label class="day-card" data-day="5" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="5">
+                    <span class="day-letter">S</span>
+                    <span class="day-name">Sat</span>
+                </label>
+                <label class="day-card" data-day="6" onclick="selectDay(this)">
+                    <input type="radio" name="day_of_week" value="6">
+                    <span class="day-letter">S</span>
+                    <span class="day-name">Sun</span>
+                </label>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button type="button" class="quick-action-btn" onclick="setQuickSchedule('weekday')">
+                    <i class="fas fa-briefcase"></i> Weekdays
+                </button>
+                <button type="button" class="quick-action-btn" onclick="setQuickSchedule('weekend')">
+                    <i class="fas fa-coffee"></i> Weekend
+                </button>
+                <button type="button" class="quick-action-btn" onclick="setQuickTime('morning')">
+                    <i class="fas fa-sun"></i> Morning
+                </button>
+                <button type="button" class="quick-action-btn" onclick="setQuickTime('afternoon')">
+                    <i class="fas fa-cloud-sun"></i> Afternoon
+                </button>
+                <button type="button" class="quick-action-btn" onclick="setQuickTime('evening')">
+                    <i class="fas fa-moon"></i> Evening
+                </button>
+                <button type="button" class="quick-action-btn" onclick="clearForm()">
+                    <i class="fas fa-undo"></i> Clear
+                </button>
+            </div>
+
+            <form method="post" action="{% url 'doctor_add_schedule' %}" id="scheduleForm">
+                {% csrf_token %}
+                <input type="hidden" id="selected_day" name="day_of_week" required>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start_time">Start Time *</label>
+                        <div class="time-picker-wrapper">
+                            <div class="time-picker" id="startTimePicker">
+                                <div class="time-display" onclick="toggleTimePicker('start')">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="startTimeDisplay">Hour : Minute</span>
+                                </div>
+                                <div class="time-dropdown" id="startTimeDropdown">
+                                    <div class="time-inputs">
+                                        <div class="time-input-group">
+                                            <input type="number" id="startHour" min="1" max="12" placeholder="HH" maxlength="2">
+                                            <span>:</span>
+                                            <input type="number" id="startMinute" min="0" max="59" placeholder="MM" maxlength="2">
+                                        </div>
+                                        <div class="time-period">
+                                            <button type="button" class="period-btn active" data-period="AM" onclick="setTimePeriod('start', 'AM')">AM</button>
+                                            <button type="button" class="period-btn" data-period="PM" onclick="setTimePeriod('start', 'PM')">PM</button>
+                                        </div>
+                                    </div>
+                                    <div class="time-presets">
+                                        <div class="preset-title">Quick Select</div>
+                                        <div class="preset-times">
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '01:00')">1:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '02:00')">2:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '03:00')">3:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '04:00')">4:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '05:00')">5:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '06:00')">6:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '07:00')">7:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '08:00')">8:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '09:00')">9:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '10:00')">10:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '11:00')">11:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '12:00')">12:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '13:00')">1:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '14:00')">2:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '15:00')">3:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '16:00')">4:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '17:00')">5:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '18:00')">6:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '19:00')">7:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '20:00')">8:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '21:00')">9:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '22:00')">10:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('start', '23:00')">11:00 PM</button>
+                                        </div>
+                                    </div>
+                                    <div class="time-actions">
+                                        <button type="button" class="time-btn time-btn-cancel" onclick="cancelTimePicker('start')">Cancel</button>
+                                        <button type="button" class="time-btn time-btn-set" onclick="setTimeFromPicker('start')">Set Time</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="start_time" name="start_time" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="end_time">End Time *</label>
+                        <div class="time-picker-wrapper">
+                            <div class="time-picker" id="endTimePicker">
+                                <div class="time-display" onclick="toggleTimePicker('end')">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="endTimeDisplay">Hour : Minute</span>
+                                </div>
+                                <div class="time-dropdown" id="endTimeDropdown">
+                                    <div class="time-inputs">
+                                        <div class="time-input-group">
+                                            <input type="number" id="endHour" min="1" max="12" placeholder="HH" maxlength="2">
+                                            <span>:</span>
+                                            <input type="number" id="endMinute" min="0" max="59" placeholder="MM" maxlength="2">
+                                        </div>
+                                        <div class="time-period">
+                                            <button type="button" class="period-btn active" data-period="AM" onclick="setTimePeriod('end', 'AM')">AM</button>
+                                            <button type="button" class="period-btn" data-period="PM" onclick="setTimePeriod('end', 'PM')">PM</button>
+                                        </div>
+                                    </div>
+                                    <div class="time-presets">
+                                        <div class="preset-title">Quick Select</div>
+                                        <div class="preset-times">
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '01:00')">1:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '02:00')">2:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '03:00')">3:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '04:00')">4:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '05:00')">5:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '06:00')">6:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '07:00')">7:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '08:00')">8:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '09:00')">9:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '10:00')">10:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '11:00')">11:00 AM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '12:00')">12:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '13:00')">1:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '14:00')">2:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '15:00')">3:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '16:00')">4:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '17:00')">5:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '18:00')">6:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '19:00')">7:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '20:00')">8:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '21:00')">9:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '22:00')">10:00 PM</button>
+                                            <button type="button" class="preset-btn" onclick="setQuickTimeValue('end', '23:00')">11:00 PM</button>
+                                        </div>
+                                    </div>
+                                    <div class="time-actions">
+                                        <button type="button" class="time-btn time-btn-cancel" onclick="cancelTimePicker('end')">Cancel</button>
+                                        <button type="button" class="time-btn time-btn-set" onclick="setTimeFromPicker('end')">Set Time</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="end_time" name="end_time" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="slot_duration">Slot Duration</label>
+                        <select id="slot_duration" name="slot_duration" onchange="updatePreview()">
+                            <option value="15">15 minutes</option>
+                            <option value="30" selected>30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">60 minutes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="time-preview" id="timePreview">
+                    <div class="preview-title">
+                        <i class="fas fa-eye"></i> Preview of slots that will be created
+                    </div>
+                    <div class="preview-slots" id="previewSlots">
+                        <span style="color: #999; font-size: 0.9rem;">Select day, time range and duration to see preview</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn-primary" id="submitBtn">
+                        <i class="fas fa-plus"></i> Add Schedule
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Current Schedule Display -->
+        <section class="schedule-section">
+            <h2 class="section-title">
+                <i class="fas fa-clock"></i> Current Availability
+            </h2>
+            
+            {% if has_schedule %}
+            <div class="schedule-grid">
+                {% for day_code, day_data in day_schedules.items %}
+                    {% if day_data.slots %}
+                    <div class="day-card active">
+                        <div class="day-header">
+                            <i class="fas fa-calendar-day" style="color: #08a1f7;"></i>
+                            <span class="day-name">{{ day_data.name }}</span>
+                        </div>
+                        <div class="time-slots">
+                            {% for slot in day_data.slots %}
+                            <div class="time-slot">
+                                <div>
+                                    <span class="time-range">
+                                        {{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}
+                                    </span>
+                                    <span class="duration">({{ slot.slot_duration }} min slots)</span>
+                                </div>
+                                <a href="{% url 'doctor_delete_schedule' slot.id %}" 
+                                   class="btn-delete" 
+                                   onclick="return confirm('Are you sure you want to remove this schedule?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calendar-times"></i>
+                <h3>No availability set</h3>
+                <p>You haven't set any availability schedule yet. Use the form above to add your available time slots.</p>
+            </div>
+            {% endif %}
+        </section>
+    </main>
+    <script>
+        // Day selection
+        function selectDay(card) {
+            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            document.getElementById('selected_day').value = card.dataset.day;
+            updatePreview();
+        }
+
+        // Quick schedule presets
+        function setQuickSchedule(type) {
+            const weekdays = [0, 1, 2, 3, 4];
+            const weekends = [5, 6];
+            let days = type === 'weekday' ? weekdays : type === 'weekend' ? weekends : [...weekdays, ...weekends];
+            
+            // For demo, select first day of the set
+            const firstDay = days[0];
+            const card = document.querySelector(`[data-day="${firstDay}"]`);
+            if (card) selectDay(card);
+            
+            // Show toast
+            showToast(`Selected ${type === 'weekday' ? 'weekdays' : type === 'weekend' ? 'weekend' : 'all days'}!`, 'success');
+        }
+
+        // Quick time presets
+        function setQuickTime(period) {
+            const times = {
+                morning: { start: '09:00', end: '12:00' },
+                afternoon: { start: '12:00', end: '17:00' },
+                evening: { start: '17:00', end: '21:00' }
+            };
+            
+            const time = times[period];
+            document.getElementById('start_time').value = time.start;
+            document.getElementById('end_time').value = time.end;
+            updatePreview();
+            
+            showToast(`Set time to ${period}!`, 'success');
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('start_time').value = '';
+            document.getElementById('end_time').value = '';
+            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('selected_day').value = '';
+            updatePreview();
+        }
+
+        // Live preview update
+        function updatePreview() {
+            const startTime = document.getElementById('start_time').value;
+            const endTime = document.getElementById('end_time').value;
+            const duration = parseInt(document.getElementById('slot_duration').value);
+            const previewContainer = document.getElementById('previewSlots');
+            
+            if (!startTime || !endTime) {
+                previewContainer.innerHTML = '<span style="color: #999; font-size: 0.9rem;">Select day, time range and duration to see preview</span>';
+                return;
+            }
+            
+            // Generate preview slots
+            const slots = [];
+            let current = new Date(`2024-01-01T${startTime}`);
+            const end = new Date(`2024-01-01T${endTime}`);
+            
+            while (current < end) {
+                const timeStr = current.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+                slots.push(timeStr);
+                current.setMinutes(current.getMinutes() + duration);
+            }
+            
+            // Render preview
+            if (slots.length === 0) {
+                previewContainer.innerHTML = '<span style="color: #f44336;">Invalid time range</span>';
+            } else {
+                previewContainer.innerHTML = slots.map(slot => 
+                    `<span class="preview-slot">${slot}</span>`
+                ).join('');
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                background: ${type === 'success' ? '#4caf50' : '#f44336'};
+                color: white;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'exclamation'}-circle"></i> ${message}`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Time Picker Functions
+        let activeTimePicker = null;
+        let timePeriods = { start: 'AM', end: 'AM' };
+
+        function toggleTimePicker(type) {
+            const dropdown = document.getElementById(type + 'TimeDropdown');
+            const picker = document.getElementById(type + 'TimePicker');
+            
+            // Close other dropdowns
+            document.querySelectorAll('.time-dropdown').forEach(d => {
+                if (d !== dropdown) {
+                    d.classList.remove('show');
+                    d.parentElement.classList.remove('active');
+                }
+            });
+            
+            // Toggle current dropdown
+            dropdown.classList.toggle('show');
+            picker.classList.toggle('active');
+            
+            if (dropdown.classList.contains('show')) {
+                activeTimePicker = type;
+                // Focus on hour input
+                setTimeout(() => {
+                    document.getElementById(type + 'Hour').focus();
+                }, 100);
+            } else {
+                activeTimePicker = null;
+            }
+        }
+
+        function setTimePeriod(type, period) {
+            timePeriods[type] = period;
+            const buttons = document.querySelectorAll(`#${type}TimeDropdown .period-btn`);
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.period === period);
+            });
+        }
+
+        function setQuickTimeValue(type, timeValue) {
+            const [hours, minutes] = timeValue.split(':');
+            const hour24 = parseInt(hours);
+            const minute = parseInt(minutes);
+            
+            // Convert 24-hour to 12-hour format for display
+            let hour12 = hour24;
+            let period = 'AM';
+            
+            if (hour24 === 0) {
+                hour12 = 12;
+                period = 'AM';
+            } else if (hour24 < 12) {
+                hour12 = hour24;
+                period = 'AM';
+            } else if (hour24 === 12) {
+                hour12 = 12;
+                period = 'PM';
+            } else {
+                hour12 = hour24 - 12;
+                period = 'PM';
+            }
+            
+            // Set 12-hour format in inputs
+            document.getElementById(type + 'Hour').value = hour12;
+            document.getElementById(type + 'Minute').value = minute;
+            
+            // Set AM/PM
+            setTimePeriod(type, period);
+        }
+
+        function setTimeFromPicker(type) {
+            const hourInput = document.getElementById(type + 'Hour');
+            const minuteInput = document.getElementById(type + 'Minute');
+            const period = timePeriods[type];
+            
+            let hourInput12 = parseInt(hourInput.value) || 0;
+            const minute = parseInt(minuteInput.value) || 0;
+            
+            // Validate 12-hour input
+            if (hourInput12 < 1 || hourInput12 > 12 || minute < 0 || minute > 59) {
+                showToast('Invalid time entered! Use 1-12 for hours and 0-59 for minutes.', 'error');
+                return;
+            }
+            
+            // Convert 12-hour to 24-hour format
+            let hour24 = hourInput12;
+            if (period === 'PM' && hourInput12 < 12) {
+                hour24 = hourInput12 + 12;
+            } else if (period === 'AM' && hourInput12 === 12) {
+                hour24 = 0;
+            }
+            
+            // Set the hidden input value
+            const timeValue = `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+            document.getElementById(type + '_time').value = timeValue;
+            
+            // Update display with AM/PM markers
+            const displayHour = hour24 === 0 ? 12 : (hour24 > 12 ? hour24 - 12 : hour24);
+            const displayPeriod = hour24 < 12 ? 'AM' : 'PM';
+            document.getElementById(type + 'TimeDisplay').textContent = 
+                `${displayHour}:${minute.toString().padStart(2, '0')} ${displayPeriod}`;
+            
+            // Close dropdown
+            toggleTimePicker(type);
+            
+            // Update preview
+            updatePreview();
+            
+            showToast(`Time set: ${timeValue}`, 'success');
+        }
+
+        function cancelTimePicker(type) {
+            toggleTimePicker(type);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.time-picker')) {
+                document.querySelectorAll('.time-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                    dropdown.parentElement.classList.remove('active');
+                });
+                activeTimePicker = null;
+            }
+        });
+
+        // Handle input validation
+        ['start', 'end'].forEach(type => {
+            const hourInput = document.getElementById(type + 'Hour');
+            const minuteInput = document.getElementById(type + 'Minute');
+            
+            if (hourInput) {
+                hourInput.addEventListener('input', function() {
+                    if (this.value.length === 2) {
+                        minuteInput.focus();
+                    }
+                    if (this.value > 12) this.value = 12;
+                    if (this.value < 1 && this.value !== '') this.value = 1;
+                });
+                
+                hourInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        setTimeFromPicker(type);
+                    }
+                });
+            }
+            
+            if (minuteInput) {
+                minuteInput.addEventListener('input', function() {
+                    if (this.value > 59) this.value = 59;
+                    if (this.value < 0) this.value = 0;
+                });
+                
+                minuteInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        setTimeFromPicker(type);
+                    }
+                });
+            }
+        });
+
+        // Update the quick time function to work with new picker
+        function setQuickTime(period) {
+            const times = {
+                morning: { start: '09:00', end: '12:00' },
+                afternoon: { start: '12:00', end: '17:00' },
+                evening: { start: '17:00', end: '21:00' }
+            };
+            
+            const time = times[period];
+            
+            // Set start time
+            setQuickTimeValue('start', time.start);
+            setTimeFromPicker('start');
+            
+            // Set end time
+            setQuickTimeValue('end', time.end);
+            setTimeFromPicker('end');
+            
+            showToast(`Set time to ${period}!`, 'success');
+        }
+
+        // Update clear form function
+        function clearForm() {
+            // Clear time displays
+            document.getElementById('startTimeDisplay').textContent = 'Hour : Minute';
+            document.getElementById('endTimeDisplay').textContent = 'Hour : Minute';
+            
+            // Clear hidden inputs
+            document.getElementById('start_time').value = '';
+            document.getElementById('end_time').value = '';
+            
+            // Clear picker inputs
+            document.getElementById('startHour').value = '';
+            document.getElementById('startMinute').value = '';
+            document.getElementById('endHour').value = '';
+            document.getElementById('endMinute').value = '';
+            
+            // Reset periods
+            timePeriods.start = 'AM';
+            timePeriods.end = 'AM';
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.period === 'AM');
+            });
+            
+            // Clear day selection
+            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('selected_day').value = '';
+            
+            updatePreview();
+        }
+
+        // Form validation
+        document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+            const day = document.getElementById('selected_day').value;
+            const startTime = document.getElementById('start_time').value;
+            const endTime = document.getElementById('end_time').value;
+            
+            if (!day) {
+                e.preventDefault();
+                showToast('Please select a day!', 'error');
+                return false;
+            }
+            
+            if (!startTime || !endTime) {
+                e.preventDefault();
+                showToast('Please select both start and end times!', 'error');
+                return false;
+            }
+            
+            if (startTime >= endTime) {
+                e.preventDefault();
+                showToast('End time must be after start time!', 'error');
+                return false;
+            }
+            
+            const btn = document.getElementById('submitBtn');
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+        });
+
+        // Add animations
+    </script>
+</body>
+</html>

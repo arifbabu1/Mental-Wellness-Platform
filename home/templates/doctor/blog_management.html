@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Blogs | Doctor Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/doctor-blog-management.css' %}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'doctor_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'doctor_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'doctor_schedule' %}">My Schedule</a></li>
+                <li><a href="{% url 'doctor_blog_management' %}" class="active">My Blogs</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="dashboard-container">
+        <div class="dashboard-header">
+            <h1><i class="fas fa-blog"></i> My Blog Posts</h1>
+            <a href="{% url 'doctor_write_blog' %}" class="btn-primary">
+                <i class="fas fa-plus"></i> Write New Blog
+            </a>
+        </div>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Stats -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <i class="fas fa-file-alt"></i>
+                <div class="number">{{ total_blogs|default:0 }}</div>
+                <div class="label">Total Blogs</div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-check-circle"></i>
+                <div class="number">{{ published_count|default:0 }}</div>
+                <div class="label">Published</div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-edit"></i>
+                <div class="number">{{ draft_count|default:0 }}</div>
+                <div class="label">Drafts</div>
+            </div>
+        </div>
+
+        <!-- Blogs Table -->
+        {% if blogs %}
+        <div class="blogs-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Views</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for blog in blogs %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'blog_detail' blog.slug %}" class="blog-title" target="_blank">
+                                {{ blog.title|truncatechars:50 }}
+                            </a>
+                        </td>
+                        <td>{{ blog.get_category_display }}</td>
+                        <td>
+                            <span class="status-badge status-{{ blog.status }}">
+                                {{ blog.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ blog.views_count|default:0 }}</td>
+                        <td>{{ blog.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="actions">
+                                <a href="{% url 'doctor_edit_blog' blog.id %}" class="btn-action btn-edit">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <a href="{% url 'doctor_delete_blog' blog.id %}" class="btn-action btn-delete" 
+                                   onclick="return confirmDelete('{{ blog.title|escapejs }}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-pen-fancy"></i>
+            <h3>No blogs yet</h3>
+            <p>Start sharing your expertise with patients and visitors</p>
+            <a href="{% url 'doctor_write_blog' %}" class="btn-primary">
+                <i class="fas fa-plus"></i> Write Your First Blog
+            </a>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        // Add loading states to action buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click handlers for action buttons
+            const actionButtons = document.querySelectorAll('.btn-action');
+            actionButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    if (this.classList.contains('btn-delete')) {
+                        // Let the confirmation dialog handle the action
+                        return;
+                    }
+                    
+                    // Add loading state for edit buttons
+                    this.classList.add('loading');
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                });
+            });
+
+            // Add hover effects to stat cards
+            const statCards = document.querySelectorAll('.stat-card');
+            statCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            // Add table row hover effects
+            const tableRows = document.querySelectorAll('.blogs-table tbody tr');
+            tableRows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = 'var(--bg-secondary)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+
+            // Animate numbers on page load
+            const numbers = document.querySelectorAll('.stat-card .number');
+            numbers.forEach(number => {
+                const finalValue = parseInt(number.textContent);
+                let currentValue = 0;
+                const increment = Math.ceil(finalValue / 30);
+                
+                const counter = setInterval(() => {
+                    currentValue += increment;
+                    if (currentValue >= finalValue) {
+                        currentValue = finalValue;
+                        clearInterval(counter);
+                    }
+                    number.textContent = currentValue;
+                }, 50);
+            });
+        });
+
+        // Enhanced confirmation dialog
+        function confirmDelete(blogTitle) {
+            return confirm(`Are you sure you want to delete "${blogTitle}"?\n\nThis action cannot be undone.`);
+        }
+    </script>
+</body>
+</html>

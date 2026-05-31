@@ -1,0 +1,255 @@
+{% load static %}
+{% load home_extras %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Health Blogs | Mental Wellness Consultation</title>
+    <meta name="description" content="Expert articles on mental health, wellness tips, and professional insights from our mental health professionals.">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/blogs.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                {% if user.is_authenticated %}
+                    {% if user.role == 'patient' %}
+                        <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                        <li><a href="{% url 'assessment' %}">Assessment</a></li>
+                        <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                        <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                    {% elif user.role == 'doctor' %}
+                        <li><a href="{% url 'doctor_dashboard' %}">Dashboard</a></li>
+                        <li><a href="{% url 'doctor_appointments' %}">Appointments</a></li>
+                        <li><a href="{% url 'doctor_schedule' %}">My Schedule</a></li>
+                        <li><a href="{% url 'doctor_blog_management' %}">My Blogs</a></li>
+                    {% elif user.role == 'admin' %}
+                        <li><a href="{% url 'admin_dashboard' %}">Dashboard</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'about' %}">About Us</a></li>
+                    <li><a href="{% url 'logout' %}">Logout</a></li>
+                {% else %}
+                    <li><a href="{% url 'home' %}">Home</a></li>
+                    <li><a href="{% url 'blogs' %}" class="active">Blogs</a></li>
+                    <li><a href="{% url 'about' %}">About Us</a></li>
+                    <li><a href="{% url 'login' %}">Login</a></li>
+                    <li><a href="{% url 'register' %}">Register</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Blog Hero Section -->
+    <section class="blog-hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Mental Health & Wellness Blog</h1>
+                <p>Personalized content based on your assessment results and mental health journey</p>
+                {% if last_assessment %}
+                <div class="assessment-badge">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Your stress level: <strong>{{ stress_level|title }}</strong></span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Blog Content -->
+    <main class="blog-main">
+        <div class="container">
+            <!-- Selected Category Blogs -->
+            {% if selected_category %}
+            <section class="selected-category-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-{{ selected_category|default:'circle'|category_icon }}"></i> {{ selected_category_name }}</h2>
+                    <p>Articles specifically about {{ selected_category_name|lower }}</p>
+                    <a href="{% url 'blogs' %}" class="back-to-all">
+                        <i class="fas fa-arrow-left"></i> Back to All Categories
+                    </a>
+                </div>
+                {% if selected_category_blogs %}
+                <div class="articles-grid">
+                    {% for blog in selected_category_blogs %}
+                    <a href="{% url 'blog_detail' blog.slug %}" class="article-card" style="text-decoration: none; color: inherit;">
+                        <div class="article-image">
+                            {% if blog.featured_image %}
+                            <img src="{{ blog.featured_image }}" alt="{{ blog.title }}">
+                            {% else %}
+                            <div style="height: 200px; background: linear-gradient(135deg, #08a1f7, #00d4ff); display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            {% endif %}
+                            <span class="article-category">{{ blog.get_category_display }}</span>
+                        </div>
+                        <div class="article-content">
+                            <h3>{{ blog.title }}</h3>
+                            <p>{{ blog.excerpt|truncatewords:20 }}</p>
+                            <div class="article-meta">
+                                <span class="author">By Dr. {{ blog.author.user.get_full_name }}</span>
+                                <span class="read-time">{{ blog.read_time }} min read</span>
+                            </div>
+                        </div>
+                        <div class="article-footer">
+                            <span class="read-more">Read Article <i class="fas fa-arrow-right"></i></span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-category">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No articles in this category yet</h3>
+                    <p>We're working on adding more content for {{ selected_category_name|lower }}. Check back soon!</p>
+                    <a href="{% url 'blogs' %}" class="btn-base btn-primary">Browse Other Categories</a>
+                </div>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            <!-- Browse by Category Section -->
+            <section class="categories-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-th-large"></i> Browse by Category</h2>
+                    <p>Explore articles organized by mental health topics</p>
+                </div>
+                <div class="categories-grid">
+                    {% for cat_key, cat_name in categories %}
+                    <div class="category-card" onclick="filterByCategory('{{ cat_key }}')">
+                        <div class="category-icon {{ cat_key }}">
+                            <i class="fas fa-{{ cat_key|category_icon }}"></i>
+                        </div>
+                        <h3>{{ cat_name }}</h3>
+                        {% if category_blogs|lookup:cat_key %}
+                            {% with blogs=category_blogs|lookup:cat_key %}
+                                {% if blogs %}
+                                    <p>{{ blogs.0.excerpt|truncatewords:8 }}</p>
+                                    <span class="article-count">{{ blogs|length }} Article{{ blogs|length|pluralize }}</span>
+                                {% else %}
+                                    <p>Content coming soon for this category</p>
+                                    <span class="article-count">Coming Soon</span>
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <p>Content coming soon for this category</p>
+                            <span class="article-count">Coming Soon</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- All Articles Section -->
+            <section class="all-articles-section" id="articlesGrid">
+                <div class="section-header">
+                    <h2><i class="fas fa-newspaper"></i> All Articles</h2>
+                    <div class="filter-controls">
+                        <button class="filter-btn active" onclick="showAllArticles()">All</button>
+                        <button class="filter-btn" onclick="filterByCategory('anxiety')">Anxiety</button>
+                        <button class="filter-btn" onclick="filterByCategory('depression')">Depression</button>
+                        <button class="filter-btn" onclick="filterByCategory('therapy')">Therapy</button>
+                        <button class="filter-btn" onclick="filterByCategory('mindfulness')">Mindfulness</button>
+                        <button class="filter-btn" onclick="filterByCategory('relationships')">Relationships</button>
+                        <button class="filter-btn" onclick="filterByCategory('self-care')">Self-Care</button>
+                        <button class="filter-btn" onclick="filterByCategory('sleep')">Sleep Health</button>
+                        <button class="filter-btn" onclick="filterByCategory('workplace')">Workplace</button>
+                        <button class="filter-btn" onclick="filterByCategory('mental-health')">Mental Health</button>
+                    </div>
+                </div>
+                
+                <div class="articles-grid">
+                    {% if all_blogs %}
+                        {% for blog in all_blogs %}
+                        <a href="{% url 'blog_detail' blog.slug %}" class="article-card" data-category="{{ blog.category }}" style="text-decoration: none; color: inherit; display: block !important;">
+                            <div class="article-image">
+                                {% if blog.featured_image %}
+                                <img src="{{ blog.featured_image }}" alt="{{ blog.title }}">
+                                {% else %}
+                                <div style="height: 200px; background: linear-gradient(135deg, #08a1f7, #00d4ff); display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                {% endif %}
+                                <span class="article-category">{{ blog.get_category_display }}</span>
+                            </div>
+                            <div class="article-content">
+                                <h3>{{ blog.title }}</h3>
+                                <p>{{ blog.excerpt|truncatewords:20 }}</p>
+                                <div class="article-meta">
+                                    <span class="author">By Dr. {{ blog.author.user.get_full_name }}</span>
+                                    <span class="read-time">{{ blog.read_time }} min read</span>
+                                </div>
+                            </div>
+                            <div class="article-footer">
+                                <span class="read-more">Read Article <i class="fas fa-arrow-right"></i></span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-category">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No articles yet</h3>
+                        <p>We're working on adding more content. Check back soon!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+                    </div>
+    </main>
+
+    
+    <!-- JavaScript for category filtering -->
+    <script>
+        // Ensure all articles are visible on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const articles = document.querySelectorAll('.article-card');
+            articles.forEach(article => {
+                article.style.display = 'block';
+            });
+        });
+        
+        function filterByCategory(category) {
+            const articles = document.querySelectorAll('.article-card');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            
+            articles.forEach(article => {
+                if (article.dataset.category === category) {
+                    article.style.display = 'block';
+                } else {
+                    article.style.display = 'none';
+                }
+            });
+            
+            // Update active button
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function showAllArticles() {
+            const articles = document.querySelectorAll('.article-card');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            
+            // Show all articles
+            articles.forEach(article => {
+                article.style.display = 'block';
+            });
+            
+            // Update active button
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.filter-btn').classList.add('active');
+        }
+    </script>
+</body>
+</html>

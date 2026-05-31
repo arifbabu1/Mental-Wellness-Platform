@@ -1,0 +1,543 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-users-management.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <!-- Dashboard Header -->
+    <section class="dashboard-header">
+        <div class="header-content">
+            <div class="welcome-section">
+                <h1 class="dashboard-title">
+                    <i class="fas fa-user-md"></i>
+                    Doctors Management
+                </h1>
+                <p class="dashboard-subtitle">Manage and monitor all healthcare professionals</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Overview -->
+    <section class="admin-stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-user-md"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_doctors|default:"0" }}</div>
+                <p class="stat-label">Total Doctors</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Active professionals</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ active_doctors|default:"0" }}</div>
+                <p class="stat-label">Available Doctors</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Ready for appointments</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-stethoscope"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ specialties|length|default:"0" }}</div>
+                <p class="stat-label">Specialties</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Different expertise areas</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_appointments|default:"0" }}</div>
+                <p class="stat-label">Total Appointments</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Completed consultations</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Doctors Table -->
+    <section class="users-table-container">
+        <div class="table-header">
+            <h2 class="section-title">
+                <i class="fas fa-users"></i>
+                All Doctors
+            </h2>
+            <div class="table-actions">
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="Search doctors..." id="doctorSearch">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="users-table" id="doctorsTable">
+                <thead>
+                    <tr>
+                        <th>Doctor</th>
+                        <th>Specializations</th>
+                        <th>Primary Focus</th>
+                        <th>Experience</th>
+                        <th>Consultation Fee</th>
+                        <th>Clinic</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doctor in doctors %}
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="user-avatar">
+                                    {% if doctor.user.first_name %}
+                                        {{ doctor.user.first_name.0 }}{{ doctor.user.last_name.0 }}
+                                    {% else %}
+                                        {{ doctor.user.username.0|upper }}
+                                    {% endif %}
+                                </div>
+                                <div class="user-details">
+                                    <div class="user-name">
+                                        Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}
+                                    </div>
+                                    <div class="user-email">{{ doctor.user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="chip-list">
+                                {% for specialization in doctor.specializations.all %}
+                                    <span class="role-badge role-doctor">{{ specialization.label }}</span>
+                                {% empty %}
+                                    <span class="no-clinic">No specialization</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="chip-list">
+                                {% for focus in doctor.primary_focuses.all %}
+                                    <span class="focus-chip">{{ focus.label }}</span>
+                                {% empty %}
+                                    <span class="no-clinic">No focus</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="experience-info">
+                                <i class="fas fa-clock"></i>
+                                {{ doctor.years_of_experience }} years
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fee-info">
+                                {% if doctor.consultation_fee %}
+                                    <span class="fee-amount">{{ doctor.consultation_fee }}</span>
+                                    <span class="fee-currency">BDT</span>
+                                {% else %}
+                                    <span class="fee-amount">-</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="clinic-info">
+                                {% if doctor.clinic_name %}
+                                    <div class="clinic-name">{{ doctor.clinic_name }}</div>
+                                    {% if doctor.clinic_address %}
+                                        <div class="clinic-address">{{ doctor.clinic_address|truncatechars:30 }}</div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="no-clinic">No clinic info</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if doctor.is_available %}
+                                <span class="status-badge status-active">
+                                    Available
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-inactive">
+                                    Unavailable
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/admin/home/doctor/{{ doctor.id }}/change/" class="action-btn-small action-btn-primary" title="Edit Doctor">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="/admin/home/user/{{ doctor.user.id }}/change/" class="action-btn-small action-btn-primary" title="Edit User Account">
+                                    <i class="fas fa-user-cog"></i>
+                                </a>
+                                {% if doctor.is_available %}
+                                    <button class="action-btn-small action-btn-warning" onclick="toggleAvailability({{ doctor.id }})" title="Toggle Availability">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                {% else %}
+                                    <button class="action-btn-small action-btn-success" onclick="toggleAvailability({{ doctor.id }})" title="Toggle Availability">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="no-data">
+                            <div class="no-data-content">
+                                <i class="fas fa-user-md"></i>
+                                <p>No doctors found</p>
+                                <a href="/admin/home/user/add/?role=doctor" class="action-btn">
+                                    <i class="fas fa-user-plus"></i>
+                                    Add First Doctor
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+        <h2 class="section-title">
+            <i class="fas fa-bolt"></i>
+            Quick Actions
+        </h2>
+        <div class="quick-actions-grid">
+            <a href="/admin/home/user/add/?role=doctor" class="action-btn">
+                <i class="fas fa-user-plus"></i>
+                Add New Doctor
+            </a>
+            <a href="/admin/home/doctor/" class="action-btn">
+                <i class="fas fa-cogs"></i>
+                Doctor Settings
+            </a>
+            <a href="{% url 'admin_dashboard' %}" class="action-btn action-btn-outline">
+                <i class="fas fa-arrow-left"></i>
+                Back to Dashboard
+            </a>
+        </div>
+    </section>
+</div>
+
+<script>
+// Doctor search functionality
+document.getElementById('doctorSearch').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#doctorsTable tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('.no-data')) {
+            return; // Skip the "no data" row
+        }
+        
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Toggle doctor availability
+function toggleAvailability(doctorId) {
+    const button = event.target.closest('button');
+    const currentIcon = button.querySelector('i');
+    const isCurrentlyAvailable = button.classList.contains('action-btn-warning');
+    
+    // Show loading state
+    button.disabled = true;
+    currentIcon.className = 'fas fa-spinner fa-spin';
+    
+    // Send AJAX request to update availability
+    fetch(`/admin/doctors/toggle-availability/${doctorId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            'is_available': !isCurrentlyAvailable
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update button appearance
+            button.disabled = false;
+            
+            if (data.is_available) {
+                button.className = 'action-btn-small action-btn-warning';
+                currentIcon.className = 'fas fa-pause';
+                button.title = 'Toggle Availability';
+                
+                // Update status badge
+                const statusBadge = button.closest('tr').querySelector('.status-badge');
+                statusBadge.className = 'status-badge status-active';
+                statusBadge.innerHTML = 'Available';
+            } else {
+                button.className = 'action-btn-small action-btn-success';
+                currentIcon.className = 'fas fa-play';
+                button.title = 'Toggle Availability';
+                
+                // Update status badge
+                const statusBadge = button.closest('tr').querySelector('.status-badge');
+                statusBadge.className = 'status-badge status-inactive';
+                statusBadge.innerHTML = 'Unavailable';
+            }
+            
+            // Show success message
+            showNotification('Doctor availability updated successfully!', 'success');
+        } else {
+            throw new Error(data.message || 'Failed to update availability');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        button.disabled = false;
+        currentIcon.className = isCurrentlyAvailable ? 'fas fa-pause' : 'fas fa-play';
+        showNotification('Failed to update availability. Please try again.', 'error');
+    });
+}
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Show notification
+function showNotification(message, type) {
+    // Remove existing notifications
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Add hover effects to table rows
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('#doctorsTable tbody tr:not(.no-data)');
+    rows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(2px)';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0)';
+        });
+    });
+});
+</script>
+
+<style>
+/* Additional styles for doctors detail page */
+.clinic-info {
+    max-width: 200px;
+}
+
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 280px;
+}
+
+.focus-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.clinic-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.clinic-address {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+.no-clinic {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.experience-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.fee-info {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+.fee-amount {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.fee-currency {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.action-btn-warning {
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #d97706;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.action-btn-warning:hover {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.action-btn-success {
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #059669;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.action-btn-success:hover {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.no-data {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.no-data-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.no-data-content i {
+    font-size: 4rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.no-data-content p {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.quick-actions-grid {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .table-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .quick-actions-grid {
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}

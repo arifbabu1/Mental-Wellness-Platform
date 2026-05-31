@@ -1,0 +1,200 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/login-page.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-logo">
+                <i class="fas fa-heart-pulse"></i>
+            </div>
+            <h1 class="login-title">Welcome Back</h1>
+            <p class="login-subtitle">Sign in to your mental wellness journey</p>
+        </div>
+
+        <form method="post" action="{% url 'login' %}" class="login-form" id="loginForm">
+            {% csrf_token %}
+            {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+            
+            <div class="form-group">
+                <label for="id_username" class="form-label">
+                    <i class="fas fa-user"></i>
+                    Username or Email
+                </label>
+                <input type="text" id="id_username" name="username" class="form-control" 
+                       placeholder="Enter your username or email" required autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label for="id_password" class="form-label">
+                    <i class="fas fa-lock"></i>
+                    Password
+                </label>
+                <input type="password" id="id_password" name="password" class="form-control" 
+                       placeholder="Enter your password" required autocomplete="current-password">
+                <button type="button" id="passwordToggle" class="password-toggle">
+                    <i class="fas fa-eye" id="eyeIcon"></i>
+                </button>
+            </div>
+            
+            <div class="remember-forgot">
+                <div class="remember-me">
+                    <input type="checkbox" id="remember" name="remember_me">
+                    <label for="remember">Remember me</label>
+                </div>
+                <a href="{% url 'forgot_password' %}" class="forgot-password">Forgot password?</a>
+            </div>
+            
+            <button type="submit" id="loginBtn" class="login-btn">
+                <span class="btn-content">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Sign In
+                </span>
+            </button>
+        </form>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        {% if google_oauth_enabled %}
+            <form method="post" action="{% url 'google_login' %}" class="social-login-form">
+                {% csrf_token %}
+                {% if request.GET.next %}
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% endif %}
+                <button type="submit" class="google-login-btn">
+                    <span class="google-icon" aria-hidden="true">G</span>
+                    Continue with Google
+                </button>
+            </form>
+        {% else %}
+            <button type="button" class="google-login-btn disabled" disabled>
+                <span class="google-icon" aria-hidden="true">G</span>
+                Continue with Google
+            </button>
+            <p class="oauth-config-note">Google sign-in will be available after OAuth credentials are configured.</p>
+        {% endif %}
+        
+        <div class="quick-links">
+            <a href="{% url 'register' %}" class="quick-link">
+                <i class="fas fa-user-plus"></i>
+                Create Account
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" style="margin-bottom: 10px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const formControls = document.querySelectorAll('.form-control');
+            const passwordToggle = document.getElementById('passwordToggle');
+            const passwordInput = document.getElementById('id_password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            // Password toggle functionality
+            passwordToggle.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Toggle eye icon
+                if (type === 'text') {
+                    eyeIcon.classList.remove('fa-eye');
+                    eyeIcon.classList.add('fa-eye-slash');
+                } else {
+                    eyeIcon.classList.remove('fa-eye-slash');
+                    eyeIcon.classList.add('fa-eye');
+                }
+            });
+            
+            // Form validation
+            function validateForm() {
+                const username = document.getElementById('id_username').value.trim();
+                const password = document.getElementById('id_password').value.trim();
+                
+                if (username.length < 1) {
+                    showError('Please enter your username or email');
+                    return false;
+                }
+                
+                if (password.length < 1) {
+                    showError('Please enter your password');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Show error message
+            function showError(message) {
+                const existingAlert = document.querySelector('.alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+                
+                const alert = document.createElement('div');
+                alert.className = 'alert';
+                alert.textContent = message;
+                loginForm.insertBefore(alert, loginBtn);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            }
+            
+            // Add input animations
+            formControls.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.classList.add('focused');
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.parentElement.classList.remove('focused');
+                });
+                
+                input.addEventListener('input', function() {
+                    if (this.value.length > 0) {
+                        this.classList.add('has-value');
+                    } else {
+                        this.classList.remove('has-value');
+                    }
+                });
+            });
+            
+            // Form submission
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                if (!validateForm()) {
+                    return;
+                }
+                
+                // Submit form
+                loginForm.submit();
+            });
+        });
+    </script>
+</body>
+</html>

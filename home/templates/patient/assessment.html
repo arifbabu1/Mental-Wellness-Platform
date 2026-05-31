@@ -1,0 +1,231 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional mental health assessment to help understand your wellness better">
+    <title>Mental Health Assessment | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'blogs' %}" aria-label="Mental Health Blogs">Blogs</a></li>
+                <li><a href="{% url 'about' %}" aria-label="About Us">About Us</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Assessment Section -->
+    <main class="assessment-container">
+        <div class="assessment-header">
+            <h1>Mental Health Assessment</h1>
+            <p>Please answer these questions honestly to help us understand your mental wellness better.</p>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" id="assessment-form">
+            {% csrf_token %}
+            
+            {% for question in questions %}
+                <div class="question-card fade-in core-question" data-core-index="{{ forloop.counter0 }}" data-weight="{{ question.weight_value }}">
+                    <div class="question-text">
+                        <strong>{{ forloop.counter }}.</strong> {{ question.question_text }}
+                        <span class="question-meta">
+                            (Category: {{ question.category }}, Weight: {{ question.weight_value }})
+                        </span>
+                    </div>
+                    
+                    <div class="answer-options">
+                        <div class="answer-option">
+                            <input type="radio" id="question_{{ question.id }}_0" name="question_{{ question.id }}" value="0" required>
+                            <label for="question_{{ question.id }}_0">Never</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="question_{{ question.id }}_1" name="question_{{ question.id }}" value="1">
+                            <label for="question_{{ question.id }}_1">Rarely</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="question_{{ question.id }}_2" name="question_{{ question.id }}" value="2">
+                            <label for="question_{{ question.id }}_2">Sometimes</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="question_{{ question.id }}_3" name="question_{{ question.id }}" value="3">
+                            <label for="question_{{ question.id }}_3">Often</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="question_{{ question.id }}_4" name="question_{{ question.id }}" value="4">
+                            <label for="question_{{ question.id }}_4">Always</label>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div id="dynamic-question-area">
+                {% for module_key, module in dynamic_question_groups.items %}
+                <section class="question-card fade-in dynamic-question-group" data-module="{{ module_key }}" hidden>
+                    <div class="question-text">
+                        <strong>{{ module.label }}</strong>
+                    </div>
+
+                    {% for prompt in module.questions %}
+                    <div class="question-text dynamic-prompt">
+                        {{ prompt }}
+                    </div>
+                    <div class="answer-options">
+                        <div class="answer-option">
+                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_0" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="0">
+                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_0">Never</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_1" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="1">
+                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_1">Rarely</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_2" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="2">
+                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_2">Sometimes</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_3" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="3">
+                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_3">Often</label>
+                        </div>
+                        <div class="answer-option">
+                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_4" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="4">
+                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_4">Always</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </section>
+                {% endfor %}
+            </div>
+
+            {% if questions %}
+                <div class="submit-section">
+                    <div class="submit-actions">
+                        <button type="submit" class="btn-base btn-primary" aria-label="Submit assessment">
+                            <i class="fas fa-check"></i> Submit Assessment
+                        </button>
+                        <a href="{% url 'doctors_list' %}" class="btn-base btn-outline" aria-label="Skip assessment and browse doctors">
+                            <i class="fas fa-forward"></i> Skip
+                        </a>
+                    </div>
+                    <div class="skip-info">
+                        <p><i class="fas fa-info-circle"></i> Prefer to choose a doctor directly? Skip the assessment and browse our complete list of mental health professionals.</p>
+                    </div>
+                </div>
+            {% else %}
+                <div class="no-questions">
+                    <div class="icon">📋</div>
+                    <h3>No Assessment Questions Available</h3>
+                    <p>Please check back later or contact support.</p>
+                    <a href="{% url 'patient_dashboard' %}" class="btn-base btn-secondary">Back to Dashboard</a>
+                </div>
+            {% endif %}
+        </form>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <script>
+        const profileAgeRaw = '{{ profile_age|default_if_none:"" }}';
+        const profileAge = profileAgeRaw === '' ? null : Number(profileAgeRaw);
+        const highThreshold = 0.67;
+
+        function selectedValue(index) {
+            const question = document.querySelector(`.core-question[data-core-index="${index}"]`);
+            const checked = question ? question.querySelector('input[type="radio"]:checked') : null;
+            return checked ? Number(checked.value) : 0;
+        }
+
+        function normalizedScores() {
+            const answers = [0, 1, 2, 3, 4, 5, 6].map(selectedValue);
+            return {
+                depression: ((answers[0] * 3) + (answers[1] * 3) + (answers[6] * 3)) / 36,
+                anxiety: ((answers[2] * 2) + (answers[3] * 2)) / 16,
+                sleep: (answers[4] * 2) / 8,
+                energy: answers[5] / 4,
+                selfEsteem: (answers[6] * 3) / 12
+            };
+        }
+
+        function setDynamicGroup(moduleKey, active) {
+            const group = document.querySelector(`.dynamic-question-group[data-module="${moduleKey}"]`);
+            if (!group) return;
+            group.hidden = !active;
+            group.querySelectorAll('input[type="radio"]').forEach(input => {
+                input.required = active;
+                if (!active) {
+                    input.checked = false;
+                }
+            });
+        }
+
+        function updateDynamicQuestions() {
+            const scores = normalizedScores();
+            const depressionOrAnxietyHigh = scores.depression >= highThreshold || scores.anxiety >= highThreshold;
+
+            setDynamicGroup('addiction', depressionOrAnxietyHigh);
+            setDynamicGroup('family', depressionOrAnxietyHigh || scores.selfEsteem >= highThreshold);
+            setDynamicGroup('neurological', depressionOrAnxietyHigh || scores.sleep >= highThreshold);
+            setDynamicGroup('child', profileAge !== null && Number.isFinite(profileAge) && profileAge < 18);
+            setDynamicGroup('geriatric', profileAge !== null && Number.isFinite(profileAge) && profileAge > 60);
+        }
+
+        document.querySelectorAll('.core-question input[type="radio"]').forEach(input => {
+            input.addEventListener('change', updateDynamicQuestions);
+        });
+        updateDynamicQuestions();
+
+        // Mobile Navbar Toggle Function
+        function toggleNavbar() {
+            const navbarNav = document.getElementById('navbarNav');
+            const navbarToggle = document.querySelector('.navbar-toggle');
+            
+            if (navbarNav) {
+                navbarNav.classList.toggle('active');
+            }
+            if (navbarToggle) {
+                navbarToggle.classList.toggle('active');
+            }
+        }
+    </script>
+</body>
+</html>

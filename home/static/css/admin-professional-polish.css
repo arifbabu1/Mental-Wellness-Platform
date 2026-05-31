@@ -1,0 +1,205 @@
+/* Shared polish for custom admin pages and Django admin forms */
+
+:root {
+    --admin-primary: #08a1f7;
+    --admin-accent: #09e0fe;
+    --admin-text: #1f2937;
+    --admin-muted: #64748b;
+    --admin-border: rgba(8, 161, 247, 0.14);
+    --admin-surface: #ffffff;
+    --admin-soft: rgba(8, 161, 247, 0.05);
+}
+
+#header {
+    background: linear-gradient(135deg, #ffffff, #f8fbff);
+    border-bottom: 1px solid var(--admin-border);
+    color: var(--admin-text);
+    box-shadow: 0 2px 14px rgba(15, 23, 42, 0.04);
+}
+
+#branding h1,
+#branding h1 a:link,
+#branding h1 a:visited {
+    color: var(--admin-text);
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+#user-tools,
+#user-tools a,
+#logout-form button {
+    color: var(--admin-muted);
+}
+
+#logout-form button {
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    background: white;
+}
+
+.admin-page-polish .page-header,
+.admin-dashboard .dashboard-header,
+.appointments-header {
+    border-radius: 8px;
+}
+
+.admin-two-column {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 24px;
+    align-items: start;
+}
+
+.admin-side-panel {
+    display: grid;
+    gap: 20px;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.severity-list,
+.question-list {
+    display: grid;
+    gap: 10px;
+}
+
+.severity-row,
+.question-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    background: var(--admin-soft);
+    text-decoration: none;
+    color: var(--admin-text);
+}
+
+.question-row {
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.question-row span {
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.question-row small {
+    color: var(--admin-muted);
+}
+
+.severity-low {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+.severity-moderate {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.18);
+}
+
+.severity-high {
+    background: rgba(249, 115, 22, 0.1);
+    color: #ea580c;
+    border: 1px solid rgba(249, 115, 22, 0.18);
+}
+
+.severity-severe {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.payment-pending,
+.payment-processing {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.18);
+}
+
+.payment-completed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+.payment-failed,
+.payment-refunded {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.compact-filter {
+    max-width: 220px;
+    padding-left: 14px;
+}
+
+.no-data-content {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding: 32px 16px;
+    color: var(--admin-muted);
+}
+
+.no-data-content i {
+    font-size: 2.25rem;
+    color: var(--admin-primary);
+}
+
+.module,
+.inline-group,
+.form-row,
+fieldset.module {
+    border-radius: 8px;
+}
+
+form .aligned input,
+form .aligned select,
+form .aligned textarea {
+    border-radius: 8px;
+    border: 1px solid #dbeafe;
+}
+
+.selector,
+.selector select {
+    width: 100%;
+}
+
+ul.checkboxselectmultiple,
+.form-row ul {
+    display: grid;
+    gap: 8px;
+    margin-left: 0;
+}
+
+ul.checkboxselectmultiple li,
+.form-row ul li {
+    list-style: none;
+}
+
+@media (max-width: 1100px) {
+    .admin-two-column {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .table-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

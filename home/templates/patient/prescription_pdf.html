@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prescription #{{ prescription.id }}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .prescription-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px double #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .header p {
+            color: #666;
+            margin: 5px 0 0 0;
+            font-size: 14px;
+        }
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .patient-info, .doctor-info {
+            width: 48%;
+        }
+        .info-box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .info-box h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #555;
+            font-size: 14px;
+        }
+        .info-box strong {
+            color: #333;
+            display: inline-block;
+            width: 80px;
+        }
+        .prescription-content {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #333;
+        }
+        .medications {
+            margin-bottom: 20px;
+        }
+        .medication-item {
+            background: #f9f9f9;
+            border-left: 4px solid #09e0fe;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .medication-item p {
+            margin: 5px 0;
+            color: #333;
+        }
+        .medication-item strong {
+            color: #09e0fe;
+        }
+        .notes-section, .instructions-section {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .notes-section p, .instructions-section p {
+            margin: 0;
+            color: #333;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px double #333;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+        }
+        .signature-box {
+            width: 45%;
+            text-align: center;
+        }
+        .signature-line {
+            border-bottom: 1px solid #333;
+            height: 50px;
+            margin-bottom: 5px;
+        }
+        .signature-label {
+            color: #666;
+            font-size: 12px;
+        }
+        @media print {
+            body { background: white; }
+            .prescription-container { box-shadow: none; border: 2px solid #000; }
+        }
+    </style>
+</head>
+<body>
+    <div class="prescription-container">
+        <div class="header">
+            <h1>Medical Prescription</h1>
+            <p>Mental Wellness Consultation Center</p>
+            <p>Prescription ID: #{{ prescription.id }}</p>
+        </div>
+
+        <div class="info-section">
+            <div class="patient-info">
+                <div class="info-box">
+                    <h3>Patient Information</h3>
+                    <p><strong>Name:</strong> {{ patient.get_full_name|default:patient.username }}</p>
+                    <p><strong>ID:</strong> {{ patient.id }}</p>
+                    <p><strong>Email:</strong> {{ patient.email }}</p>
+                    <p><strong>Phone:</strong> {{ patient.profile.phone|default:"Not provided" }}</p>
+                </div>
+            </div>
+            <div class="doctor-info">
+                <div class="info-box">
+                    <h3>Doctor Information</h3>
+                    <p><strong>Name:</strong> Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</p>
+                    <p><strong>Specialty:</strong> {{ doctor.specialty|default:"Mental Health" }}</p>
+                    <p><strong>License:</strong> {{ doctor.license_number|default:"N/A" }}</p>
+                    <p><strong>Date:</strong> {{ prescription.created_at|date:"F d, Y" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="prescription-content">
+            <div class="section-title">Prescribed Medications</div>
+            <div class="medications">
+                {% if prescription.medications %}
+                    {% for medication in prescription.medications %}
+                        <div class="medication-item">
+                            <p><strong>Medication:</strong> {{ medication.name }}</p>
+                            <p><strong>Dosage:</strong> {{ medication.dosage }}</p>
+                            {% if medication.frequency %}
+                                <p><strong>Frequency:</strong> {{ medication.frequency }}</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No medications prescribed</p>
+                {% endif %}
+            </div>
+
+            {% if prescription.prescription_text %}
+                <div class="notes-section">
+                    <div class="section-title">Prescription Notes</div>
+                    <p>{{ prescription.prescription_text }}</p>
+                </div>
+            {% endif %}
+
+            {% if prescription.instructions %}
+                <div class="instructions-section">
+                    <div class="section-title">Instructions</div>
+                    <p>{{ prescription.instructions }}</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="signature-section">
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Doctor's Signature</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Date: {{ prescription.created_at|date:"F d, Y" }}</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This is an official prescription from Mental Wellness Consultation Center</p>
+            <p>For any questions, please contact: 16101</p>
+            <p>Generated on: {% now "F d, Y H:i" %}</p>
+        </div>
+    </div>
+</body>
+</html>

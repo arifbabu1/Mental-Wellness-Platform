@@ -1,0 +1,304 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Mental Health Assessment | Mental Wellness Platform</title>
+    
+    <!-- Professional Styling -->
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/clinical-assessment.css' %}">
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Scripts -->
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/clinical-assessment.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'patient_dashboard' %}" class="navbar-brand">Mental Wellness Platform</a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'clinical_assessment' %}" class="active" aria-label="Clinical Assessment">Clinical Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="clinical-assessment-container">
+        <!-- Header Section -->
+        <div class="assessment-header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="header-text">
+                    <h1>Clinical Mental Health Assessment</h1>
+                    <p class="header-subtitle">
+                        PHQ-9 Depression & GAD-7 Anxiety Screening
+                    </p>
+                    <p class="header-description">
+                        This confidential assessment uses clinically-validated tools to evaluate your mental health. 
+                        Please answer honestly - your responses help us provide the best care recommendations.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Emergency Banner -->
+            <div class="emergency-banner">
+                <div class="emergency-content">
+                    <div class="emergency-icon">
+                        <i class="fas fa-phone-alt"></i>
+                    </div>
+                    <div class="emergency-text">
+                        <h3>Need Immediate Help?</h3>
+                        <p>If you're in crisis, call our 24/7 helpline: <strong>{{ emergency_hotline }}</strong></p>
+                    </div>
+                    <div class="emergency-actions">
+                        <button onclick="showEmergencyModal()" class="btn-emergency">
+                            <i class="fas fa-exclamation-triangle"></i> Get Help Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assessment Form -->
+        <form method="post" id="clinical-assessment-form" class="assessment-form">
+            {% csrf_token %}
+            <input type="hidden" name="session_duration" id="session-duration">
+            
+            <!-- Progress Indicator -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progress-current">0</span> / <span id="progress-total">16</span> Questions
+                </div>
+            </div>
+
+            <!-- PHQ-9 Section -->
+            <div class="assessment-section">
+                <div class="section-header">
+                    <div class="section-icon depression">
+                        <i class="fas fa-cloud-rain"></i>
+                    </div>
+                    <div class="section-content">
+                        <h2>PHQ-9 Depression Screening</h2>
+                        <p>Over the last 2 weeks, how often have you been bothered by the following problems?</p>
+                    </div>
+                </div>
+
+                <div class="questions-grid phq9-questions">
+                    {% for question_num, question_text in phq9_questions %}
+                    <div class="question-card" data-question="{{ question_num }}" data-section="phq9">
+                        <div class="question-header">
+                            <div class="question-number">{{ question_num }}</div>
+                            <div class="question-text">{{ question_text }}</div>
+                            {% if question_num == 9 %}
+                            <div class="question-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Sensitive question</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="answer-options">
+                            {% for value, label in answer_scale %}
+                            <div class="answer-option">
+                                <input type="radio" 
+                                       id="phq9_{{ question_num }}_{{ value }}" 
+                                       name="phq9_{{ question_num }}" 
+                                       value="{{ value }}" 
+                                       required
+                                       onchange="updateProgress(); checkEmergencyRisk();">
+                                <label for="phq9_{{ question_num }}_{{ value }}" class="answer-label">
+                                    <span class="answer-value">{{ value }}</span>
+                                    <span class="answer-text">{{ label }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- GAD-7 Section -->
+            <div class="assessment-section">
+                <div class="section-header">
+                    <div class="section-icon anxiety">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="section-content">
+                        <h2>GAD-7 Anxiety Screening</h2>
+                        <p>Over the last 2 weeks, how often have you been bothered by the following problems?</p>
+                    </div>
+                </div>
+
+                <div class="questions-grid gad7-questions">
+                    {% for question_num, question_text in gad7_questions %}
+                    <div class="question-card" data-question="{{ question_num }}" data-section="gad7">
+                        <div class="question-header">
+                            <div class="question-number">{{ question_num }}</div>
+                            <div class="question-text">{{ question_text }}</div>
+                        </div>
+                        
+                        <div class="answer-options">
+                            {% for value, label in answer_scale %}
+                            <div class="answer-option">
+                                <input type="radio" 
+                                       id="gad7_{{ question_num }}_{{ value }}" 
+                                       name="gad7_{{ question_num }}" 
+                                       value="{{ value }}" 
+                                       required
+                                       onchange="updateProgress();">
+                                <label for="gad7_{{ question_num }}_{{ value }}" class="answer-label">
+                                    <span class="answer-value">{{ value }}</span>
+                                    <span class="answer-text">{{ label }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Submit Section -->
+            <div class="submit-section">
+                <div class="submit-content">
+                    <div class="submit-info">
+                        <div class="info-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="info-text">
+                            <h3>Ready to Submit?</h3>
+                            <p>Once you complete all questions, we'll analyze your responses and provide personalized doctor recommendations based on your specific needs.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="submit-actions">
+                        <button type="submit" class="btn-primary btn-large" id="submit-btn" disabled>
+                            <i class="fas fa-chart-line"></i>
+                            <span>Get My Results</span>
+                        </button>
+                        <a href="{% url 'patient_dashboard' %}" class="btn-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <!-- Emergency Modal -->
+    <div id="emergency-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content emergency-modal">
+            <div class="modal-header">
+                <div class="modal-icon">
+                    <i class="fas fa-phone-alt"></i>
+                </div>
+                <h3>Emergency Support</h3>
+                <button onclick="closeEmergencyModal()" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="emergency-hotlines">
+                    <div class="hotline-item">
+                        <div class="hotline-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div class="hotline-info">
+                            <h4>National Mental Health Helpline</h4>
+                            <p class="hotline-number">{{ emergency_hotline }}</p>
+                            <p class="hotline-description">24/7 confidential support</p>
+                        </div>
+                    </div>
+                    
+                    <div class="hotline-item">
+                        <div class="hotline-icon">
+                            <i class="fas fa-ambulance"></i>
+                        </div>
+                        <div class="hotline-info">
+                            <h4>Emergency Medical Services</h4>
+                            <p class="hotline-number">999</p>
+                            <p class="hotline-description">For immediate medical emergencies</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="emergency-resources">
+                    <h4>Additional Resources</h4>
+                    <ul>
+                        <li>Contact your local hospital emergency department</li>
+                        <li>Call a trusted friend or family member</li>
+                        <li>Go to the nearest emergency room</li>
+                        <li>Contact your regular mental health provider</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medical Disclaimer -->
+    <div class="medical-disclaimer">
+        <div class="disclaimer-content">
+            <div class="disclaimer-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="disclaimer-text">
+                <h4>Medical Disclaimer</h4>
+                <p>
+                    This assessment uses PHQ-9 and GAD-7, which are validated clinical screening tools. 
+                    This is NOT a medical diagnosis. Please consult with a licensed mental health professional 
+                    for proper evaluation and treatment. If you are in crisis or immediate danger, please 
+                    contact emergency services immediately.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Session timer
+        let sessionStartTime = Date.now();
+        
+        // Update session duration on submit
+        document.getElementById('clinical-assessment-form').addEventListener('submit', function() {
+            const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
+            document.getElementById('session-duration').value = duration;
+        });
+        
+        // Emergency modal functions
+        function showEmergencyModal() {
+            document.getElementById('emergency-modal').style.display = 'flex';
+        }
+        
+        function closeEmergencyModal() {
+            document.getElementById('emergency-modal').style.display = 'none';
+        }
+        
+        // Close modal on outside click
+        document.getElementById('emergency-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEmergencyModal();
+            }
+        });
+    </script>
+</body>
+</html>

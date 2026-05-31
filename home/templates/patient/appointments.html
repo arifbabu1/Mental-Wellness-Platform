@@ -1,0 +1,648 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Appointments | Mental Wellness Platform</title>
+    {% csrf_token %}
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+    
+    <script>
+        function markAppointmentCompleted(appointmentId) {
+            if (confirm('Are you sure you want to mark this appointment as completed?')) {
+                const btn = document.querySelector(`button[data-appointment-id="${appointmentId}"].mark-completed-btn`);
+                const originalHTML = btn.innerHTML;
+                
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                btn.disabled = true;
+                
+                fetch(`/patient/mark-completed/${appointmentId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': document.querySelector('input[name="csrfmiddlewaretoken"]').value
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Appointment marked as completed successfully!');
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Error marking appointment as completed');
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Network error. Please try again.');
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                });
+            }
+        }
+
+        function confirmDeleteAppointment(appointmentId) {
+            // Find the appointment card to get its status
+            const appointmentCard = document.querySelector(`button[data-appointment-id="${appointmentId}"]`).closest('.appointment-card');
+            const statusElement = appointmentCard ? appointmentCard.querySelector('.appointment-status') : null;
+            const status = statusElement ? statusElement.textContent.trim().toLowerCase() : '';
+            
+            let confirmMessage = 'Are you sure you want to delete this appointment? This action cannot be undone.';
+            
+            if (status === 'missed') {
+                confirmMessage = 'Are you sure you want to delete this missed appointment history? This action cannot be undone.';
+            } else if (status === 'cancelled') {
+                confirmMessage = 'Are you sure you want to delete this cancelled appointment history? This action cannot be undone.';
+            } else if (status === 'pending payment') {
+                confirmMessage = 'Are you sure you want to delete this appointment with pending payment? This action cannot be undone.';
+            }
+            
+            if (confirm(confirmMessage)) {
+                // Create a form to submit the delete request
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `{% url 'delete_appointment' 0 %}`.replace('0', appointmentId);
+                
+                // Add CSRF token - get it from the page
+                const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                if (csrfToken) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfToken.value;
+                    form.appendChild(csrfInput);
+                } else {
+                    // Fallback: try to get from cookies
+                    const cookies = document.cookie.split(';');
+                    for (let cookie of cookies) {
+                        const [name, value] = cookie.trim().split('=');
+                        if (name === 'csrftoken') {
+                            const csrfInput = document.createElement('input');
+                            csrfInput.type = 'hidden';
+                            csrfInput.name = 'csrfmiddlewaretoken';
+                            csrfInput.value = value;
+                            form.appendChild(csrfInput);
+                            break;
+                        }
+                    }
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Countdown Timer Functionality
+        function updateCountdown() {
+            try {
+                const countdownDisplays = document.querySelectorAll('.countdown-display');
+                
+                countdownDisplays.forEach(display => {
+                    try {
+                        const appointmentTime = display.dataset.appointmentTime;
+                        if (!appointmentTime) return;
+                        
+                        const now = new Date().getTime();
+                        const appointmentDate = new Date(appointmentTime).getTime();
+                        
+                        // Validate date
+                        if (isNaN(appointmentDate)) {
+                            console.warn('Invalid appointment date:', appointmentTime);
+                            display.textContent = 'Invalid Date';
+                            display.className = 'countdown-display missed';
+                            return;
+                        }
+                        
+                        const consultationOpenTime = appointmentDate - (20 * 60 * 1000);
+                        const consultationEndTime = appointmentDate + (2 * 60 * 60 * 1000);
+                        const distanceToEnd = consultationEndTime - now;
+                        
+                        // Find the appointment card to update the join meeting link
+                        const appointmentCard = display.closest('.appointment-card');
+                        const joinMeetingLink = appointmentCard ? appointmentCard.querySelector('.meeting-link-btn a') : null;
+                        
+                        if (distanceToEnd < 0) {
+                            // Consultation period has ended - show missed state
+                            display.textContent = '❌ Missed';
+                            display.className = 'countdown-display missed';
+                            
+                            // Update join meeting link for missed appointments
+                            if (joinMeetingLink) {
+                                joinMeetingLink.textContent = 'You Missed the Meeting';
+                                joinMeetingLink.style.color = '#f44336';
+                                joinMeetingLink.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                                joinMeetingLink.style.cursor = 'not-allowed';
+                                joinMeetingLink.removeAttribute('href');
+                                joinMeetingLink.removeAttribute('target');
+                                joinMeetingLink.onclick = function(e) { e.preventDefault(); return false; };
+                            }
+                        } else {
+                            // Calculate time remaining until appointment
+                            const distanceToAppointment = appointmentDate - now;
+                            const distanceToOpen = consultationOpenTime - now;
+                            
+                            if (distanceToOpen > 0) {
+                                // Before appointment - show time until appointment
+                                const days = Math.floor(distanceToOpen / (1000 * 60 * 60 * 24));
+                                const hours = Math.floor((distanceToOpen % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                const minutes = Math.floor((distanceToOpen % (1000 * 60 * 60)) / (1000 * 60));
+                                
+                                // Format countdown text
+                                let countdownText = '';
+                                if (days > 0) {
+                                    countdownText = `Opens in ${days}d ${hours}h ${minutes}m`;
+                                } else if (hours > 0) {
+                                    countdownText = `Opens in ${hours}h ${minutes}m`;
+                                } else if (minutes > 0) {
+                                    countdownText = `Opens in ${minutes}m`;
+                                } else {
+                                    countdownText = 'Opening soon';
+                                }
+                                
+                                display.textContent = countdownText;
+                                
+                                // Update status class
+                                if (days > 0) {
+                                    display.className = 'countdown-display upcoming';
+                                } else if (hours > 0) {
+                                    display.className = 'countdown-display today';
+                                } else if (minutes > 30) {
+                                    display.className = 'countdown-display soon';
+                                } else if (minutes > 0) {
+                                    display.className = 'countdown-display very-soon';
+                                } else {
+                                    display.className = 'countdown-display now';
+                                }
+                                
+                                // Reset join meeting link before appointment
+                                if (joinMeetingLink) {
+                                    joinMeetingLink.textContent = 'Room opens 20 minutes before';
+                                    joinMeetingLink.style.color = '';
+                                    joinMeetingLink.style.background = '';
+                                    joinMeetingLink.style.cursor = 'not-allowed';
+                                    joinMeetingLink.removeAttribute('href');
+                                    joinMeetingLink.removeAttribute('target');
+                                    joinMeetingLink.onclick = function(e) { e.preventDefault(); return false; };
+                                }
+                            } else {
+                                // During consultation - show in progress and update link
+                                display.textContent = '🟢 In Progress';
+                                display.className = 'countdown-display in-progress';
+                                
+                                // Change to "Join Now" during consultation
+                                if (joinMeetingLink) {
+                                    joinMeetingLink.textContent = 'Join Now';
+                                    joinMeetingLink.style.color = '#4caf50';
+                                    joinMeetingLink.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                                    joinMeetingLink.style.cursor = 'pointer';
+                                    joinMeetingLink.href = joinMeetingLink.dataset.originalHref || joinMeetingLink.getAttribute('href');
+                                    joinMeetingLink.target = '_blank';
+                                    joinMeetingLink.onclick = null;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error processing countdown display:', error);
+                        display.textContent = 'Error';
+                        display.className = 'countdown-display missed';
+                    }
+                });
+            } catch (error) {
+                console.error('Error in updateCountdown function:', error);
+            }
+        }
+
+        // Initialize countdown timers and event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCountdown();
+            setInterval(updateCountdown, 1000); // Update every second
+            
+            // Add event listeners for delete appointment buttons
+            const deleteButtons = document.querySelectorAll('.delete-appointment-btn');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const appointmentId = this.dataset.appointmentId;
+                    confirmDeleteAppointment(appointmentId);
+                });
+            });
+            
+            // Add event listeners for mark completed buttons
+            const markCompletedButtons = document.querySelectorAll('.mark-completed-btn');
+            markCompletedButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const appointmentId = this.dataset.appointmentId;
+                    markAppointmentCompleted(appointmentId);
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+    <!-- Hidden CSRF token for JavaScript -->
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'blogs' %}" aria-label="Mental Health Blogs">Blogs</a></li>
+                <li><a href="{% url 'about' %}" aria-label="About Us">About Us</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Appointments Section -->
+    <main class="appointments-container">
+        <div class="appointments-header">
+            <h1>My Appointments</h1>
+            <p>Manage and track your mental health appointments with ease</p>
+            <a href="{% url 'doctors_list' %}" class="btn-base btn-primary">
+                <i class="fas fa-plus"></i> Book New Appointment
+            </a>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="appointments-content">
+            {% if appointments %}
+                <!-- Today's Appointments -->
+                {% if today_appointments %}
+                <div class="appointments-section">
+                    <h2><i class="fas fa-calendar-day"></i> Today's Appointments</h2>
+                    <div class="appointments-grid">
+                        {% for appointment in today_appointments %}
+                                <div class="appointment-card today">
+                                    <div class="appointment-header">
+                                        <div class="appointment-doctor">
+                                            <a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-avatar-link">
+                                                <div class="doctor-avatar">
+                                                    {% if appointment.doctor.profile_picture %}
+                                                        <img src="{{ appointment.doctor.profile_picture.url }}" alt="{{ appointment.doctor.user.get_full_name }}">
+                                                    {% else %}
+                                                        <span>👨‍⚕️</span>
+                                                    {% endif %}
+                                                </div>
+                                            </a>
+                                            <div class="doctor-info">
+                                                <h3><a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-name-link">Dr. {{ appointment.doctor.user.get_full_name }}</a></h3>
+                                                <p class="doctor-specialty">{{ appointment.doctor.specialty }}</p>
+                                                <div class="doctor-details">
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-graduation-cap"></i>
+                                                        {{ appointment.doctor.qualification }}
+                                                    </span>
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-briefcase"></i>
+                                                        {{ appointment.doctor.years_of_experience }} years experience
+                                                    </span>
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-taka-sign"></i>
+                                                        ৳{{ appointment.doctor.consultation_fee }} consultation
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="appointment-status status-{{ appointment.status }}">
+                                            {{ appointment.status|title }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="appointment-details">
+                                        <div class="detail-item">
+                                            <span class="detail-icon">📅</span>
+                                            <span>{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                                        </div>
+                                        <div class="detail-item-time-countdown">
+                                            <div class="time-section">
+                                                <span class="detail-icon">🕐</span>
+                                                <span>{{ appointment.appointment_date|date:"g:i A" }}</span>
+                                            </div>
+                                            <div class="countdown-section">
+                                                <span class="countdown-display" data-appointment-time="{{ appointment.appointment_date|date:'Y-m-d H:i:s' }}">Calculating...</span>
+                                            </div>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-icon">💬</span>
+                                            <span>{{ appointment.consultation_type }}</span>
+                                        </div>
+                                        {% if appointment.notes %}
+                                        <div class="detail-item">
+                                            <span class="detail-icon">📝</span>
+                                            <span>{{ appointment.notes|truncatewords:10 }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if appointment.meeting_link and appointment.can_join_consultation %}
+                                        <div class="detail-item meeting-link">
+                                            <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-btn" data-original-href="{{ appointment.meeting_link }}">
+                                                Join Meeting
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="appointment-actions">
+                                        {% if appointment.status == 'pending_payment' %}
+                                            <a href="{% url 'process_payment' appointment.payment.id %}" class="btn-base btn-primary btn-small">
+                                                <i class="fas fa-credit-card"></i> Complete Payment
+                                            </a>
+                                            <button type="button" class="btn-base btn-danger btn-small delete-appointment-btn" data-appointment-id="{{ appointment.id }}">
+                                                <i class="fas fa-trash"></i> Delete Appointment
+                                            </button>
+                                        {% endif %}
+                                        {% if appointment.status == 'scheduled' %}
+                                            <a href="#" class="btn-base btn-outline btn-small">
+                                                <i class="fas fa-calendar-alt"></i> Reschedule
+                                            </a>
+                                            <a href="#" class="btn-base btn-outline btn-small">
+                                                <i class="fas fa-times"></i> Cancel
+                                            </a>
+                                        {% endif %}
+                                        {% if appointment.can_join_consultation %}
+                                            {% if appointment.consultation_type == 'Video' %}
+                                                {% if appointment.meeting_link %}
+                                                    <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
+                                                        <i class="fas fa-video"></i> Join Video Call
+                                                    </a>
+                                                {% else %}
+                                                    <a href="#" class="btn-base btn-primary btn-small disabled">
+                                                        <i class="fas fa-clock"></i> Waiting for Meeting Link
+                                                    </a>
+                                                {% endif %}
+                                            {% endif %}
+                                            <button type="button" class="btn-base btn-success btn-small mark-completed-btn" data-appointment-id="{{ appointment.id }}">
+                                                <i class="fas fa-check"></i> Mark as Completed
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Upcoming Appointments -->
+                {% if upcoming_appointments %}
+                <div class="appointments-section">
+                    <h2><i class="fas fa-calendar-check"></i> Upcoming Appointments</h2>
+                    <div class="appointments-grid">
+                        {% for appointment in upcoming_appointments %}
+                            <div class="appointment-card upcoming">
+                                <div class="appointment-header">
+                                    <div class="appointment-doctor">
+                                        <a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-avatar-link">
+                                            <div class="doctor-avatar">
+                                                {% if appointment.doctor.profile_picture %}
+                                                    <img src="{{ appointment.doctor.profile_picture.url }}" alt="{{ appointment.doctor.user.get_full_name }}">
+                                                {% else %}
+                                                    <span>👨‍⚕️</span>
+                                                {% endif %}
+                                            </div>
+                                        </a>
+                                        <div class="doctor-info">
+                                            <h3><a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-name-link">Dr. {{ appointment.doctor.user.get_full_name }}</a></h3>
+                                            <p class="doctor-specialty">{{ appointment.doctor.specialty }}</p>
+                                            <div class="doctor-details">
+                                                <span class="detail-badge">
+                                                    <i class="fas fa-graduation-cap"></i>
+                                                    {{ appointment.doctor.qualification }}
+                                                </span>
+                                                <span class="detail-badge">
+                                                    <i class="fas fa-briefcase"></i>
+                                                    {{ appointment.doctor.years_of_experience }} years experience
+                                                </span>
+                                                <span class="detail-badge">
+                                                    <i class="fas fa-taka-sign"></i>
+                                                    ৳{{ appointment.doctor.consultation_fee }} consultation
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="appointment-status status-{{ appointment.status }}">
+                                        {{ appointment.status|title }}
+                                    </div>
+                                </div>
+                                
+                                <div class="appointment-details">
+                                    <div class="detail-item">
+                                        <span class="detail-icon">📅</span>
+                                        <span>{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                                    </div>
+                                    <div class="detail-item-time-countdown">
+                                        <div class="time-section">
+                                            <span class="detail-icon">🕐</span>
+                                            <span>{{ appointment.appointment_date|date:"g:i A" }}</span>
+                                        </div>
+                                        <div class="countdown-section">
+                                            <span class="countdown-display" data-appointment-time="{{ appointment.appointment_date|date:'Y-m-d H:i:s' }}">Calculating...</span>
+                                        </div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-icon">💬</span>
+                                        <span>{{ appointment.consultation_type }}</span>
+                                    </div>
+                                    {% if appointment.notes %}
+                                    <div class="detail-item">
+                                        <span class="detail-icon">📝</span>
+                                        <span>{{ appointment.notes|truncatewords:10 }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if appointment.meeting_link and appointment.can_join_consultation %}
+                                    <div class="detail-item meeting-link">
+                                        <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-btn" data-original-href="{{ appointment.meeting_link }}">
+                                            Join Meeting
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="appointment-actions">
+                                    {% if appointment.status == 'pending_payment' %}
+                                        <a href="{% url 'process_payment' appointment.payment.id %}" class="btn-base btn-primary btn-small">
+                                            <i class="fas fa-credit-card"></i> Complete Payment
+                                        </a>
+                                        <button type="button" class="btn-base btn-danger btn-small delete-appointment-btn" data-appointment-id="{{ appointment.id }}">
+                                            <i class="fas fa-trash"></i> Delete Appointment
+                                        </button>
+                                    {% endif %}
+                                    {% if appointment.status == 'scheduled' %}
+                                        <a href="#" class="btn-base btn-outline btn-small">
+                                            <i class="fas fa-calendar-alt"></i> Reschedule
+                                        </a>
+                                        <a href="#" class="btn-base btn-outline btn-small">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </a>
+                                    {% endif %}
+                                    {% if appointment.can_join_consultation %}
+                                        {% if appointment.consultation_type == 'Video' %}
+                                            {% if appointment.meeting_link %}
+                                                <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
+                                                    <i class="fas fa-video"></i> Join Video Call
+                                                </a>
+                                            {% else %}
+                                                <a href="#" class="btn-base btn-primary btn-small disabled">
+                                                    <i class="fas fa-clock"></i> Waiting for Meeting Link
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Past Appointments -->
+                {% if past_appointments %}
+                <div class="appointments-section">
+                    <h2><i class="fas fa-history"></i> Past Appointments</h2>
+                    <div class="appointments-grid">
+                        {% for appointment in past_appointments %}
+                            <div class="appointment-card past">
+                                    <div class="appointment-header">
+                                        <div class="appointment-doctor">
+                                            <a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-avatar-link">
+                                                <div class="doctor-avatar">
+                                                    {% if appointment.doctor.profile_picture %}
+                                                        <img src="{{ appointment.doctor.profile_picture.url }}" alt="{{ appointment.doctor.user.get_full_name }}">
+                                                    {% else %}
+                                                        <span>👨‍⚕️</span>
+                                                    {% endif %}
+                                                </div>
+                                            </a>
+                                            <div class="doctor-info">
+                                                <h3><a href="{% url 'doctor_details' appointment.doctor.id %}" class="doctor-name-link">Dr. {{ appointment.doctor.user.get_full_name }}</a></h3>
+                                                <p class="doctor-specialty">{{ appointment.doctor.specialty }}</p>
+                                                <div class="doctor-details">
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-graduation-cap"></i>
+                                                        {{ appointment.doctor.qualification }}
+                                                    </span>
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-briefcase"></i>
+                                                        {{ appointment.doctor.years_of_experience }} years experience
+                                                    </span>
+                                                    <span class="detail-badge">
+                                                        <i class="fas fa-taka-sign"></i>
+                                                        ৳{{ appointment.doctor.consultation_fee }} consultation
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="appointment-status status-{{ appointment.status }}">
+                                            {{ appointment.status|title }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="appointment-details">
+                                        <div class="detail-item">
+                                            <span class="detail-icon">📅</span>
+                                            <span>{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-icon">🕐</span>
+                                            <span>{{ appointment.appointment_date|date:"g:i A" }}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-icon">💬</span>
+                                            <span>{{ appointment.consultation_type }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="appointment-actions">
+                                        {% if appointment.status == 'completed' %}
+                                            <button class="btn-base btn-outline btn-small" disabled>
+                                                <i class="fas fa-check"></i> Completed
+                                            </button>
+                                            <a href="#" class="btn-base btn-outline btn-small">
+                                                <i class="fas fa-redo"></i> Book Follow-up
+                                            </a>
+                                            <a href="#" class="btn-base btn-outline btn-small">
+                                                <i class="fas fa-file-medical"></i> View Notes
+                                            </a>
+                                        {% endif %}
+                                        {% if appointment.status == 'missed' or appointment.status == 'cancelled' %}
+                                            <button type="button" class="btn-base btn-danger btn-small delete-appointment-btn" data-appointment-id="{{ appointment.id }}">
+                                                <i class="fas fa-trash"></i> Delete History
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <!-- No Appointments State -->
+                <div class="no-appointments">
+                    <div class="no-appointments-icon">📅</div>
+                    <h3>No Appointments Yet</h3>
+                    <p>You haven't scheduled any appointments yet. Take the first step towards better mental health by booking an appointment with one of our qualified professionals.</p>
+                    <div class="no-appointments-actions">
+                        <a href="{% url 'doctors_list' %}" class="btn-base btn-primary">
+                            <i class="fas fa-user-md"></i> Browse Doctors
+                        </a>
+                        <a href="{% url 'assessment' %}" class="btn-base btn-outline">
+                            <i class="fas fa-clipboard-list"></i> Take Assessment
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+<script>
+    // Mobile Navbar Toggle Function
+    function toggleNavbar() {
+        const navbarNav = document.getElementById('navbarNav');
+        const navbarToggle = document.querySelector('.navbar-toggle');
+        
+        if (navbarNav) {
+            navbarNav.classList.toggle('active');
+        }
+        if (navbarToggle) {
+            navbarToggle.classList.toggle('active');
+        }
+    }
+</script>
+</html>

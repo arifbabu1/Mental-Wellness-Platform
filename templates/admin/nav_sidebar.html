@@ -1,0 +1,87 @@
+{% load i18n %}
+<button class="sticky toggle-nav-sidebar" id="toggle-nav-sidebar" aria-label="{% translate 'Toggle navigation' %}"></button>
+<nav class="sticky wellness-sidebar" id="nav-sidebar" aria-label="{% translate 'Admin navigation' %}">
+    <div class="sidebar-section-title">Care Console</div>
+    <div class="sidebar-quick-links primary-links">
+        <a href="{% url 'admin_dashboard' %}" data-icon="D">Dashboard</a>
+        <a href="{% url 'admin:index' %}" data-icon="M">Model Console</a>
+    </div>
+
+    <label class="sidebar-filter-label" for="nav-filter">Search Admin</label>
+    <input type="search" id="nav-filter" placeholder="{% translate 'Search models...' %}" aria-label="{% translate 'Filter navigation items' %}">
+
+    <div class="sidebar-section-title">User Management</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/user/" data-icon="U">Users</a>
+        <a href="/admin/home/user/add/" data-icon="+">Add User</a>
+        <a href="/admin/users/" data-icon="R">User Report</a>
+    </div>
+
+    <div class="sidebar-section-title">Doctor Management</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/doctor/" data-icon="DR">Doctors</a>
+        <a href="/admin/home/user/add/?role=doctor" data-icon="+">Add Doctor</a>
+        <a href="/admin/home/doctorschedule/" data-icon="S">Schedules</a>
+        <a href="/admin/doctors/" data-icon="R">Doctor Report</a>
+    </div>
+
+    <div class="sidebar-section-title">Appointments</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/appointment/" data-icon="A">Appointments</a>
+        <a href="/admin/home/bookedslot/" data-icon="B">Booked Slots</a>
+        <a href="/admin/appointments/" data-icon="R">Appointment Report</a>
+    </div>
+
+    <div class="sidebar-section-title">Consultations</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/consultation/" data-icon="C">Consultations</a>
+        <a href="/admin/home/prescription/" data-icon="P">Prescriptions</a>
+        <a href="/admin/home/clinicalassessment/" data-icon="CA">Clinical Assessments</a>
+    </div>
+
+    <div class="sidebar-section-title">Payments</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/financial/" data-icon="F">Financial Dashboard</a>
+        <a href="/admin/home/payment/" data-icon="P">Payment Records</a>
+        {% if user.is_superuser %}
+            <a href="/admin/home/paymentreceiveraccount/" data-icon="PS">Payment Settings</a>
+        {% endif %}
+    </div>
+
+    <div class="sidebar-section-title">Blogs & Content</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/blogpost/" data-icon="B">Blog Posts</a>
+        <a href="/admin/home/assessmentquestion/" data-icon="Q">Assessment Questions</a>
+        <a href="/admin/assessments/" data-icon="R">Assessment Report</a>
+    </div>
+
+    <div class="sidebar-section-title">Daily Tasks</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/dailytask/" data-icon="T">Daily Tasks</a>
+        <a href="/admin/home/healthtasktemplate/" data-icon="TT">Task Templates</a>
+        <a href="/admin/home/taskcompletion/" data-icon="TC">Task Completion</a>
+        <a href="/admin/home/dailytaskreminderlog/" data-icon="L">Reminder Logs</a>
+    </div>
+
+    <div class="sidebar-section-title">Notifications</div>
+    <div class="sidebar-quick-links">
+        <a href="/admin/home/notification/" data-icon="N">Notifications</a>
+        <a href="/admin/home/emergencylog/" data-icon="E">Emergency Logs</a>
+        <a href="/admin/home/chatsession/" data-icon="CS">Chat Sessions</a>
+    </div>
+
+    {% if user.is_superuser %}
+        <div class="sidebar-section-title">System Settings</div>
+        <div class="sidebar-quick-links">
+            <a href="/admin/home/systememailconfig/" data-icon="ES">Email Settings</a>
+            <a href="/admin/home/paymentreceiveraccount/" data-icon="PS">Payment Settings</a>
+            <a href="/admin/home/doctorprimaryfocus/" data-icon="DF">Doctor Focuses</a>
+            <a href="/admin/home/doctorspecialization/" data-icon="DS">Specializations</a>
+        </div>
+    {% endif %}
+
+    <details class="sidebar-model-console">
+        <summary>All Registered Models</summary>
+        {% include 'admin/app_list.html' with app_list=available_apps show_changelinks=False %}
+    </details>
+</nav>

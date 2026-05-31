@@ -1,0 +1,299 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-users-management.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="users-management">
+    <!-- Professional Page Header -->
+    <header class="page-header">
+        <div class="header-top">
+            <div class="page-title-section">
+                <h1 class="page-title">
+                    <i class="fas fa-users-cog"></i>
+                    Users Management
+                </h1>
+                <p class="page-description">Manage all platform users - patients, doctors, and administrators</p>
+            </div>
+            <a href="/admin/home/user/add/" class="btn-primary">
+                <i class="fas fa-user-plus"></i>
+                Add New User
+            </a>
+        </div>
+        
+        <div class="header-bottom">
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" placeholder="Search users by name, email, or phone..." id="userSearch" autocomplete="off">
+            </div>
+        </div>
+    </header>
+
+    <!-- Users Statistics -->
+    <section class="users-stats">
+        <a href="?" class="stat-card {% if not request.GET.role %}active{% endif %}">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3>All Users</h3>
+                <p class="stat-number">{{ total_users|default:"0" }}</p>
+            </div>
+        </a>
+        
+        <a href="?role=patient" class="stat-card {% if request.GET.role == 'patient' %}active{% endif %}">
+            <div class="stat-icon">
+                <i class="fas fa-user-injured"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Patients</h3>
+                <p class="stat-number">{{ total_patients|default:"0" }}</p>
+            </div>
+        </a>
+        
+        <a href="?role=doctor" class="stat-card {% if request.GET.role == 'doctor' %}active{% endif %}">
+            <div class="stat-icon">
+                <i class="fas fa-user-md"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Doctors</h3>
+                <p class="stat-number">{{ total_doctors|default:"0" }}</p>
+            </div>
+        </a>
+        
+        <a href="?role=admin" class="stat-card {% if request.GET.role == 'admin' %}active{% endif %}">
+            <div class="stat-icon">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="stat-content">
+                <h3>Admins</h3>
+                <p class="stat-number">{{ total_admins|default:"0" }}</p>
+            </div>
+        </a>
+    </section>
+
+    <!-- Users Table -->
+    <main class="users-table-container">
+        <div class="table-wrapper">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="user-info">
+                                    <div class="user-avatar">
+                                        {% if user.profile_picture %}
+                                            <img src="{{ user.profile_picture.url }}" alt="{{ user.get_full_name }}">
+                                        {% else %}
+                                            <i class="fas fa-user"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="user-details">
+                                        <h4 class="user-name">{{ user.get_full_name|default:user.username }}</h4>
+                                        <p class="user-email">{{ user.email }}</p>
+                                        <div class="user-meta">
+                                            <span class="meta-item">
+                                                <i class="fas fa-phone"></i>
+                                                {{ user.phone|default:"Not provided" }}
+                                            </span>
+                                            <span class="meta-item">
+                                                <i class="fas fa-calendar"></i>
+                                                {{ user.date_joined|date:"M d, Y" }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="role-badge role-{{ user.role }}">
+                                    <i class="fas fa-{% if user.role == 'patient' %}user-injured{% elif user.role == 'doctor' %}user-md{% else %}user-shield{% endif %}"></i>
+                                    {{ user.role|title }}
+                                </span>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.phone|default:"Not provided" }}</td>
+                            <td>
+                                <span class="status-badge {% if user.is_active %}active{% else %}inactive{% endif %}">
+                                    {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="/admin/home/user/{{ user.pk }}/change/" class="action-btn-small">
+                                        <i class="fas fa-edit"></i>
+                                        Edit
+                                    </a>
+                                    <button class="action-btn-small action-btn-primary details-btn" 
+                                        data-user-id="{{ user.pk }}" 
+                                        data-user-name="{{ user.get_full_name|default:user.username|escapejs }}" 
+                                        data-user-email="{{ user.email|escapejs }}" 
+                                        data-user-phone="{{ user.phone|default:'Not provided'|escapejs }}" 
+                                        data-user-joined="{{ user.date_joined|date:'M d, Y'|escapejs }}" 
+                                        data-user-role="{{ user.role|escapejs }}" 
+                                        data-user-status="{% if user.is_active %}Active{% else %}Inactive{% endif %}">
+                                        <i class="fas fa-circle-info"></i>
+                                        Details
+                                    </button>
+                                    <button class="action-btn-small action-btn-danger" onclick="deleteUser('{{ user.pk }}')">
+                                        <i class="fas fa-trash"></i>
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="detailsModalTitle">User Details</h2>
+            <button class="modal-close" onclick="closeDetailsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="detailsModalBody">
+            <!-- Dynamic content will be loaded here -->
+        </div>
+        <div class="modal-footer">
+            <a class="action-btn" id="editUserLink" href="/admin/home/user/">
+                <i class="fas fa-edit"></i>
+                Edit User
+            </a>
+            <button class="action-btn action-btn-outline" onclick="closeDetailsModal()">
+                <i class="fas fa-times"></i>
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Professional Users Management JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Details modal functionality
+    const detailsBtns = document.querySelectorAll('.details-btn');
+    detailsBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            const userName = this.getAttribute('data-user-name');
+            const userEmail = this.getAttribute('data-user-email');
+            const userPhone = this.getAttribute('data-user-phone');
+            const userJoined = this.getAttribute('data-user-joined');
+            const userRole = this.getAttribute('data-user-role');
+            const userStatus = this.getAttribute('data-user-status');
+            
+            const modal = document.getElementById('detailsModal');
+            const modalTitle = document.getElementById('detailsModalTitle');
+            const modalBody = document.getElementById('detailsModalBody');
+            const editUserLink = document.getElementById('editUserLink');
+            
+            modalTitle.textContent = `User Details - ${userName}`;
+            editUserLink.href = `/admin/home/user/${userId}/change/`;
+            modalBody.innerHTML = `
+                <div class="user-detail-grid">
+                    <div class="detail-item">
+                        <label>User ID</label>
+                        <p>${userId}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Name</label>
+                        <p>${userName}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email</label>
+                        <p>${userEmail}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Phone</label>
+                        <p>${userPhone}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Role</label>
+                        <p>${userRole}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status</label>
+                        <p>${userStatus}</p>
+                    </div>
+                    <div class="detail-item">
+                        <label>Joined</label>
+                        <p>${userJoined}</p>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        });
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('userSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const rows = document.querySelectorAll('.users-table tbody tr');
+            
+            rows.forEach(row => {
+                if (searchTerm === '') {
+                    row.style.display = '';
+                    return;
+                }
+                
+                const text = row.textContent.toLowerCase();
+                const userCells = row.querySelectorAll('td');
+                let found = false;
+                
+                userCells.forEach(cell => {
+                    const cellText = cell.textContent.toLowerCase();
+                    if (cellText.includes(searchTerm)) {
+                        found = true;
+                    }
+                });
+                
+                row.style.display = found ? '' : 'none';
+            });
+        });
+    }
+});
+
+function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+        window.location.href = '/admin/home/user/' + userId + '/delete/';
+    }
+}
+
+function closeDetailsModal() {
+    const modal = document.getElementById('detailsModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+</script>
+{% endblock %}

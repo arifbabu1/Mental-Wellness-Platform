@@ -1,0 +1,358 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/registration-page.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="register-page">
+
+    <!-- Registration Section -->
+    <main class="registration-section">
+        <div class="registration-container">
+            <div class="registration-header">
+                <div class="logo-section">
+                    <div class="logo">
+                        <i class="fas fa-heart-pulse"></i>
+                    </div>
+                    <h1>Mental Wellness Platform</h1>
+                </div>
+                <div class="header-text">
+                    <h2>Create Your Account</h2>
+                    <p>Join our community and take the first step towards better mental health</p>
+                </div>
+            </div>
+
+            <div class="registration-form-container">
+                <div class="social-auth-card">
+                    {% if google_oauth_enabled %}
+                        <form method="post" action="{% url 'google_login' %}" class="social-login-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="process" value="signup">
+                            <button type="submit" class="google-login-btn">
+                                <span class="google-icon" aria-hidden="true">G</span>
+                                Continue with Google
+                            </button>
+                        </form>
+                    {% else %}
+                        <button type="button" class="google-login-btn disabled" disabled>
+                            <span class="google-icon" aria-hidden="true">G</span>
+                            Continue with Google
+                        </button>
+                        <p class="oauth-config-note">Google sign-up will be available after OAuth credentials are configured.</p>
+                    {% endif %}
+                    <div class="auth-divider"><span>or create with email</span></div>
+                </div>
+
+                <form method="post" action="{% url 'register' %}" class="registration-form">
+                    {% csrf_token %}
+                    
+                    <!-- Account Information -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-user-circle"></i> Account Information</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="first_name" class="form-label">
+                                    <i class="fas fa-user"></i>
+                                    First Name *
+                                </label>
+                                <input type="text" id="first_name" name="first_name" class="form-control" 
+                                       placeholder="Enter your first name" required autocomplete="given-name">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="last_name" class="form-label">
+                                    <i class="fas fa-user"></i>
+                                    Last Name *
+                                </label>
+                                <input type="text" id="last_name" name="last_name" class="form-control" 
+                                       placeholder="Enter your last name" required autocomplete="family-name">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-at"></i>
+                                Username *
+                            </label>
+                            <input type="text" id="username" name="username" class="form-control" 
+                                   placeholder="Choose a unique username" required autocomplete="username">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope"></i>
+                                Email Address *
+                            </label>
+                            <input type="email" id="email" name="email" class="form-control" 
+                                   placeholder="your.email@example.com" required autocomplete="email">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="phone" class="form-label">
+                                <i class="fas fa-phone"></i>
+                                Phone Number *
+                            </label>
+                            <input type="tel" id="phone" name="phone" class="form-control" 
+                                   placeholder="16101" required autocomplete="tel">
+                        </div>
+                    </div>
+
+                    <!-- Personal Information -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-user-md"></i> Personal Information</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="age" class="form-label">
+                                    <i class="fas fa-calendar"></i>
+                                    Age *
+                                </label>
+                                <input type="number" id="age" name="age" class="form-control" 
+                                       placeholder="25" min="13" max="120" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="gender" class="form-label">
+                                    <i class="fas fa-venus-mars"></i>
+                                    Gender *
+                                </label>
+                                <select id="gender" name="gender" class="form-control" required>
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                    <option value="prefer_not_to_say">Prefer not to say</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Health Information -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-heartbeat"></i> Health Information (Optional)</h3>
+                        <p class="section-description">This information helps us provide better personalized care</p>
+                        
+                        <div class="form-group">
+                            <label for="previous_mental_health_treatment" class="form-label">
+                                <i class="fas fa-history"></i>
+                                Previous Mental Health Treatment
+                            </label>
+                            <select id="previous_mental_health_treatment" name="previous_mental_health_treatment" class="form-control">
+                                <option value="">Select an option</option>
+                                <option value="never">Never had treatment</option>
+                                <option value="past">Had treatment in the past</option>
+                                <option value="current">Currently in treatment</option>
+                                <option value="prefer_not_to_say">Prefer not to say</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="primary_concerns" class="form-label">
+                                <i class="fas fa-brain"></i>
+                                Primary Concerns (Select all that apply)
+                            </label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="anxiety">
+                                    <span class="checkmark"></span>
+                                    Anxiety
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="depression">
+                                    <span class="checkmark"></span>
+                                    Depression
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="stress">
+                                    <span class="checkmark"></span>
+                                    Stress Management
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="sleep">
+                                    <span class="checkmark"></span>
+                                    Sleep Issues
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="relationships">
+                                    <span class="checkmark"></span>
+                                    Relationship Issues
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="trauma">
+                                    <span class="checkmark"></span>
+                                    Trauma/PTSD
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="concerns" value="other">
+                                    <span class="checkmark"></span>
+                                    Other
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="medications" class="form-label">
+                                <i class="fas fa-pills"></i>
+                                Current Medications
+                            </label>
+                            <textarea id="medications" name="medications" class="form-control" rows="3" 
+                                      placeholder="List any current medications (optional)"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Security -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-shield-alt"></i> Security</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="password1" class="form-label">
+                                    <i class="fas fa-lock"></i>
+                                    Password *
+                                </label>
+                                <input type="password" id="password1" name="password1" class="form-control" 
+                                       placeholder="Create a strong password" required autocomplete="new-password">
+                                <div class="password-requirements">
+                                    <small>Use at least 8 characters and avoid common passwords.</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="password2" class="form-label">
+                                    <i class="fas fa-lock"></i>
+                                    Confirm Password *
+                                </label>
+                                <input type="password" id="password2" name="password2" class="form-control" 
+                                       placeholder="Confirm your password" required autocomplete="new-password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terms and Submit -->
+                    <div class="form-section">
+                        <div class="terms-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="terms" name="terms" class="form-checkbox" required>
+                                <span class="checkmark"></span>
+                                <span class="checkbox-text">
+                                    I agree to the <a href="#" class="link">Terms of Service</a> and 
+                                    <a href="#" class="link">Privacy Policy</a> *
+                                </span>
+                            </label>
+                            
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="newsletter" name="newsletter" class="form-checkbox">
+                                <span class="checkmark"></span>
+                                <span class="checkbox-text">
+                                    I would like to receive mental health tips and updates
+                                </span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn-register" id="registerBtn">
+                            <i class="fas fa-user-plus"></i>
+                            Create Account
+                        </button>
+                    </div>
+                    
+                    {% if messages %}
+                        <div class="messages-container">
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }}" role="alert">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </form>
+                
+                <div class="login-link">
+                    <p>Already have an account?</p>
+                    <a href="{% url 'login' %}" class="btn-base btn-outline">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Sign In
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('.registration-form');
+            const password1 = document.getElementById('password1');
+            const password2 = document.getElementById('password2');
+            const phoneInput = document.getElementById('phone');
+            
+            // Password validation
+            function validatePassword(password) {
+                const minLength = password.length >= 8;
+                return minLength;
+            }
+            
+            // Real-time password validation
+            password1.addEventListener('input', function() {
+                const isValid = validatePassword(this.value);
+                this.style.borderColor = isValid ? 'var(--success-color)' : 'var(--danger-color)';
+            });
+            
+            // Password confirmation
+            password2.addEventListener('input', function() {
+                const match = this.value === password1.value;
+                this.style.borderColor = match ? 'var(--success-color)' : 'var(--danger-color)';
+            });
+            
+            // Form submission - let server handle validation
+            form.addEventListener('submit', function(e) {
+                // Don't prevent submission - let Django handle validation
+                // Remove any custom validation that might interfere
+                
+                // Add loading state to button
+                const submitBtn = form.querySelector('.btn-register');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+                }
+            });
+            
+            // Phone number formatting
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function() {
+                    // Allow digits, spaces, +, -, (, )
+                    this.value = this.value.replace(/[^\d+\s\-\(\)]/g, '');
+                });
+            }
+            
+            // Clear validation styles on focus
+            [password1, password2].forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.borderColor = '';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

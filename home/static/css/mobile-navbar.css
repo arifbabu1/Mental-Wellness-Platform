@@ -1,0 +1,242 @@
+/* ============================================
+   MOBILE NAVBAR - PROFESSIONAL RESPONSIVE
+   ============================================ */
+
+/* Navbar Toggle Button (Hamburger) */
+.navbar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 1002;
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.navbar-toggle .hamburger {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--primary-color);
+    border-radius: 2px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+}
+
+.navbar-toggle .hamburger::before,
+.navbar-toggle .hamburger::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 2px;
+    background: var(--primary-color);
+    border-radius: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: all 0.3s ease;
+}
+
+.navbar {
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+/* Add padding to body to account for fixed navbar */
+/* body {
+    padding-top: 70px;
+} */
+
+/* Adjust for emergency top bar if present */
+.emergency-top-bar + .navbar,
+.emergency-top-bar ~ .navbar {
+    top: auto;
+    position: relative;
+}
+
+.emergency-top-bar ~ body {
+    padding-top: 0;
+}
+
+/* When emergency bar exists, make navbar sticky below it */
+.emergency-top-bar {
+    position: relative;
+    z-index: 1001;
+}
+
+.emergency-top-bar + .navbar {
+    position: sticky;
+    top: 0;
+}
+
+/* For pages without emergency bar - pure sticky */
+body:not(:has(.emergency-top-bar)) .navbar {
+    position: fixed;
+}
+
+.navbar-toggle .hamburger::before {
+    top: -7px;
+}
+
+.navbar-toggle .hamburger::after {
+    top: 7px;
+}
+
+/* Active state for hamburger (X shape) */
+.navbar-toggle.active .hamburger {
+    background: transparent;
+}
+
+.navbar-toggle.active .hamburger::before {
+    top: 0;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.navbar-toggle.active .hamburger::after {
+    top: 0;
+    transform: translateX(-50%) rotate(-45deg);
+}
+
+/* Mobile Responsive - Tablet and below */
+@media (max-width: 1024px) {
+    .navbar .container {
+        flex-wrap: wrap;
+        padding: 0.8rem 15px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.3rem;
+    }
+    
+    .navbar-nav {
+        gap: 1.2rem;
+    }
+    
+    .navbar-nav a {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+    }
+}
+
+/* Mobile Responsive - Mobile devices */
+@media (max-width: 768px) {
+    
+    .navbar .container {
+        padding: 0.8rem 15px;
+        position: relative;
+    }
+    
+    .navbar-toggle {
+        display: block;
+        z-index: 1002;
+    }
+    
+    .navbar-nav {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.5rem;
+        padding: 1rem 0;
+        margin-top: 1rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--white);
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+    
+    .navbar-nav.active {
+        display: flex;
+    }
+    
+    .navbar-nav li {
+        width: 100%;
+    }
+    
+    .navbar-nav a {
+        display: block;
+        padding: 12px 15px;
+        font-size: 1rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .navbar-nav a:hover {
+        background: rgba(8, 161, 247, 0.1);
+    }
+    
+    .navbar-nav a.active {
+        margin: 0;
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem;
+        max-width: calc(100% - 60px);
+    }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+    .navbar .container {
+        padding: 0.6rem 12px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.1rem;
+    }
+    
+    .navbar-toggle {
+        padding: 6px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    .navbar-toggle .hamburger,
+    .navbar-toggle .hamburger::before,
+    .navbar-toggle .hamburger::after {
+        width: 20px;
+        height: 2px;
+    }
+    
+    .navbar-toggle .hamburger::before {
+        top: -6px;
+    }
+    
+    .navbar-toggle .hamburger::after {
+        top: 6px;
+    }
+    
+    .navbar-nav {
+        gap: 0.4rem;
+        padding: 0.8rem 0;
+    }
+    
+    .navbar-nav a {
+        padding: 10px 12px;
+        font-size: 0.95rem;
+    }
+}
+
+/* Extra Small Devices */
+@media (max-width: 360px) {
+    .navbar-brand {
+        font-size: 1rem;
+    }
+    
+    .navbar-nav a {
+        font-size: 0.9rem;
+        padding: 8px 10px;
+    }
+}

@@ -1,0 +1,545 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. {{ doctor.user.get_full_name }} | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/doctors.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <i class="fas fa-heart"></i> Mental Wellness Platform
+            </a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Go to Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="View Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Doctor Profile Header -->
+        <section class="doctor-profile-header">
+            <div class="doctor-profile-card">
+                <div class="doctor-avatar-section">
+                    <div class="doctor-avatar-large">
+                        {% if doctor.profile_picture %}
+                            <img src="{{ doctor.profile_picture.url }}" alt="{{ doctor.user.get_full_name }}">
+                        {% else %}
+                            <i class="fas fa-user-md"></i>
+                        {% endif %}
+                    </div>
+                    <div class="availability-status">
+                        <span class="status-dot online"></span>
+                        <span>Available Today</span>
+                    </div>
+                </div>
+                
+                <div class="doctor-info-section">
+                    <h1>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h1>
+                    <div class="doctor-specialty-large">{{ doctor.specialty }}</div>
+                    
+                    <div class="doctor-badges-large">
+                        <span class="badge primary">
+                            <i class="fas fa-check-circle"></i> Verified Professional
+                        </span>
+                        <span class="badge success">
+                            <i class="fas fa-video"></i> Video Consultation
+                        </span>
+                        <span class="badge">
+                            <i class="fas fa-award"></i> Top Rated
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="doctor-action-section">
+                    <div class="consultation-fee-large">
+                        <div class="fee-amount">৳{{ doctor.consultation_fee }}</div>
+                        <div class="fee-label">per session</div>
+                    </div>
+                    <a href="{% url 'book_appointment' doctor.id %}" class="btn-book-large">
+                        <i class="fas fa-calendar-check"></i> Book Appointment
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Doctor Details Grid -->
+        <section class="doctor-details-grid">
+            <!-- About Section -->
+            <div class="detail-card">
+                <h2><i class="fas fa-user-circle"></i> About Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h2>
+                <div class="about-content">
+                    <p>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }} is a highly qualified {{ doctor.specialty }} with extensive experience in mental health care. With a compassionate approach and evidence-based treatment methods, they help patients achieve better mental wellness and improved quality of life.</p>
+                    
+                    <div class="about-highlights">
+                        <div class="highlight-item">
+                            <i class="fas fa-graduation-cap"></i>
+                            <div>
+                                <strong>Education</strong>
+                                <span>{{ doctor.qualification }}</span>
+                            </div>
+                        </div>
+                        <div class="highlight-item">
+                            <i class="fas fa-briefcase"></i>
+                            <div>
+                                <strong>Experience</strong>
+                                <span>{{ doctor.years_of_experience }} years</span>
+                            </div>
+                        </div>
+                        <div class="highlight-item">
+                            <i class="fas fa-language"></i>
+                            <div>
+                                <strong>Languages</strong>
+                                <span>English, Bengali</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expertise Section -->
+            <div class="detail-card">
+                <h2><i class="fas fa-brain"></i> Areas of Expertise</h2>
+                <div class="expertise-list">
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Depression & Anxiety Disorders</span>
+                    </div>
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Stress Management</span>
+                    </div>
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Relationship Counseling</span>
+                    </div>
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Trauma & PTSD</span>
+                    </div>
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Child & Adolescent Psychology</span>
+                    </div>
+                    <div class="expertise-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Cognitive Behavioral Therapy</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="detail-card">
+                <h2><i class="fas fa-chart-line"></i> Professional Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number">{{ completed_appointments }}+</div>
+                        <div class="stat-label">Completed Sessions</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ doctor.years_of_experience }}</div>
+                        <div class="stat-label">Years Experience</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Availability Section -->
+            <div class="detail-card">
+                <h2><i class="fas fa-calendar-alt"></i> Availability</h2>
+                <div class="availability-schedule">
+                    <div class="schedule-item">
+                        <span class="day">Monday - Friday</span>
+                        <span class="time">9:00 AM - 6:00 PM</span>
+                    </div>
+                    <div class="schedule-item">
+                        <span class="day">Saturday</span>
+                        <span class="time">10:00 AM - 2:00 PM</span>
+                    </div>
+                    <div class="schedule-item">
+                        <span class="day">Sunday</span>
+                        <span class="time">Closed</span>
+                    </div>
+                </div>
+                
+                {% if upcoming_appointments %}
+                <div class="upcoming-appointments">
+                    <h3>Upcoming Appointments</h3>
+                    <div class="appointment-list">
+                        {% for appointment in upcoming_appointments %}
+                        <div class="appointment-item">
+                            <div class="appointment-date">
+                                <i class="fas fa-calendar"></i>
+                                {{ appointment.appointment_date|date:"M d, Y" }}
+                            </div>
+                            <div class="appointment-time">
+                                <i class="fas fa-clock"></i>
+                                {{ appointment.appointment_date|date:"g:i A" }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Back Button -->
+        <div class="back-section">
+            <a href="{% url 'doctors_list' %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Doctors
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3><i class="fas fa-heart"></i> Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+                <div class="footer-links">
+                    <a href="{% url 'home' %}">Home</a>
+                    <a href="{% url 'doctors_list' %}">Find Doctors</a>
+                    <a href="{% url 'assessment' %}">Assessment</a>
+                    <a href="tel:16101">Emergency Support</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <style>
+        /* Doctor Details Page Styles */
+        .doctor-profile-header {
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .doctor-profile-card {
+            background: var(--gradient-primary);
+            color: var(--text-white);
+            padding: var(--spacing-2xl);
+            border-radius: var(--border-radius-xl);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: var(--spacing-xl);
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .doctor-profile-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .doctor-avatar-section {
+            position: relative;
+            z-index: 1;
+        }
+
+        .doctor-avatar-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: var(--primary-color);
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .doctor-avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .availability-status {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+
+        .doctor-info-section {
+            position: relative;
+            z-index: 1;
+        }
+
+        .doctor-info-section h1 {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .doctor-specialty-large {
+            font-size: var(--font-size-lg);
+            opacity: 0.9;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .doctor-badges-large {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+        }
+
+        .doctor-action-section {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .consultation-fee-large {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .consultation-fee-large .fee-amount {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+        }
+
+        .consultation-fee-large .fee-label {
+            font-size: var(--font-size-sm);
+            opacity: 0.8;
+        }
+
+        .btn-book-large {
+            background: var(--bg-primary);
+            color: var(--primary-color);
+            padding: var(--spacing-lg) var(--spacing-xl);
+            border-radius: var(--border-radius-lg);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            transition: var(--transition);
+        }
+
+        .btn-book-large:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            color: var(--primary-color);
+        }
+
+        .doctor-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .detail-card {
+            background: var(--bg-primary);
+            padding: var(--spacing-xl);
+            border-radius: var(--border-radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .detail-card h2 {
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .about-highlights {
+            margin-top: var(--spacing-lg);
+        }
+
+        .highlight-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .highlight-item:last-child {
+            border-bottom: none;
+        }
+
+        .highlight-item i {
+            color: var(--primary-color);
+            width: 20px;
+        }
+
+        .highlight-item strong {
+            display: block;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .expertise-list {
+            display: grid;
+            gap: var(--spacing-sm);
+        }
+
+        .expertise-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm);
+            background: var(--bg-light);
+            border-radius: var(--border-radius);
+            color: var(--text-secondary);
+        }
+
+        .expertise-item i {
+            color: var(--success-color);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-md);
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: var(--spacing-lg);
+            background: var(--bg-light);
+            border-radius: var(--border-radius-lg);
+        }
+
+        .stat-number {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+
+        .availability-schedule {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .schedule-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .schedule-item:last-child {
+            border-bottom: none;
+        }
+
+        .day {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .time {
+            color: var(--text-secondary);
+        }
+
+        .upcoming-appointments h3 {
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .appointment-list {
+            display: grid;
+            gap: var(--spacing-sm);
+        }
+
+        .appointment-item {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm);
+            background: var(--bg-light);
+            border-radius: var(--border-radius);
+            font-size: var(--font-size-sm);
+        }
+
+        .appointment-item i {
+            color: var(--primary-color);
+        }
+
+        .back-section {
+            text-align: center;
+            margin-bottom: var(--spacing-3xl);
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-xl);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--border-radius-lg);
+            transition: var(--transition);
+        }
+
+        .btn-back:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .doctor-profile-card {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: var(--spacing-lg);
+            }
+
+            .doctor-details-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+</html>

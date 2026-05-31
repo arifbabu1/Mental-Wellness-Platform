@@ -1,0 +1,2299 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultation Room - {{ appointment.patient.get_full_name }} & Dr. {{ appointment.doctor.user.get_full_name }}</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/consultation-room.css' %}">
+    <link rel="stylesheet" href="{% static 'css/consultation-prescription.css' %}">
+    <link rel="stylesheet" href="{% static 'css/consultation-room-inline.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Consultation Room - Image Design Match -->
+    <div class="consultation-room">
+        <!-- Main Content Area -->
+        <div class="consultation-container">
+            <!-- Video Section -->
+            <div class="video-section">
+                <!-- Main Video Display -->
+                <div class="main-video-wrapper">
+                    <div class="main-video-container">
+                        <video id="remoteVideo" autoplay playsinline class="main-video"></video>
+                                            </div>
+                </div>
+
+                <!-- Self Video (Small) -->
+                <div class="self-video-wrapper">
+                    <div class="self-video-container">
+                        <video id="localVideo" autoplay muted playsinline class="self-video"></video>
+                        <div class="self-video-overlay">
+                            <span class="self-name">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Controls -->
+            <div class="bottom-controls">
+                <div class="controls-container">
+                    <!-- Left Controls -->
+                    <div class="controls-left">
+                        <button id="toggleMic" class="control-btn" title="Microphone">
+                            <i class="fas fa-microphone-slash"></i>
+                        </button>
+                        <button id="toggleVideo" class="control-btn" title="Video">
+                            <i class="fas fa-video-slash"></i>
+                        </button>
+                        <button id="toggleScreen" class="control-btn" title="Share Screen">
+                            <i class="fas fa-desktop"></i>
+                        </button>
+                        <button id="raiseHand" class="control-btn" title="Raise Hand">
+                            <i class="fas fa-hand"></i>
+                        </button>
+                    </div>
+
+                    <!-- Center Timer -->
+                    <div class="controls-center">
+                        <div class="call-duration" id="callTimer">00:00</div>
+                    </div>
+
+                    <!-- Right Controls -->
+                    <div class="controls-right">
+                        <button id="chatToggle" class="control-btn" title="Chat">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                        <button id="participantsToggle" class="control-btn" title="Participants">
+                            <i class="fas fa-users"></i>
+                        </button>
+                        <button id="endCall" class="control-btn end-call-btn" title="End Call">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-container" id="chatPanel" style="display: none;">
+            <div class="chat-header">
+                <h3>Chat</h3>
+                <button id="closeChat" class="chat-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="system-message">
+                    <strong>System:</strong> Welcome to consultation room
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
+                <button id="sendMessage" class="send-btn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Participants Panel -->
+        <div class="participants-panel" id="participantsPanel" style="display: none;">
+            <div class="panel-header">
+                <h3>Participants</h3>
+                <button id="closeParticipants" class="panel-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="participants-list" id="participantsList">
+                <!-- Remote Participant -->
+                <div class="participant-item" id="remoteParticipant">
+                    <div class="participant-avatar">
+                        <div class="remote-avatar" id="remoteAvatar">
+                            {% if request.user.role == 'patient' %}
+                                Dr. {{ appointment.doctor.user.get_full_name }}
+                            {% else %}
+                                {{ appointment.patient.get_full_name|default:appointment.patient.username }}
+                            {% endif %}
+                        </div>
+                        <div class="speaking-indicator" id="remoteSpeaking">
+                            <i class="fas fa-microphone" id="remoteMicIcon"></i>
+                        </div>
+                    </div>
+                    <div class="participant-info">
+                        <div class="participant-name">
+                            {% if request.user.role == 'patient' %}
+                                Dr. {{ appointment.doctor.user.get_full_name }}
+                            {% else %}
+                                {{ appointment.patient.get_full_name|default:appointment.patient.username }}
+                            {% endif %}
+                        </div>
+                        <div class="participant-status">
+                            <span class="status-dot offline"></span>
+                            <span id="remoteStatus">Not Connected</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Self Participant -->
+                <div class="participant-item self-participant">
+                    <div class="participant-avatar">
+                        <div class="self-avatar" id="selfAvatar">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </div>
+                        <div class="speaking-indicator" id="selfSpeaking">
+                            <i class="fas fa-microphone-slash" id="selfMicIcon"></i>
+                        </div>
+                    </div>
+                    <div class="participant-info">
+                        <div class="participant-name">You</div>
+                        <div class="participant-status">
+                            <span class="status-dot online"></span>
+                            <span id="selfStatus">Voice Off</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Panel - Only for doctors -->
+        {% if request.user.role == 'doctor' %}
+        <div class="doctor-panel">
+            <div class="doctor-panel-header">
+                <h3>Doctor's Consultation Panel</h3>
+                <div class="panel-actions">
+                    <input type="hidden" name="daily_tasks_json" id="dailyTasksJson" value="[]">
+                    <button id="saveAllData" class="btn-base btn-primary">
+                        <i class="fas fa-save"></i> Save All
+                    </button>
+                </div>
+            </div>
+            
+            <div class="doctor-tabs">
+                <button class="doctor-tab-btn active" data-tab="notes">
+                    <i class="fas fa-notes-medical"></i> Consultation Notes
+                </button>
+                <button class="doctor-tab-btn" data-tab="prescription">
+                    <i class="fas fa-prescription"></i> Prescription
+                </button>
+                <button class="doctor-tab-btn" data-tab="tasks">
+                    <i class="fas fa-tasks"></i> Daily Tasks
+                </button>
+            </div>
+            
+            <!-- Consultation Notes Tab -->
+            <div class="doctor-tab-content active" id="notes-tab">
+                <div class="consultation-notes-section">
+                    <h4>Patient Symptoms & Consultation Notes</h4>
+                    <div class="notes-form">
+                        <div class="form-group">
+                            <label>Patient Symptoms</label>
+                            <textarea id="patientSymptoms" placeholder="Describe patient's symptoms, complaints, and observations..." rows="4"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Clinical Assessment</label>
+                            <textarea id="clinicalAssessment" placeholder="Clinical findings, diagnosis, and assessment..." rows="4"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Treatment Plan</label>
+                            <textarea id="treatmentPlan" placeholder="Recommended treatment approach and next steps..." rows="4"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Follow-up Notes</label>
+                            <textarea id="followUpNotes" placeholder="Follow-up instructions and recommendations..." rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prescription Tab -->
+            <div class="doctor-tab-content" id="prescription-tab">
+                <div class="prescription-section">
+                    <h4>Medical Prescription</h4>
+                    <div class="prescription-form">
+                        <div class="form-group">
+                            <label>Prescription Details</label>
+                            <textarea id="prescriptionDetails" placeholder="Enter overall prescription details and instructions..." rows="3"></textarea>
+                        </div>
+                        
+                        <div class="medications-section">
+                            <h5>Medications</h5>
+                            <div id="medicationsList">
+                                <div class="medication-item">
+                                    <input type="text" placeholder="Medication name" class="med-name">
+                                    <input type="text" placeholder="Dosage (e.g., 500mg)" class="med-dosage">
+                                    <input type="text" placeholder="Frequency (e.g., 2x daily)" class="med-frequency">
+                                    <input type="text" placeholder="Duration (e.g., 7 days)" class="med-duration">
+                                    <button onclick="removeMedication(this)" class="btn-remove">×</button>
+                                </div>
+                            </div>
+                            <button type="button" onclick="addMedication()" class="btn-add-medication">
+                                <i class="fas fa-plus"></i> Add Medication
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Special Instructions</label>
+                            <textarea id="prescriptionInstructions" placeholder="Special instructions for taking medications..." rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Daily Tasks Tab -->
+            <div class="doctor-tab-content" id="tasks-tab">
+                <div class="daily-tasks-section">
+                    <h4>Daily Health Tasks for Patient</h4>
+                    
+                    <div class="task-categories">
+                        <button class="task-category-btn active" data-category="all">All Tasks</button>
+                        <button class="task-category-btn" data-category="physical">Physical</button>
+                        <button class="task-category-btn" data-category="diet">Diet</button>
+                        <button class="task-category-btn" data-category="medical">Medical</button>
+                        <button class="task-category-btn" data-category="mental">Mental</button>
+                        <button class="task-category-btn" data-category="lifestyle">Lifestyle</button>
+                    </div>
+                    
+                    <div class="task-templates" id="taskTemplates">
+                        <!-- Task templates will be loaded here -->
+                    </div>
+                    
+                    <div class="custom-task-section">
+                        <h5>Create Custom Task</h5>
+                        <div class="custom-task-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <input type="text" id="customTaskTitle" placeholder="Task title">
+                                </div>
+                                <div class="form-group">
+                                    <select id="customTaskCategory">
+                                        <option value="physical">Physical</option>
+                                        <option value="diet">Diet</option>
+                                        <option value="medical">Medical</option>
+                                        <option value="mental">Mental</option>
+                                        <option value="lifestyle">Lifestyle</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <textarea id="customTaskDescription" placeholder="Task description..." rows="2"></textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Duration (days)</label>
+                                    <input type="number" id="customTaskDuration" value="7" min="1" max="30">
+                                </div>
+                                <div class="form-group">
+                                    <label>Priority</label>
+                                    <select id="customTaskPriority">
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" id="addCustomTaskBtn" class="btn-add-task">
+                                <i class="fas fa-plus"></i> Add Custom Task
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="selected-tasks-summary">
+                        <h5>Selected Tasks (<span id="selectedTasksCount">0</span>)</h5>
+                        <div id="selectedTasksList">
+                            <p class="no-tasks-message">No tasks selected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- End Call Modal -->
+    <div id="endCallModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>End Consultation</h3>
+            <p>Are you sure you want to end this consultation?</p>
+            <div class="modal-actions">
+                <button id="cancelEndCall" class="btn-base">Cancel</button>
+                <button id="confirmEndCall" class="btn-base btn-danger">End Call</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fully Functional Consultation Room
+        class ConsultationRoom {
+            constructor() {
+                // State
+                this.localStream = null;
+                this.remoteStream = null;
+                this.isVideoOn = false;  // Start disabled
+                this.isAudioOn = false;  // Start disabled
+                this.isScreenSharing = false;
+                this.isConnected = false;
+                
+                // Room info
+                this.roomId = '{{ appointment.meeting_id }}';
+                this.statusUrl = `/consultation/{{ appointment.id }}/status/`;
+                this.userId = '{{ request.user.id }}';
+                this.userName = '{{ request.user.get_full_name|default:request.user.username }}';
+                this.userRole = '{{ request.user.role }}';
+                
+                // Timer
+                this.startTime = Date.now();
+                this.timerInterval = null;
+                this.statusInterval = null;
+                
+                // Initialize
+                this.initializeElements();
+                this.initializeEventListeners();
+                this.initializeWebRTC();
+            }
+            
+            initializeElements() {
+                // Video elements
+                this.localVideo = document.getElementById('localVideo');
+                this.remoteVideo = document.getElementById('remoteVideo');
+                
+                // Control buttons
+                this.toggleVideoBtn = document.getElementById('toggleVideo');
+                this.toggleMicBtn = document.getElementById('toggleMic');
+                this.toggleScreenBtn = document.getElementById('toggleScreen');
+                this.raiseHandBtn = document.getElementById('raiseHand');
+                this.endCallBtn = document.getElementById('endCall');
+                this.chatToggleBtn = document.getElementById('chatToggle');
+                this.participantsToggleBtn = document.getElementById('participantsToggle');
+                
+                // Panels
+                this.chatPanel = document.getElementById('chatPanel');
+                this.participantsPanel = document.getElementById('participantsPanel');
+                this.endCallModal = document.getElementById('endCallModal');
+                this.cancelEndCallBtn = document.getElementById('cancelEndCall');
+                this.confirmEndCallBtn = document.getElementById('confirmEndCall');
+                
+                // Chat elements
+                this.chatMessages = document.getElementById('chatMessages');
+                this.chatInput = document.getElementById('chatInput');
+                this.sendMessageBtn = document.getElementById('sendMessage');
+                
+                // Timer
+                this.callTimer = document.getElementById('callTimer');
+                
+                // Status elements
+                this.remoteStatus = document.getElementById('remoteStatus');
+                this.selfStatus = document.getElementById('selfStatus');
+                this.remoteSpeaking = document.getElementById('remoteSpeaking');
+                this.selfSpeaking = document.getElementById('selfSpeaking');
+                
+                // Participant elements
+                this.remoteParticipant = document.getElementById('remoteParticipant');
+                this.selfParticipant = document.querySelector('.self-participant');
+                
+                // Connection state
+                this.isConnected = false;
+                this.remoteUserConnected = false;
+            }
+            
+            initializeEventListeners() {
+                console.log('Initializing event listeners...');
+                
+                // Video controls
+                if (this.toggleVideoBtn) {
+                    this.toggleVideoBtn.addEventListener('click', () => this.toggleVideo());
+                    console.log('Video button listener added');
+                } else {
+                    console.error('Video button not found');
+                }
+                
+                if (this.toggleMicBtn) {
+                    this.toggleMicBtn.addEventListener('click', () => this.toggleAudio());
+                    console.log('Mic button listener added');
+                } else {
+                    console.error('Mic button not found');
+                }
+                
+                if (this.toggleScreenBtn) {
+                    this.toggleScreenBtn.addEventListener('click', () => this.toggleScreen());
+                    console.log('Screen button listener added');
+                } else {
+                    console.error('Screen button not found');
+                }
+                
+                if (this.raiseHandBtn) {
+                    this.raiseHandBtn.addEventListener('click', () => this.toggleRaiseHand());
+                    console.log('Raise hand button listener added');
+                } else {
+                    console.error('Raise hand button not found');
+                }
+                
+                if (this.endCallBtn) {
+                    this.endCallBtn.addEventListener('click', () => this.showEndCallModal());
+                    console.log('End call button listener added');
+                } else {
+                    console.error('End call button not found');
+                }
+                
+                // Chat controls
+                if (this.sendMessageBtn) {
+                    this.sendMessageBtn.addEventListener('click', () => this.sendMessage());
+                    console.log('Send message button listener added');
+                }
+                if (this.chatInput) {
+                    this.chatInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') this.sendMessage();
+                    });
+                    console.log('Chat input listener added');
+                }
+                
+                // Panel toggle buttons
+                if (this.chatToggleBtn) {
+                    this.chatToggleBtn.addEventListener('click', () => this.showChatPanel());
+                    console.log('Chat toggle button listener added');
+                }
+                if (this.participantsToggleBtn) {
+                    this.participantsToggleBtn.addEventListener('click', () => this.showParticipantsPanel());
+                    console.log('Participants toggle button listener added');
+                }
+                
+                // Doctor panel tabs (only for doctors)
+                if (this.userRole === 'doctor') {
+                    this.initializeDoctorPanel();
+                    
+                    // Add custom task button event listener
+                    const addCustomTaskBtn = document.getElementById('addCustomTaskBtn');
+                    if (addCustomTaskBtn) {
+                        addCustomTaskBtn.addEventListener('click', () => {
+                            addCustomTask();
+                        });
+                        console.log('Custom task button listener added');
+                    }
+                }
+                
+                // Modal controls
+                if (this.cancelEndCallBtn) {
+                    this.cancelEndCallBtn.addEventListener('click', () => this.hideEndCallModal());
+                    console.log('Cancel end call button listener added');
+                }
+                if (this.confirmEndCallBtn) {
+                    this.confirmEndCallBtn.addEventListener('click', () => this.endCall());
+                    console.log('Confirm end call button listener added');
+                }
+                
+                // Chat and Participants close buttons
+                const closeChatBtn = document.getElementById('closeChat');
+                if (closeChatBtn) {
+                    closeChatBtn.addEventListener('click', () => this.hideChatPanel());
+                    console.log('Close chat button listener added');
+                }
+                
+                const closeParticipantsBtn = document.getElementById('closeParticipants');
+                if (closeParticipantsBtn) {
+                    closeParticipantsBtn.addEventListener('click', () => this.hideParticipantsPanel());
+                    console.log('Close participants button listener added');
+                }
+                
+                console.log('Event listeners initialized successfully');
+            }
+            
+            startTimer() {
+                console.log('Starting timer...');
+                this.startTime = Date.now();
+                
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                }
+                
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.startTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    
+                    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    if (this.callTimer) {
+                        this.callTimer.textContent = formattedTime;
+                    } else {
+                        console.error('Timer element not found');
+                    }
+                }, 1000);
+                
+                console.log('Timer started successfully');
+            }
+            
+            stopTimer() {
+                console.log('Stopping timer...');
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                    console.log('Timer stopped');
+                }
+            }
+            
+            async initializeWebRTC() {
+                try {
+                    // Start with fallback video (camera/mic disabled by default)
+                    this.createFallbackVideo();
+                    
+                    // Set initial connection status - current user is connected, remote user is not
+                    this.setConnectionStatus(true); // Current user is connected
+                    this.setRemoteUserConnected(false); // Remote user not connected initially
+                    this.updateConnectionStatus('Connected');
+                    this.addSystemMessage('You have joined the consultation room. Waiting for other participant...');
+                    
+                    // Start timer
+                    this.startTimer();
+                    
+                    // Update participant status immediately
+                    setTimeout(() => {
+                        this.updateParticipantStatus();
+                        this.refreshParticipantStatus();
+                    }, 500);
+                    this.statusInterval = setInterval(() => this.refreshParticipantStatus(), 10000);
+                    
+                    // Don't simulate remote connection - wait for real connection
+                    
+                } catch (error) {
+                    console.error('Error initializing consultation room:', error);
+                    this.updateConnectionStatus('Failed to connect');
+                    this.addSystemMessage('Failed to initialize consultation room.');
+                }
+            }
+
+            async refreshParticipantStatus() {
+                try {
+                    const response = await fetch(this.statusUrl, {
+                        headers: {
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        }
+                    });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (!data.success) return;
+
+                    const remoteJoined = this.userRole === 'doctor' ? data.patient_joined : data.doctor_joined;
+                    this.setRemoteUserConnected(Boolean(remoteJoined));
+                    if (data.consultation_status === 'in_progress') {
+                        this.updateConnectionStatus('In progress');
+                    } else if (remoteJoined) {
+                        this.updateConnectionStatus('Waiting');
+                    }
+                } catch (error) {
+                    console.warn('Unable to refresh participant status:', error);
+                }
+            }
+            
+            createFallbackVideo() {
+                // Create a fallback video for the local user
+                const canvas = document.createElement('canvas');
+                canvas.width = 1280;
+                canvas.height = 720;
+                const ctx = canvas.getContext('2d');
+                
+                // Create animated placeholder
+                let frame = 0;
+                const animate = () => {
+                    ctx.fillStyle = '#1a1a2e';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Add animated text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Camera/Microphone Not Available', canvas.width/2, canvas.height/2 - 20);
+                    ctx.font = '18px Arial';
+                    ctx.fillText('Please check your browser permissions', canvas.width/2, canvas.height/2 + 20);
+                    
+                    // Add user info
+                    ctx.fillStyle = '#4CAF50';
+                    ctx.beginPath();
+                    ctx.arc(canvas.width - 50, 50, 20, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    frame++;
+                    if (this.localVideo) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+                
+                animate();
+                
+                // Create a MediaStream from canvas
+                const stream = canvas.captureStream(30);
+                this.localVideo.srcObject = stream;
+            }
+            
+            simulateRemoteConnection() {
+                // Create a simulated remote video stream
+                this.setRemoteUserConnected(true);
+                this.addSystemMessage('Remote participant connected successfully!');
+                this.isConnected = true;
+                
+                // Create a placeholder video for remote participant
+                const canvas = document.createElement('canvas');
+                canvas.width = 1280;
+                canvas.height = 720;
+                const ctx = canvas.getContext('2d');
+                
+                // Create animated placeholder
+                let frame = 0;
+                const animate = () => {
+                    // Background
+                    ctx.fillStyle = '#2c3e50';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Add animated text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '24px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Remote Participant', canvas.width/2, canvas.height/2 - 20);
+                    ctx.font = '16px Inter';
+                    ctx.fillText('Consultation in progress', canvas.width/2, canvas.height/2 + 20);
+                    
+                    frame++;
+                    if (this.isConnected) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+                
+                animate();
+                
+                // Create a MediaStream from canvas
+                const stream = canvas.captureStream(30);
+                this.remoteVideo.srcObject = stream;
+            }
+            
+            async toggleVideo() {
+                console.log('Toggling video...');
+                try {
+                    if (!this.isVideoOn) {
+                        console.log('Enabling video...');
+                        // Enable video
+                        if (!this.localStream) {
+                            // Get media stream if not exists
+                            this.localStream = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    width: { ideal: 1280 },
+                                    height: { ideal: 720 }
+                                },
+                                audio: this.isAudioOn ? {
+                                    echoCancellation: true,
+                                    noiseSuppression: true,
+                                    autoGainControl: true
+                                } : false
+                            });
+                        } else {
+                            // Add video track to existing stream
+                            const videoStream = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    width: { ideal: 1280 },
+                                    height: { ideal: 720 }
+                                }
+                            });
+                            const videoTrack = videoStream.getVideoTracks()[0];
+                            this.localStream.addTrack(videoTrack);
+                        }
+                        
+                        // Display video
+                        if (this.localVideo) {
+                            this.localVideo.srcObject = this.localStream;
+                        }
+                        this.isVideoOn = true;
+                        
+                        if (this.toggleVideoBtn) {
+                            this.toggleVideoBtn.classList.add('active');
+                            const icon = this.toggleVideoBtn.querySelector('i');
+                            if (icon) {
+                                icon.className = 'fas fa-video';
+                            }
+                        }
+                        
+                        this.addSystemMessage('Camera enabled');
+                        console.log('Video enabled successfully');
+                        
+                    } else {
+                        console.log('Disabling video...');
+                        // Disable video
+                        if (this.localStream) {
+                            const videoTracks = this.localStream.getVideoTracks();
+                            videoTracks.forEach(track => {
+                                track.stop();
+                                this.localStream.removeTrack(track);
+                            });
+                        }
+                        
+                        this.isVideoOn = false;
+                        
+                        if (this.toggleVideoBtn) {
+                            this.toggleVideoBtn.classList.remove('active');
+                            const icon = this.toggleVideoBtn.querySelector('i');
+                            if (icon) {
+                                icon.className = 'fas fa-video-slash';
+                            }
+                        }
+                        
+                        // Show fallback video
+                        this.createFallbackVideo();
+                        
+                        this.addSystemMessage('Camera disabled');
+                        console.log('Video disabled successfully');
+                    }
+                } catch (error) {
+                    console.error('Error toggling video:', error);
+                    this.addSystemMessage('Failed to toggle camera. Please check permissions.');
+                }
+            }
+            
+            async toggleAudio() {
+                console.log('Toggling audio...');
+                try {
+                    if (!this.isAudioOn) {
+                        console.log('Enabling audio...');
+                        // Enable audio
+                        if (!this.localStream) {
+                            // Get media stream if not exists
+                            this.localStream = await navigator.mediaDevices.getUserMedia({
+                                video: this.isVideoOn ? {
+                                    width: { ideal: 1280 },
+                                    height: { ideal: 720 }
+                                } : false,
+                                audio: {
+                                    echoCancellation: true,
+                                    noiseSuppression: true,
+                                    autoGainControl: true
+                                }
+                            });
+                        } else {
+                            // Add audio track to existing stream
+                            const audioStream = await navigator.mediaDevices.getUserMedia({
+                                audio: {
+                                    echoCancellation: true,
+                                    noiseSuppression: true,
+                                    autoGainControl: true
+                                }
+                            });
+                            const audioTrack = audioStream.getAudioTracks()[0];
+                            this.localStream.addTrack(audioTrack);
+                        }
+                        
+                        // Update video if needed
+                        if (this.isVideoOn && this.localVideo) {
+                            this.localVideo.srcObject = this.localStream;
+                        }
+                        
+                        this.isAudioOn = true;
+                        
+                        if (this.toggleMicBtn) {
+                            this.toggleMicBtn.classList.add('active');
+                            const icon = this.toggleMicBtn.querySelector('i');
+                            if (icon) {
+                                icon.className = 'fas fa-microphone';
+                            }
+                        }
+                        
+                        this.updateSelfSpeakingIndicator(true);
+                        this.addSystemMessage('Microphone enabled');
+                        console.log('Audio enabled successfully');
+                        
+                    } else {
+                        console.log('Disabling audio...');
+                        // Disable audio
+                        if (this.localStream) {
+                            const audioTracks = this.localStream.getAudioTracks();
+                            audioTracks.forEach(track => {
+                                track.stop();
+                                this.localStream.removeTrack(track);
+                            });
+                        }
+                        
+                        this.isAudioOn = false;
+                        
+                        if (this.toggleMicBtn) {
+                            this.toggleMicBtn.classList.remove('active');
+                            const icon = this.toggleMicBtn.querySelector('i');
+                            if (icon) {
+                                icon.className = 'fas fa-microphone-slash';
+                            }
+                        }
+                        
+                        this.updateSelfSpeakingIndicator(false);
+                        this.addSystemMessage('Microphone disabled');
+                        console.log('Audio disabled successfully');
+                    }
+                } catch (error) {
+                    console.error('Error toggling audio:', error);
+                    this.addSystemMessage('Failed to toggle microphone. Please check permissions.');
+                }
+            }
+            
+            updateSelfSpeakingIndicator(isSpeaking) {
+                const selfSpeaking = document.getElementById('selfSpeaking');
+                if (selfSpeaking) {
+                    if (isSpeaking) {
+                        selfSpeaking.classList.add('active');
+                        document.getElementById('selfMicIcon').className = 'fas fa-microphone';
+                    } else {
+                        selfSpeaking.classList.remove('active');
+                        document.getElementById('selfMicIcon').className = 'fas fa-microphone-slash';
+                    }
+                }
+            }
+            
+            updateRemoteSpeakingIndicator(isSpeaking) {
+                const remoteSpeaking = document.getElementById('remoteSpeaking');
+                if (remoteSpeaking) {
+                    if (isSpeaking) {
+                        remoteSpeaking.classList.add('active');
+                        document.getElementById('remoteMicIcon').className = 'fas fa-microphone';
+                    } else {
+                        remoteSpeaking.classList.remove('active');
+                        document.getElementById('remoteMicIcon').className = 'fas fa-microphone-slash';
+                    }
+                }
+            }
+            
+            async toggleScreen() {
+                try {
+                    if (!this.isScreenSharing) {
+                        // Start screen sharing
+                        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                            video: true,
+                            audio: true
+                        });
+                        
+                        // Store original video track if exists
+                        this.originalVideoTrack = null;
+                        if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+                            this.originalVideoTrack = this.localStream.getVideoTracks()[0];
+                            this.localStream.removeTrack(this.originalVideoTrack);
+                        }
+                        
+                        // Add screen share track
+                        const screenTrack = screenStream.getVideoTracks()[0];
+                        
+                        // Create or update stream
+                        if (!this.localStream) {
+                            this.localStream = new MediaStream();
+                            // Add audio if microphone is enabled
+                            if (this.isAudioOn) {
+                                try {
+                                    const audioStream = await navigator.mediaDevices.getUserMedia({
+                                        audio: {
+                                            echoCancellation: true,
+                                            noiseSuppression: true,
+                                            autoGainControl: true
+                                        }
+                                    });
+                                    const audioTrack = audioStream.getAudioTracks()[0];
+                                    this.localStream.addTrack(audioTrack);
+                                } catch (audioError) {
+                                    console.log('Audio not available for screen share');
+                                }
+                            }
+                        }
+                        
+                        this.localStream.addTrack(screenTrack);
+                        
+                        // Update video display
+                        if (this.localVideo) {
+                            this.localVideo.srcObject = this.localStream;
+                        }
+                        
+                        // Handle screen share end
+                        screenTrack.onended = () => {
+                            this.stopScreenSharing();
+                        };
+                        
+                        this.isScreenSharing = true;
+                        this.toggleScreenBtn.classList.add('active');
+                        this.addSystemMessage('Screen sharing started');
+                        
+                    } else {
+                        this.stopScreenSharing();
+                    }
+                } catch (error) {
+                    console.error('Error sharing screen:', error);
+                    this.addSystemMessage('Screen sharing failed. Please check permissions.');
+                }
+            }
+            
+            async stopScreenSharing() {
+                // Remove screen share track
+                if (this.localStream) {
+                    const videoTracks = this.localStream.getVideoTracks();
+                    videoTracks.forEach(track => {
+                        if (track.label.includes('screen') || track.kind === 'video') {
+                            track.stop();
+                            this.localStream.removeTrack(track);
+                        }
+                    });
+                }
+                
+                // Restore original video track if video was enabled
+                if (this.isVideoOn && this.originalVideoTrack) {
+                    try {
+                        // Get fresh camera track
+                        const cameraStream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        });
+                        const cameraTrack = cameraStream.getVideoTracks()[0];
+                        this.localStream.addTrack(cameraTrack);
+                        
+                        // Update video display
+                        if (this.localVideo) {
+                            this.localVideo.srcObject = this.localStream;
+                        }
+                    } catch (error) {
+                        console.log('Camera not available after screen share');
+                        this.createFallbackVideo();
+                    }
+                } else if (!this.isVideoOn) {
+                    // Show fallback if video is disabled
+                    this.createFallbackVideo();
+                }
+                
+                this.isScreenSharing = false;
+                this.toggleScreenBtn.classList.remove('active');
+                this.addSystemMessage('Screen sharing stopped');
+            }
+            
+            toggleRaiseHand() {
+                console.log('Toggling raise hand...');
+                const isRaised = this.raiseHandBtn.classList.contains('active');
+                
+                if (isRaised) {
+                    console.log('Lowering hand...');
+                    this.raiseHandBtn.classList.remove('active');
+                    this.addSystemMessage('Hand lowered');
+                    console.log('Hand lowered successfully');
+                } else {
+                    console.log('Raising hand...');
+                    this.raiseHandBtn.classList.add('active');
+                    this.addSystemMessage('Hand raised');
+                    console.log('Hand raised successfully');
+                }
+            }
+            
+            startTimer() {
+                this.startTime = Date.now();
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.startTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    
+                    const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    if (this.callTimer) {
+                        this.callTimer.textContent = display;
+                    }
+                }, 1000);
+            }
+            
+            stopTimer() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+            }
+            
+            sendMessage() {
+                console.log('Sending message...');
+                const message = this.chatInput.value.trim();
+                if (message && this.chatMessages) {
+                    console.log('Message:', message);
+                    this.addChatMessage(this.userName, message, new Date().toISOString());
+                    this.chatInput.value = '';
+                    console.log('Message sent successfully');
+                } else {
+                    console.log('No message or chat messages container not found');
+                }
+            }
+            
+            addChatMessage(sender, message, timestamp) {
+                if (!this.chatMessages) return;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message';
+                messageDiv.innerHTML = `
+                    <div class="message-info">
+                        <span class="sender">${sender}:</span>
+                        <span class="timestamp">${new Date(timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="message-text">${message}</div>
+                `;
+                this.chatMessages.appendChild(messageDiv);
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+            
+            showChatPanel() {
+                const chatPanel = document.getElementById('chatPanel');
+                const participantsPanel = document.getElementById('participantsPanel');
+                
+                if (chatPanel) {
+                    chatPanel.classList.add('show');
+                    chatPanel.style.display = 'flex';
+                }
+                
+                if (participantsPanel) {
+                    participantsPanel.classList.remove('show');
+                    participantsPanel.style.display = 'none';
+                }
+                
+                this.addSystemMessage('Chat panel opened');
+            }
+            
+            hideChatPanel() {
+                const chatPanel = document.getElementById('chatPanel');
+                if (chatPanel) {
+                    chatPanel.classList.remove('show');
+                    chatPanel.style.display = 'none';
+                }
+                this.addSystemMessage('Chat panel closed');
+            }
+            
+            showParticipantsPanel() {
+                const participantsPanel = document.getElementById('participantsPanel');
+                const chatPanel = document.getElementById('chatPanel');
+                
+                if (participantsPanel) {
+                    participantsPanel.classList.add('show');
+                    participantsPanel.style.display = 'flex';
+                }
+                
+                if (chatPanel) {
+                    chatPanel.classList.remove('show');
+                    chatPanel.style.display = 'none';
+                }
+            }
+            
+            showChatPanel() {
+                const chatPanel = document.getElementById('chatPanel');
+                const participantsPanel = document.getElementById('participantsPanel');
+                
+                if (chatPanel) {
+                    chatPanel.classList.add('show');
+                    chatPanel.style.display = 'flex';
+                }
+                
+                if (participantsPanel) {
+                    participantsPanel.classList.remove('show');
+                    participantsPanel.style.display = 'none';
+                }
+                
+                this.addSystemMessage('Chat panel opened');
+            }
+            
+            hideChatPanel() {
+                const chatPanel = document.getElementById('chatPanel');
+                if (chatPanel) {
+                    chatPanel.classList.remove('show');
+                    chatPanel.style.display = 'none';
+                }
+                this.addSystemMessage('Chat panel closed');
+            }
+            
+            showParticipantsPanel() {
+                const participantsPanel = document.getElementById('participantsPanel');
+                const chatPanel = document.getElementById('chatPanel');
+                
+                if (participantsPanel) {
+                    participantsPanel.classList.add('show');
+                    participantsPanel.style.display = 'flex';
+                }
+                
+                if (chatPanel) {
+                    chatPanel.classList.remove('show');
+                    chatPanel.style.display = 'none';
+                }
+                
+                this.addSystemMessage('Participants panel opened');
+                this.updateParticipantStatus();
+            }
+            
+            updateParticipantStatus() {
+                // Update remote participant status
+                if (this.remoteParticipant) {
+                    if (this.remoteUserConnected) {
+                        this.remoteParticipant.classList.remove('disconnected', 'connecting');
+                        this.remoteParticipant.classList.add('connected');
+                        if (this.remoteStatus) {
+                            this.remoteStatus.textContent = 'Connected';
+                        }
+                        // Update status dot to green
+                        const remoteStatusDot = this.remoteParticipant.querySelector('.status-dot');
+                        if (remoteStatusDot) {
+                            remoteStatusDot.classList.remove('offline');
+                            remoteStatusDot.classList.add('online');
+                        }
+                    } else {
+                        this.remoteParticipant.classList.remove('connected', 'connecting');
+                        this.remoteParticipant.classList.add('disconnected');
+                        if (this.remoteStatus) {
+                            this.remoteStatus.textContent = 'Not Connected';
+                        }
+                        // Update status dot to red
+                        const remoteStatusDot = this.remoteParticipant.querySelector('.status-dot');
+                        if (remoteStatusDot) {
+                            remoteStatusDot.classList.remove('online');
+                            remoteStatusDot.classList.add('offline');
+                        }
+                    }
+                }
+                
+                // Update self participant status
+                if (this.selfParticipant) {
+                    if (this.isConnected) {
+                        this.selfParticipant.classList.remove('disconnected', 'connecting');
+                        this.selfParticipant.classList.add('connected');
+                        if (this.selfStatus) {
+                            this.selfStatus.textContent = 'Connected';
+                        }
+                        // Update status dot to green
+                        const selfStatusDot = this.selfParticipant.querySelector('.status-dot');
+                        if (selfStatusDot) {
+                            selfStatusDot.classList.remove('offline');
+                            selfStatusDot.classList.add('online');
+                        }
+                    } else {
+                        this.selfParticipant.classList.remove('connected', 'disconnected');
+                        this.selfParticipant.classList.add('connecting');
+                        if (this.selfStatus) {
+                            this.selfStatus.textContent = 'Not Connected';
+                        }
+                        // Update status dot to red
+                        const selfStatusDot = this.selfParticipant.querySelector('.status-dot');
+                        if (selfStatusDot) {
+                            selfStatusDot.classList.remove('online');
+                            selfStatusDot.classList.add('offline');
+                        }
+                    }
+                }
+            }
+            
+            setRemoteUserConnected(connected) {
+                this.remoteUserConnected = connected;
+                this.updateParticipantStatus();
+            }
+            
+            setConnectionStatus(connected) {
+                this.isConnected = connected;
+                this.updateParticipantStatus();
+            }
+            
+            hideParticipantsPanel() {
+                const participantsPanel = document.getElementById('participantsPanel');
+                if (participantsPanel) {
+                    participantsPanel.classList.remove('show');
+                    participantsPanel.style.display = 'none';
+                }
+                this.addSystemMessage('Participants panel closed');
+            }
+            
+            addSystemMessage(message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'system-message';
+                messageDiv.innerHTML = `<strong>System:</strong> ${message}`;
+                this.chatMessages.appendChild(messageDiv);
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+            
+            showEndCallModal() {
+                console.log('Showing end call modal...');
+                if (this.endCallModal) {
+                    this.endCallModal.style.display = 'flex';
+                    console.log('End call modal shown');
+                } else {
+                    console.error('End call modal not found');
+                }
+            }
+            
+            hideEndCallModal() {
+                console.log('Hiding end call modal...');
+                if (this.endCallModal) {
+                    this.endCallModal.style.display = 'none';
+                    console.log('End call modal hidden');
+                } else {
+                    console.error('End call modal not found');
+                }
+            }
+            
+            async endCall() {
+                console.log('Ending call...');
+
+                if (this.userRole === 'doctor') {
+                    try {
+                        await this.saveAllDoctorData();
+                    } catch (error) {
+                        console.error('Auto-save before ending call failed:', error);
+                    }
+                }
+
+                const finishUrl = this.userRole === 'doctor'
+                    ? `/consultation/{{ appointment.id }}/complete/`
+                    : `/consultation/{{ appointment.id }}/leave/`;
+
+                try {
+                    await fetch(finishUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({})
+                    });
+                } catch (error) {
+                    console.error('Complete consultation request failed:', error);
+                }
+                
+                // Stop media streams
+                this.cleanup();
+                
+                // Hide modal
+                this.hideEndCallModal();
+                
+                // Redirect based on user role
+                const redirectUrl = this.userRole === 'doctor' ? '/doctor/dashboard/' : '/patient/dashboard/';
+                console.log('Redirecting to:', redirectUrl);
+                window.location.href = redirectUrl;
+            }
+            
+            updateConnectionStatus(status) {
+                // Connection status overlay was removed, so just log the status
+                console.log('Connection status:', status);
+            }
+            
+            saveNotes() {
+                if (!this.consultationNotes) {
+                    this.addSystemMessage('Notes area not available');
+                    return;
+                }
+                
+                const notes = this.consultationNotes.value;
+                
+                // Save notes via AJAX
+                fetch(`/consultation/{{ appointment.id }}/save-notes/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ notes: notes })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        this.addSystemMessage('Notes saved successfully');
+                    } else {
+                        this.addSystemMessage('Failed to save notes: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving notes:', error);
+                    this.addSystemMessage('Failed to save notes. Please try again.');
+                });
+            }
+            
+            initializeDoctorPanel() {
+                console.log('Initializing doctor panel...');
+                
+                // Wait for DOM to be ready
+                setTimeout(() => {
+                    // Doctor tab functionality
+                    const doctorTabBtns = document.querySelectorAll('.doctor-tab-btn');
+                    const doctorTabContents = document.querySelectorAll('.doctor-tab-content');
+                    
+                    console.log('Found tab buttons:', doctorTabBtns.length);
+                    console.log('Found tab contents:', doctorTabContents.length);
+                    
+                    if (doctorTabBtns.length === 0) {
+                        console.error('No doctor tab buttons found!');
+                        return;
+                    }
+                    
+                    doctorTabBtns.forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            console.log('Tab clicked:', btn.dataset.tab);
+                            const targetTab = btn.dataset.tab;
+                            
+                            // Remove active class from all tabs and contents
+                            doctorTabBtns.forEach(b => b.classList.remove('active'));
+                            doctorTabContents.forEach(content => content.classList.remove('active'));
+                            
+                            // Add active class to clicked tab and corresponding content
+                            btn.classList.add('active');
+                            const targetContent = document.getElementById(`${targetTab}-tab`);
+                            if (targetContent) {
+                                targetContent.classList.add('active');
+                                console.log('Activated tab:', targetTab);
+                            } else {
+                                console.error('Tab content not found:', targetTab);
+                            }
+                        });
+                    });
+                    
+                    // Task category functionality
+                    const taskCategoryBtns = document.querySelectorAll('.task-category-btn');
+                    taskCategoryBtns.forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const category = btn.dataset.category;
+                            console.log('Task category clicked:', category);
+                            
+                            // Remove active class from all category buttons
+                            taskCategoryBtns.forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            
+                            // Load tasks for selected category
+                            this.loadTaskTemplates(category);
+                        });
+                    });
+                    
+                    // Save all data button
+                    const saveAllBtn = document.getElementById('saveAllData');
+                    if (saveAllBtn) {
+                        saveAllBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            console.log('Save button clicked');
+                            this.saveAllDoctorData();
+                        });
+                    } else {
+                        console.error('Save button not found');
+                    }
+                    
+                    // Load initial task templates
+                    this.loadTaskTemplates('all');
+                    
+                    console.log('Doctor panel initialized successfully');
+                }, 100); // Small delay to ensure DOM is ready
+            }
+            
+            loadTaskTemplates(category) {
+                const taskTemplates = document.getElementById('taskTemplates');
+                if (!taskTemplates) return;
+                
+                // Sample task templates based on category
+                const templates = {
+                    all: [
+                        { title: 'Morning Exercise', category: 'physical', description: '30 minutes of light exercise' },
+                        { title: 'Healthy Breakfast', category: 'diet', description: 'Eat a balanced breakfast' },
+                        { title: 'Take Medication', category: 'medical', description: 'Take prescribed medications on time' },
+                        { title: 'Meditation', category: 'mental', description: '15 minutes of mindfulness meditation' },
+                        { title: 'Sleep Schedule', category: 'lifestyle', description: 'Maintain regular sleep hours' }
+                    ],
+                    physical: [
+                        { title: 'Morning Walk', category: 'physical', description: '20 minutes brisk walk' },
+                        { title: 'Stretching', category: 'physical', description: '10 minutes full body stretching' },
+                        { title: 'Yoga', category: 'physical', description: '30 minutes gentle yoga' }
+                    ],
+                    diet: [
+                        { title: 'Drink Water', category: 'diet', description: '8 glasses of water daily' },
+                        { title: 'Fruits & Vegetables', category: 'diet', description: '5 servings of fruits/vegetables' },
+                        { title: 'Limit Sugar', category: 'diet', description: 'Avoid sugary drinks and snacks' }
+                    ],
+                    medical: [
+                        { title: 'Blood Pressure Check', category: 'medical', description: 'Check blood pressure twice daily' },
+                        { title: 'Temperature Check', category: 'medical', description: 'Monitor body temperature' },
+                        { title: 'Symptom Log', category: 'medical', description: 'Log any new symptoms' }
+                    ],
+                    mental: [
+                        { title: 'Journaling', category: 'mental', description: 'Write thoughts for 10 minutes' },
+                        { title: 'Deep Breathing', category: 'mental', description: '5 minutes deep breathing exercises' },
+                        { title: 'Gratitude Practice', category: 'mental', description: 'List 3 things you\'re grateful for' }
+                    ],
+                    lifestyle: [
+                        { title: 'Digital Detox', category: 'lifestyle', description: '1 hour screen-free time' },
+                        { title: 'Social Connection', category: 'lifestyle', description: 'Connect with friends/family' },
+                        { title: 'Hobby Time', category: 'lifestyle', description: '30 minutes of enjoyable activity' }
+                    ]
+                };
+                
+                const selectedTemplates = templates[category] || templates.all;
+                
+                taskTemplates.innerHTML = selectedTemplates.map((task, index) => `
+                    <div class="task-template-item" data-task="${encodeURIComponent(JSON.stringify(task))}">
+                        <div class="task-template-content">
+                            <h6>${task.title}</h6>
+                            <p>${task.description}</p>
+                            <span class="task-category-badge">${task.category}</span>
+                        </div>
+                        <button onclick="addTaskFromTemplate(${index})" class="btn-add-task-small">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+            
+            async saveAllDoctorData() {
+                // Show loading notification
+                this.showNotification('Saving consultation data...', 'info');
+                
+                try {
+                    const selectedTasks = this.getSelectedTasks();
+                    const dailyTasksJson = document.getElementById('dailyTasksJson');
+                    if (dailyTasksJson) {
+                        dailyTasksJson.value = JSON.stringify(selectedTasks);
+                    }
+
+                    // Collect data with better error handling
+                    const data = {
+                        appointmentId: parseInt('{{ appointment.id }}'),
+                        patientId: parseInt('{{ appointment.patient.id }}'),
+                        notes: {
+                            symptoms: document.getElementById('patientSymptoms')?.value || '',
+                            assessment: document.getElementById('clinicalAssessment')?.value || '',
+                            treatment: document.getElementById('treatmentPlan')?.value || '',
+                            followUp: document.getElementById('followUpNotes')?.value || ''
+                        },
+                        prescription: {
+                            details: document.getElementById('prescriptionDetails')?.value || '',
+                            instructions: document.getElementById('prescriptionInstructions')?.value || '',
+                            medications: this.getMedicationsList()
+                        },
+                        daily_tasks: selectedTasks,
+                        daily_tasks_json: dailyTasksJson?.value || JSON.stringify(selectedTasks),
+                        tasks: selectedTasks
+                    };
+                    
+                    console.log('Saving data:', data);
+                    
+                    // Validate data before sending
+                    if (!data.appointmentId || !data.patientId) {
+                        throw new Error('Missing appointment or patient ID');
+                    }
+                    
+                    // Save consultation data to backend
+                    const response = await fetch('/save-consultation-data/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        // Handle HTTP errors
+                        const errorText = await response.text();
+                        console.error('HTTP Error:', response.status, errorText);
+                        this.showNotification(`Server error: ${response.status}`, 'error');
+                        this.addSystemMessage(`Server error: ${response.status}`);
+                        return;
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Response result:', result);
+                    
+                    if (result.success) {
+                        this.showNotification('Consultation data saved successfully!', 'success');
+                        this.showNotification('Prescription and tasks are now available on patient dashboard.', 'success');
+                        this.addSystemMessage('Consultation data saved successfully!');
+                        this.addSystemMessage('Prescription and tasks are now available on patient dashboard.');
+                        
+                        // Highlight save button to show success
+                        const saveBtn = document.getElementById('saveAllData');
+                        if (saveBtn) {
+                            saveBtn.style.background = 'var(--success-color)';
+                            saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved Successfully';
+                            setTimeout(() => {
+                                saveBtn.style.background = '';
+                                saveBtn.innerHTML = '<i class="fas fa-save"></i> Save All';
+                            }, 3000);
+                        }
+                    } else {
+                        this.showNotification('Failed to save data: ' + (result.message || 'Unknown error'), 'error');
+                        this.addSystemMessage('Failed to save data: ' + (result.message || 'Unknown error'));
+                    }
+
+                    return result;
+                } catch (error) {
+                    console.error('Error saving consultation data:', error);
+                    this.showNotification('Failed to save data: ' + error.message, 'error');
+                    this.addSystemMessage('Failed to save data: ' + error.message);
+                    throw error;
+                }
+            }
+            
+            showNotification(message, type = 'info') {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = `consultation-notification ${type}`;
+                notification.innerHTML = `
+                    <div class="notification-content">
+                        <i class="fas ${this.getNotificationIcon(type)}"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" class="notification-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                
+                // Add to page
+                document.body.appendChild(notification);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 5000);
+            }
+            
+            getNotificationIcon(type) {
+                switch(type) {
+                    case 'success': return 'fa-check-circle';
+                    case 'error': return 'fa-exclamation-circle';
+                    case 'warning': return 'fa-exclamation-triangle';
+                    default: return 'fa-info-circle';
+                }
+            }
+            
+            getSelectedTasks() {
+                const tasks = collectSelectedTasksFromDom();
+                console.log('Final tasks array:', tasks);
+                return tasks;
+            }
+            
+            getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            getMedicationsList() {
+                const medications = [];
+                const medicationItems = document.querySelectorAll('#medicationsList .medication-item');
+                
+                console.log('Found medication items:', medicationItems.length);
+                
+                medicationItems.forEach((item, index) => {
+                    const name = item.querySelector('.med-name')?.value?.trim();
+                    const dosage = item.querySelector('.med-dosage')?.value?.trim();
+                    const frequency = item.querySelector('.med-frequency')?.value?.trim();
+                    const duration = item.querySelector('.med-duration')?.value?.trim();
+                    
+                    console.log(`Medication ${index}:`, { name, dosage, frequency, duration });
+                    
+                    if (name && dosage) {
+                        medications.push({ 
+                            name, 
+                            dosage, 
+                            frequency: frequency || '', 
+                            duration: duration || '' 
+                        });
+                    }
+                });
+                
+                console.log('Final medications array:', medications);
+                return medications;
+            }
+            
+            cleanup() {
+                console.log('Cleaning up consultation room...');
+                
+                // Stop media streams
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(track => track.stop());
+                    console.log('Local stream stopped');
+                }
+                if (this.remoteStream) {
+                    this.remoteStream.getTracks().forEach(track => track.stop());
+                    console.log('Remote stream stopped');
+                }
+                
+                // Stop timer
+                this.stopTimer();
+                
+                // Clear intervals
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    console.log('Timer interval cleared');
+                }
+                if (this.statusInterval) {
+                    clearInterval(this.statusInterval);
+                    this.statusInterval = null;
+                }
+                
+                console.log('Cleanup completed');
+            }
+        }
+        
+        // Global functions for prescription and task management
+        function addMedication() {
+            console.log('Adding medication...');
+            const medicationsList = document.getElementById('medicationsList');
+            if (medicationsList) {
+                const newMedication = document.createElement('div');
+                newMedication.className = 'medication-item';
+                newMedication.innerHTML = `
+                    <input type="text" placeholder="Medication name" class="med-name">
+                    <input type="text" placeholder="Dosage (e.g., 500mg)" class="med-dosage">
+                    <input type="text" placeholder="Frequency (e.g., 2x daily)" class="med-frequency">
+                    <input type="text" placeholder="Duration (e.g., 7 days)" class="med-duration">
+                    <button type="button" class="btn-remove">×</button>
+                `;
+                medicationsList.appendChild(newMedication);
+                console.log('Medication added successfully');
+                
+                // Add event listener to the new button
+                const removeBtn = newMedication.querySelector('.btn-remove');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function() {
+                        removeMedication(this);
+                    });
+                }
+            } else {
+                console.error('Medications list not found');
+            }
+        }
+        
+        function removeMedication(button) {
+            console.log('Removing medication...');
+            const medicationItem = button.closest('.medication-item');
+            if (medicationItem) {
+                medicationItem.remove();
+                console.log('Medication removed successfully');
+            } else {
+                console.error('Medication item not found');
+            }
+        }
+
+        function collectSelectedTasksFromDom() {
+            const tasks = [];
+            const selectedTaskItems = document.querySelectorAll('#selectedTasksList .selected-task-item');
+
+            console.log('Found selected task items:', selectedTaskItems.length);
+
+            selectedTaskItems.forEach((item, index) => {
+                const title = item.querySelector('h6')?.textContent?.trim();
+                const description = item.querySelector('p')?.textContent?.trim();
+                const category = item.querySelector('.task-category-badge')?.textContent?.trim();
+                const durationText = item.querySelector('.task-duration')?.textContent?.trim();
+                const priority = item.querySelector('.task-priority')?.textContent?.trim();
+                const durationDays = parseInt(durationText) || 7;
+
+                console.log(`Task ${index}:`, { title, description, category, durationDays, priority });
+
+                if (title && description) {
+                    tasks.push({
+                        title,
+                        description,
+                        category: category || 'mental',
+                        duration: durationDays,
+                        duration_days: durationDays,
+                        priority: priority || 'medium',
+                        source: item.dataset.source || 'custom'
+                    });
+                }
+            });
+
+            return tasks;
+        }
+
+        function syncDailyTasksJson() {
+            const dailyTasksJson = document.getElementById('dailyTasksJson');
+            if (dailyTasksJson) {
+                dailyTasksJson.value = JSON.stringify(collectSelectedTasksFromDom());
+            }
+        }
+        
+        function addTaskFromTemplate(index) {
+            console.log('Adding task from template index:', index);
+            
+            const taskTemplates = document.getElementById('taskTemplates');
+            const templateItems = taskTemplates.querySelectorAll('.task-template-item');
+            const templateItem = templateItems[index];
+            
+            if (templateItem) {
+                const taskData = JSON.parse(decodeURIComponent(templateItem.dataset.task));
+                console.log('Template task data:', taskData);
+                
+                const selectedTasksList = document.getElementById('selectedTasksList');
+                if (selectedTasksList) {
+                    // Clear "No tasks selected" message if present
+                    const noTasksMessage = selectedTasksList.querySelector('.no-tasks-message');
+                    if (noTasksMessage) {
+                        noTasksMessage.remove();
+                    }
+                    
+                    const taskItem = document.createElement('div');
+                    taskItem.className = 'selected-task-item';
+                    taskItem.dataset.source = 'template';
+                    taskItem.innerHTML = `
+                        <div class="task-info">
+                            <h6>${taskData.title}</h6>
+                            <p>${taskData.description}</p>
+                            <div class="task-meta">
+                                <span class="task-category-badge">${taskData.category}</span>
+                                <span class="task-duration">7 days</span>
+                                <span class="task-priority medium">medium</span>
+                            </div>
+                        </div>
+                        <button onclick="removeSelectedTask(this)" class="btn-remove">×</button>
+                    `;
+                    selectedTasksList.appendChild(taskItem);
+                    
+                    console.log('Template task added successfully');
+                    updateSelectedTasksCount();
+                    syncDailyTasksJson();
+                } else {
+                    console.error('Selected tasks list not found');
+                }
+            } else {
+                console.error('Template item not found at index:', index);
+            }
+        }
+        
+        function addCustomTask() {
+            // Get custom task form values
+            const title = document.getElementById('customTaskTitle').value.trim();
+            const category = document.getElementById('customTaskCategory').value;
+            const description = document.getElementById('customTaskDescription').value.trim();
+            const duration = document.getElementById('customTaskDuration').value;
+            const priority = document.getElementById('customTaskPriority').value;
+            
+            // Validate required fields
+            if (!title || !description) {
+                return;
+            }
+            
+            const selectedTasksList = document.getElementById('selectedTasksList');
+            if (selectedTasksList) {
+                // Clear "No tasks selected" message if present
+                const noTasksMessage = selectedTasksList.querySelector('.no-tasks-message');
+                if (noTasksMessage) {
+                    noTasksMessage.remove();
+                }
+                
+                const taskItem = document.createElement('div');
+                taskItem.className = 'selected-task-item';
+                taskItem.dataset.source = 'custom';
+                taskItem.innerHTML = `
+                    <div class="task-info">
+                        <h6>${title}</h6>
+                        <p>${description}</p>
+                        <div class="task-meta">
+                            <span class="task-category-badge">${category}</span>
+                            <span class="task-duration">${duration} days</span>
+                            <span class="task-priority ${priority}">${priority}</span>
+                        </div>
+                    </div>
+                    <button onclick="removeSelectedTask(this)" class="btn-remove">×</button>
+                `;
+                selectedTasksList.appendChild(taskItem);
+                
+                // Clear form
+                document.getElementById('customTaskTitle').value = '';
+                document.getElementById('customTaskDescription').value = '';
+                document.getElementById('customTaskDuration').value = '7';
+                document.getElementById('customTaskCategory').value = 'physical';
+                document.getElementById('customTaskPriority').value = 'medium';
+                
+                updateSelectedTasksCount();
+                syncDailyTasksJson();
+            } else {
+                console.error('Selected tasks list not found');
+            }
+        }
+        
+        function removeSelectedTask(button) {
+            console.log('Removing selected task...');
+            const taskItem = button.closest('.selected-task-item');
+            if (taskItem) {
+                taskItem.remove();
+                console.log('Selected task removed successfully');
+                updateSelectedTasksCount();
+                
+                // Show "No tasks selected" if list is empty
+                const selectedTasksList = document.getElementById('selectedTasksList');
+                if (selectedTasksList && selectedTasksList.querySelectorAll('.selected-task-item').length === 0) {
+                    selectedTasksList.innerHTML = '<p class="no-tasks-message">No tasks selected</p>';
+                }
+                syncDailyTasksJson();
+            } else {
+                console.error('Selected task item not found');
+            }
+        }
+        
+        function updateSelectedTasksCount() {
+            const selectedTasksList = document.getElementById('selectedTasksList');
+            const count = selectedTasksList.querySelectorAll('.selected-task-item').length;
+            const countSpan = document.getElementById('selectedTasksCount');
+            if (countSpan) {
+                countSpan.textContent = count;
+                console.log('Updated task count:', count);
+            } else {
+                console.error('Task count span not found');
+            }
+        }
+        
+        function removeMedication(button) {
+            button.parentElement.remove();
+        }
+        
+        function savePrescriptionAndTasks() {
+            // Store consultation ID for debugging
+            const consultationId = "{{ consultation.id }}";
+            
+            // Collect prescription data
+            const medicationsList = document.getElementById('medicationsList');
+            const medications = [];
+            
+            if (medicationsList) {
+                const medicationItems = medicationsList.querySelectorAll('.medication-item');
+                medicationItems.forEach(item => {
+                    const name = item.querySelector('.med-name')?.value || '';
+                    const dosage = item.querySelector('.med-dosage')?.value || '';
+                    const frequency = item.querySelector('.med-frequency')?.value || '';
+                    const duration = item.querySelector('.med-duration')?.value || '';
+                    
+                    if (name && dosage) {
+                        medications.push({
+                            name,
+                            dosage,
+                            frequency,
+                            duration
+                        });
+                    }
+                });
+            }
+            
+            // Collect prescription text
+            const prescriptionText = document.getElementById('prescription_text')?.value || '';
+            const prescriptionInstructions = document.getElementById('prescription_instructions')?.value || '';
+            
+            // Collect tasks data
+            const selectedTasks = [];
+            const taskCheckboxes = document.querySelectorAll('input[name="health_tasks"]:checked');
+            
+            taskCheckboxes.forEach(checkbox => {
+                const label = checkbox.nextElementSibling.textContent.trim();
+                const category = checkbox.getAttribute('data-category') || 'general';
+                
+                selectedTasks.push({
+                    title: label,
+                    description: `Task: ${label}`,
+                    category: category,
+                    icon: 'fas fa-tasks',
+                    source: 'template',
+                    start_date: new Date().toISOString().split('T')[0],
+                    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    frequency: 'daily',
+                    recurring_days: [],
+                    reminder_times: ['09:00', '14:00', '20:00']
+                });
+            });
+            
+            // Collect custom tasks from selected tasks list
+            const selectedTaskItems = document.querySelectorAll('#selectedTasksList .selected-task-item');
+            
+            selectedTaskItems.forEach(taskItem => {
+                const title = taskItem.querySelector('h6')?.textContent?.trim();
+                const description = taskItem.querySelector('p')?.textContent?.trim();
+                const category = taskItem.querySelector('.task-category-badge')?.textContent?.trim() || 'custom';
+                const durationText = taskItem.querySelector('.task-duration')?.textContent?.trim() || '7 days';
+                const priority = taskItem.querySelector('.task-priority')?.textContent?.trim() || 'medium';
+                
+                // Extract duration number
+                const duration = parseInt(durationText) || 7;
+                
+                if (title && description) {
+                    selectedTasks.push({
+                        title,
+                        description,
+                        category,
+                        priority,
+                        icon: 'fas fa-tasks',
+                        source: 'custom',
+                        start_date: new Date().toISOString().split('T')[0],
+                        end_date: new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        frequency: 'daily',
+                        recurring_days: [],
+                        reminder_times: ['09:00', '14:00', '20:00']
+                    });
+                }
+            });
+            
+            // Prepare data for API
+            const prescriptionData = {
+                text: prescriptionText,
+                instructions: prescriptionInstructions,
+                medications: medications
+            };
+            
+            const data = {
+                prescription: prescriptionData,
+                tasks: selectedTasks,
+                remove_old_tasks: true // Flag to remove old pending tasks
+            };
+            
+            // Debug logging
+            console.log('=== SAVING PRESCRIPTION AND TASKS ===');
+            console.log('Saving data:', data);
+            console.log('Prescription data:', prescriptionData);
+            console.log('Tasks data:', selectedTasks);
+            console.log('Number of tasks:', selectedTasks.length);
+            console.log('Consultation ID:', consultationId);
+            
+            // Show loading state
+            const saveBtn = document.querySelector('button[onclick="savePrescriptionAndTasks()"]');
+            if (saveBtn) {
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+            }
+            
+            // Send to backend
+            console.log('=== SENDING REQUEST TO BACKEND ===');
+            fetch(`/consultation/{{ consultation.id }}/save-prescription-tasks/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(result => {
+                console.log('Result:', result);
+                if (result.success) {
+                    // Show success message
+                    window.consultationRoom.addSystemMessage('Prescription and tasks saved successfully!');
+                    
+                    // Reset form
+                    if (medicationsList) {
+                        medicationsList.innerHTML = `
+                            <div class="medication-item">
+                                <input type="text" placeholder="Medication name" class="med-name">
+                                <input type="text" placeholder="Dosage" class="med-dosage">
+                                <input type="text" placeholder="Frequency" class="med-frequency">
+                                <button onclick="removeMedication(this)" class="btn-remove">×</button>
+                            </div>
+                        `;
+                    }
+                    if (document.getElementById('prescription_text')) {
+                        document.getElementById('prescription_text').value = '';
+                    }
+                    if (document.getElementById('prescription_instructions')) {
+                        document.getElementById('prescription_instructions').value = '';
+                    }
+                    if (document.getElementById('custom_task_title')) {
+                        document.getElementById('custom_task_title').value = '';
+                    }
+                    if (document.getElementById('custom_task_description')) {
+                        document.getElementById('custom_task_description').value = '';
+                    }
+                    
+                    // Uncheck all task checkboxes
+                    taskCheckboxes.forEach(cb => cb.checked = false);
+                    
+                    // Update selected tasks display
+                    updateSelectedTasksDisplay();
+                } else {
+                    window.consultationRoom.addSystemMessage('Failed to save: ' + (result.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error saving prescription and tasks:', error);
+                window.consultationRoom.addSystemMessage('Failed to save. Please try again.');
+            })
+            .finally(() => {
+                // Restore button state
+                if (saveBtn) {
+                    saveBtn.textContent = 'Save Prescription & Tasks';
+                    saveBtn.disabled = false;
+                }
+            });
+        }
+        
+        function removeMedication(button) {
+            button.parentElement.remove();
+        }
+        
+        function addCustomTask() {
+            const customTaskTitle = document.getElementById('customTaskTitle');
+            const customTaskDescription = document.getElementById('customTaskDescription');
+            
+            if (customTaskTitle && customTaskDescription) {
+                // Add to selected tasks
+                const selectedTasksList = document.getElementById('selected-tasks-list');
+                if (selectedTasksList) {
+                    const taskDiv = document.createElement('div');
+                    taskDiv.className = 'selected-task';
+                    taskDiv.innerHTML = `
+                        <span class="task-title">${customTaskTitle.value}</span>
+                        <button onclick="removeCustomTask(this)" class="btn-remove">×</button>
+                    `;
+                    selectedTasksList.appendChild(taskDiv);
+                    updateSelectedTasksDisplay();
+                }
+            }
+        }
+        
+        function removeCustomTask(element) {
+            element.remove();
+            updateSelectedTasksDisplay();
+        }
+        
+        function updateSelectedTasksDisplay() {
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (selectedCount) {
+                // Count checked checkboxes instead of looking for elements in a list
+                const checkedTasks = document.querySelectorAll('input[name="health_tasks"]:checked');
+                selectedCount.textContent = checkedTasks.length;
+            }
+        }
+        
+        function loadTaskTemplates() {
+            // Load task templates from backend
+            fetch('/api/health-task-templates/')
+                .then(response => response.json())
+                .then(data => {
+                    const taskTemplatesList = document.getElementById('taskTemplates');
+                    if (taskTemplatesList) {
+                        taskTemplatesList.innerHTML = '';
+                        
+                        if (data.success && data.templates && data.templates.length > 0) {
+                            // Use templates from database
+                            data.templates.forEach(template => {
+                                const taskDiv = document.createElement('div');
+                                taskDiv.className = 'task-template';
+                                taskDiv.innerHTML = `
+                                    <div class="task-checkbox">
+                                        <input type="checkbox" name="health_tasks" value="${template.id}" data-category="${template.category}" onchange="updateSelectedTasksDisplay()">
+                                        <label>${template.title}</label>
+                                    </div>
+                                    <div class="task-details">
+                                        <small>${template.description}</small>
+                                    </div>
+                                `;
+                                taskTemplatesList.appendChild(taskDiv);
+                            });
+                        } else {
+                            // Use default templates
+                            const defaultTemplates = [
+                                { id: 1, title: 'Morning Exercise (30 minutes)', category: 'physical', description: 'Start your day with physical activity' },
+                                { id: 2, title: 'Healthy Breakfast', category: 'diet', description: 'Eat a nutritious breakfast' },
+                                { id: 3, title: 'Take Morning Medication', category: 'medical', description: 'Take prescribed medications' },
+                                { id: 4, title: 'Meditation Practice (15 minutes)', category: 'mental', description: 'Practice mindfulness meditation' },
+                                { id: 5, title: 'Drink 8 Glasses of Water', category: 'diet', description: 'Stay hydrated throughout the day' },
+                                { id: 6, title: 'Evening Walk (20 minutes)', category: 'physical', description: 'Take a relaxing evening walk' },
+                                { id: 7, title: 'Sleep by 10 PM', category: 'lifestyle', description: 'Maintain consistent sleep schedule' },
+                                { id: 8, title: 'Eat Vegetables with Every Meal', category: 'diet', description: 'Include vegetables in all meals' }
+                            ];
+                            
+                            defaultTemplates.forEach(template => {
+                                const taskDiv = document.createElement('div');
+                                taskDiv.className = 'task-template';
+                                taskDiv.innerHTML = `
+                                    <div class="task-checkbox">
+                                        <input type="checkbox" name="health_tasks" value="${template.id}" data-category="${template.category}" onchange="updateSelectedTasksDisplay()">
+                                        <label>${template.title}</label>
+                                    </div>
+                                    <div class="task-details">
+                                        <small>${template.description}</small>
+                                    </div>
+                                `;
+                                taskTemplatesList.appendChild(taskDiv);
+                            });
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading task templates:', error);
+                    // Add default templates on error
+                    const taskTemplatesList = document.getElementById('taskTemplates');
+                    if (taskTemplatesList) {
+                        taskTemplatesList.innerHTML = '<p class="error">Failed to load task templates. Please refresh the page.</p>';
+                    }
+                });
+        }
+        
+        function filterTasks(category) {
+            const allTasks = document.querySelectorAll('.task-template');
+            const categoryBtns = document.querySelectorAll('.category-btn');
+            
+            // Update active button
+            categoryBtns.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-category') === category) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Filter tasks
+            allTasks.forEach(task => {
+                const taskCategory = task.querySelector('input').getAttribute('data-category');
+                if (category === 'all' || taskCategory === category) {
+                    task.style.display = 'block';
+                } else {
+                    task.style.display = 'none';
+                }
+            });
+        }
+        
+        function addCustomTask() {
+            const titleInput = document.getElementById('customTaskTitle');
+            const categoryInput = document.getElementById('customTaskCategory');
+            const descriptionInput = document.getElementById('customTaskDescription');
+            const durationInput = document.getElementById('customTaskDuration');
+            const priorityInput = document.getElementById('customTaskPriority');
+            const title = titleInput?.value?.trim() || '';
+            const category = categoryInput?.value || 'mental';
+            const description = descriptionInput?.value?.trim() || '';
+            const duration = durationInput?.value || '7';
+            const priority = priorityInput?.value || 'medium';
+            
+            if (!title || !description) {
+                if (window.consultationRoom) {
+                    window.consultationRoom.addSystemMessage('Please enter a task title and description');
+                }
+                return;
+            }
+            
+            const selectedTasksList = document.getElementById('selectedTasksList');
+            if (selectedTasksList) {
+                const noTasksMessage = selectedTasksList.querySelector('.no-tasks-message');
+                if (noTasksMessage) {
+                    noTasksMessage.remove();
+                }
+
+                const taskItem = document.createElement('div');
+                taskItem.className = 'selected-task-item';
+                taskItem.dataset.source = 'custom';
+                taskItem.innerHTML = `
+                    <div class="task-info">
+                        <h6>${title}</h6>
+                        <p>${description}</p>
+                        <div class="task-meta">
+                            <span class="task-category-badge">${category}</span>
+                            <span class="task-duration">${duration} days</span>
+                            <span class="task-priority ${priority}">${priority}</span>
+                        </div>
+                    </div>
+                    <button onclick="removeSelectedTask(this)" class="btn-remove">Ã—</button>
+                `;
+                selectedTasksList.appendChild(taskItem);
+                
+                if (titleInput) titleInput.value = '';
+                if (descriptionInput) descriptionInput.value = '';
+                if (durationInput) durationInput.value = '7';
+                if (categoryInput) categoryInput.value = 'physical';
+                if (priorityInput) priorityInput.value = 'medium';
+                
+                updateSelectedTasksCount();
+                syncDailyTasksJson();
+                
+                if (window.consultationRoom) {
+                    window.consultationRoom.addSystemMessage('Custom task added successfully!');
+                }
+            }
+        }
+        
+        // Initialize task templates when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('saveAllData')) {
+                return;
+            }
+
+            loadTaskTemplates();
+            
+            // Add event listeners for category buttons
+            const categoryBtns = document.querySelectorAll('.category-btn');
+            categoryBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const category = this.getAttribute('data-category');
+                    filterTasks(category);
+                });
+            });
+            
+            // Initialize selected tasks display
+            updateSelectedTasksDisplay();
+            
+            // Add tab switching functionality
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and contents
+                    tabBtns.forEach(tab => tab.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    const targetContent = document.getElementById(`${targetTab}-tab`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                    }
+                });
+            });
+        });
+        
+        // CSS styles moved to consultation-room-inline.css
+        
+        // Initialize consultation room
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded, initializing consultation room...');
+            try {
+                window.consultationRoom = new ConsultationRoom();
+                console.log('Consultation room initialized successfully');
+                
+                // Test basic functionality
+                setTimeout(() => {
+                    console.log('Testing basic functionality...');
+                    
+                    // Test medication addition
+                    const medList = document.getElementById('medicationsList');
+                    console.log('Medications list found:', !!medList);
+                    
+                    // Test custom task button
+                    const addTaskBtn = document.getElementById('addCustomTaskBtn');
+                    console.log('Add task button found:', !!addTaskBtn);
+                    
+                    // Test custom task form
+                    const taskTitle = document.getElementById('customTaskTitle');
+                    console.log('Task title field found:', !!taskTitle);
+                    
+                    // Test selected tasks list
+                    const selectedTasks = document.getElementById('selectedTasksList');
+                    console.log('Selected tasks list found:', !!selectedTasks);
+                    
+                    console.log('Basic functionality test complete');
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error initializing consultation room:', error);
+            }
+        });
+    </script>
+</body>
+</html>

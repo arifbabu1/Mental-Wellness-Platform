@@ -1,0 +1,276 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Mental Wellness Platform - Professional mental health support with certified therapists, video consultations, and personalized care." />
+    <meta name="keywords" content="mental health, therapy, counseling, wellness, video consultation, mental wellness support" />
+    <meta name="author" content="Mental Wellness Platform" />
+    <title>Mental Wellness Platform | Professional Mental Health Support</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+  </head>
+  <body>
+    <!-- Emergency Top Bar -->
+    <header class="emergency-top-bar" role="banner">
+      <div class="container">
+        <span class="emergency-message">
+          Your life matters. If dark thoughts are overwhelming you, let us guide
+          you to the light. Call our hotline at
+          <strong>16101</strong>
+        </span>
+        <a href="{% url 'emergency' %}" class="btn-base" aria-label="Get emergency help">Get Support</a>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+      <div class="container">
+        <a href="{% url 'home' %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Platform</a>
+        <button class="navbar-toggle" aria-label="Toggle navigation menu">
+          <span class="hamburger"></span>
+        </button>
+        <ul class="navbar-nav" id="navbarNav">
+          <li><a href="{% url 'home' %}" aria-label="Home">Home</a></li>
+          <li><a href="{% url 'blogs' %}" aria-label="Mental Health Blogs">Blogs</a></li>
+          <li><a href="{% url 'about' %}" aria-label="About Us">About Us</a></li>
+          {% if user.is_authenticated %}
+            {% if user.role == 'patient' %}
+              <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+              <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+              <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+              <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+            {% elif user.role == 'doctor' %}
+              <li><a href="{% url 'doctor_dashboard' %}" aria-label="Doctor Dashboard">Dashboard</a></li>
+            {% elif user.role == 'admin' %}
+              <li><a href="{% url 'admin_dashboard' %}" aria-label="Admin Dashboard">Dashboard</a></li>
+            {% endif %}
+            <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+          {% else %}
+            <li><a href="{% url 'login' %}" aria-label="Login to your account">Login</a></li>
+            <li><a href="{% url 'register' %}" aria-label="Create a new account">Register</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <main>
+      <section class="hero-section" role="banner">
+        <div class="container">
+          <div class="hero-content">
+            <h1>A Compassionate Space for Mental Wellness</h1>
+            <p>Guided by presence, rooted in peace, and dedicated to your healing journey.</p>
+            <div class="hero-buttons" style="margin-top: 35px">
+              {% if user.is_authenticated %}
+                {% if user.role == 'patient' %}
+                  <a href="{% url 'assessment' %}" class="btn-base btn-primary" aria-label="Take mental health assessment">Take Assessment</a>
+                  <a href="{% url 'doctors_list' %}" class="btn-base btn-secondary" aria-label="Find mental health professionals">Find Doctors</a>
+                {% elif user.role == 'doctor' %}
+                  <a href="{% url 'doctor_dashboard' %}" class="btn-base btn-primary" aria-label="Go to doctor dashboard">Dashboard</a>
+                {% elif user.role == 'admin' %}
+                  <a href="{% url 'admin_dashboard' %}" class="btn-base btn-primary" aria-label="Go to admin panel">Admin Panel</a>
+                {% endif %}
+              {% else %}
+                <a href="{% url 'register' %}" class="btn-base btn-primary" aria-label="Get started with mental wellness">Get Started</a>
+                <a href="{% url 'login' %}" class="btn-base btn-primary" aria-label="Login to existing account">Login</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features Section -->
+      <section class="features-section" aria-labelledby="services-heading">
+        <div class="container">
+          <div class="section-header">
+            <h2 id="services-heading">Our Services</h2>
+            <p>Comprehensive mental health support tailored to your needs</p>
+          </div>
+          
+          <div class="stats-grid">
+            <article class="card">
+              <div class="card-body">
+                <div class="service-icon" aria-hidden="true">🧠</div>
+                <h3>Mental Health Assessment</h3>
+                <p>Take our comprehensive assessment to understand your mental health better</p>
+              </div>
+            </article>
+            
+            <article class="card">
+              <div class="card-body">
+                <div class="service-icon" aria-hidden="true">👨‍⚕️</div>
+                <h3>Expert Consultation</h3>
+                <p>Connect with certified mental health professionals</p>
+              </div>
+            </article>
+            
+            <article class="card">
+              <div class="card-body">
+                <div class="service-icon" aria-hidden="true">💬</div>
+                <h3>Video Sessions</h3>
+                <p>Secure and confidential video consultations from anywhere</p>
+              </div>
+            </article>
+            
+            <article class="card">
+              <div class="card-body">
+                <div class="service-icon" aria-hidden="true">📋</div>
+                <h3>Personalized Care</h3>
+                <p>Customized treatment plans for your unique journey</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Consultation Packages Section -->
+      <section class="packages-section" aria-labelledby="packages-heading">
+        <div class="container">
+          <div class="section-header">
+            <h2 id="packages-heading">Consultation Packages</h2>
+            <p>Choose the perfect counseling package for your needs</p>
+          </div>
+          
+          <div class="packages-grid">
+            <!-- Individual Counseling Package -->
+            <article class="package-card">
+              <div class="package-header">
+                <div class="package-icon">👤</div>
+                <h3>Individual Counseling</h3>
+                <div class="package-price">
+                  <span class="price">BDT 500</span>
+                </div>
+              </div>
+              <div class="package-body">
+                <p class="package-description">30-50 minute one-on-one video session</p>
+                <a href="{% url 'register' %}" class="btn-base btn-primary package-btn">Get Started</a>
+              </div>
+            </article>
+
+            <!-- Couple Counseling Package -->
+            <article class="package-card">
+              <div class="package-header">
+                <div class="package-icon">💑</div>
+                <h3>Couple Counseling</h3>
+                <div class="package-price">
+                  <span class="price">BDT 900</span>
+                </div>
+              </div>
+              <div class="package-body">
+                <p class="package-description">30-50 minute couples video session</p>
+                <a href="{% url 'register' %}" class="btn-base btn-primary package-btn">Get Started</a>
+              </div>
+            </article>
+
+            <!-- Family Counseling Package -->
+            <article class="package-card">
+              <div class="package-header">
+                <div class="package-icon">👨‍👩‍👧‍👦</div>
+                <h3>Family Counseling</h3>
+                <div class="package-price">
+                  <span class="price">BDT 1200</span>
+                </div>
+              </div>
+              <div class="package-body">
+                <p class="package-description">30-50 minute family video session</p>
+                <a href="{% url 'register' %}" class="btn-base btn-primary package-btn">Get Started</a>
+              </div>
+            </article>
+
+            <!-- Physical Location Map Section -->
+            <article class="package-card map-card">
+              <div class="package-header">
+                <div class="package-icon">📍</div>
+                <h3>Visit Our Center</h3>
+              </div>
+              <div class="package-body">
+                <div class="map-image-container">
+                  <a href="https://www.google.com/maps/place/Sonargaon+University/@23.7521151,90.3869061,573m/data=!3m1!1e3!4m6!3m5!1s0x3755b9ddba0d17ab:0xb4eb89d44152e3d5!8m2!3d23.7524543!4d90.3871614!16s%2Fm%2F01118pdw?entry=ttu&g_ep=EgoyMDI2MDIyNS4wIKXMDSoASAFQAw%3D%3D" target="_blank" class="map-link">
+                    <img src="https://i.postimg.cc/gjP3h4hZ/Screenshot-2026-03-04-003446.png" alt="Sonargaon University Location" class="location-map-image">
+                  </a>
+                </div>
+                <a href="https://www.google.com/maps/place/Sonargaon+University/@23.7521151,90.3869061,573m/data=!3m1!1e3!4m6!3m5!1s0x3755b9ddba0d17ab:0xb4eb89d44152e3d5!8m2!3d23.7524543!4d90.3871614!16s%2Fm%2F01118pdw?entry=ttu&g_ep=EgoyMDI2MDIyNS4wIKXMDSoASAFQAw%3D%3D" target="_blank" class="btn-base btn-secondary package-btn">View Location</a>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contact Section -->
+      <section class="contact-section" aria-labelledby="contact-heading">
+        <div class="container">
+          <div class="contact-container">
+            <div class="contact-info">
+              <h2 id="contact-heading">Get in Touch</h2>
+              <p>We're here to support you on your mental wellness journey. Reach out to us anytime.</p>
+              <ul class="contact-details">
+                <li>📞 Emergency Hotline: <a href="tel:16101">16101</a></li>
+                <li>📧 Email: <a href="mailto:support@mentalwellness.com">support@mentalwellness.com</a></li>
+                <li>📍 Location: Dhaka, Bangladesh</li>
+                <li>🕐 Available: 24/7 Emergency Support</li>
+              </ul>
+            </div>
+            <div class="emergency-cta">
+              <div class="emergency-card">
+                <h3>Need Immediate Help?</h3>
+                <p>Don't hesitate to reach out. Your mental health matters.</p>
+                <button onclick="makeEmergencyCall()" class="btn-base btn-primary" aria-label="Call emergency hotline now">Call Now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <h3 style="margin-bottom: 20px;">Mental Wellness Platform</h3>
+          <p style="margin-bottom: 20px;">Your compassionate partner in mental health care</p>
+          <div class="footer-links">
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'register' %}">Register</a>
+            <a href="{% url 'login' %}">Login</a>
+            <a href="#">About</a>
+            <a href="#">Contact</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Messages -->
+    {% if messages %}
+      <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}" style="margin-bottom: 10px;">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Emergency Call Function -->
+    <script>
+      function makeEmergencyCall() {
+        const phoneNumber = '16101';
+        
+        if (confirm(`Call emergency hotline ${phoneNumber}? This service is available 24/7.`)) {
+          window.location.href = `tel:${phoneNumber}`;
+          console.log('Emergency call initiated:', phoneNumber);
+        }
+      }
+    </script>
+  </body>
+</html>

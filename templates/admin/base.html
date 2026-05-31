@@ -1,0 +1,135 @@
+{% load i18n static %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:'en-us' }}" dir="{{ LANGUAGE_BIDI|yesno:'rtl,ltr,auto' }}">
+<head>
+    <title>{% block title %}Mental Wellness Platform Admin{% endblock %}</title>
+    <link rel="stylesheet" href="{% block stylesheet %}{% static 'admin/css/base.css' %}{% endblock %}">
+    {% block dark-mode-vars %}{% endblock %}
+    {% if not is_popup and is_nav_sidebar_enabled %}
+        <link rel="stylesheet" href="{% static 'admin/css/nav_sidebar.css' %}">
+        <script src="{% static 'admin/js/nav_sidebar.js' %}" defer></script>
+    {% endif %}
+    {% block extrastyle %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'admin/css/wellness-admin.css' %}">
+    {% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% block stylesheet_rtl %}{% static 'admin/css/rtl.css' %}{% endblock %}">{% endif %}
+    {% block extrahead %}{% endblock %}
+    <script src="{% static 'admin/js/wellness-admin.js' %}" defer></script>
+    {% block responsive %}
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="{% static 'admin/css/responsive.css' %}">
+        {% if LANGUAGE_BIDI %}<link rel="stylesheet" href="{% static 'admin/css/responsive_rtl.css' %}">{% endif %}
+    {% endblock %}
+    {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+</head>
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}" data-admin-utc-offset="{% now 'Z' %}">
+<a href="#content-start" class="skip-to-content-link">{% translate 'Skip to main content' %}</a>
+
+<div id="container" class="wellness-admin-shell">
+    {% if not is_popup %}
+        {% block header %}
+            <header id="header" class="admin-topbar">
+                <div id="branding" class="admin-branding">
+                    {% block branding %}
+                        <a href="{% url 'admin_dashboard' %}" class="admin-brand-link" aria-label="Mental Wellness Platform Admin">
+                            <span class="admin-brand-mark">MW</span>
+                            <span class="admin-brand-copy">
+                                <strong>Mental Wellness</strong>
+                                <small>Platform Admin</small>
+                            </span>
+                        </a>
+                    {% endblock %}
+                </div>
+
+                {% if has_permission %}
+                    <nav class="admin-primary-nav" aria-label="Admin shortcuts">
+                        <a href="{% url 'admin_dashboard' %}" data-admin-path="/admin/dashboard/">Dashboard</a>
+                        <a href="{% url 'admin:index' %}" data-admin-path="/admin/">Models</a>
+                        <a href="{% url 'users_detail' %}" data-admin-path="/admin/users/">Users</a>
+                        <a href="{% url 'doctors_detail' %}" data-admin-path="/admin/doctors/">Doctors</a>
+                        <a href="{% url 'appointments_detail' %}" data-admin-path="/admin/appointments/">Appointments</a>
+                        <a href="{% url 'admin_payments' %}" data-admin-path="/admin/financial/">Payments</a>
+                    </nav>
+                {% endif %}
+
+                {% block usertools %}
+                    {% if has_permission %}
+                        <div id="user-tools" class="admin-user-tools">
+                            <span class="admin-user-card" title="{{ user.get_username }}">
+                                <span class="admin-user-avatar">{{ user.get_short_name|default:user.username|slice:':1'|upper }}</span>
+                                <span class="admin-user-meta">
+                                    <strong>{% firstof user.get_short_name user.get_username %}</strong>
+                                    <small>Care Admin</small>
+                                </span>
+                            </span>
+                            {% block userlinks %}
+                                {% if site_url %}
+                                    <a href="{{ site_url }}">{% translate 'View site' %}</a>
+                                {% endif %}
+                                {% if user.has_usable_password %}
+                                    <a href="{% url 'admin:password_change' %}">{% translate 'Password' %}</a>
+                                {% endif %}
+                                <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit">{% translate 'Log out' %}</button>
+                                </form>
+                            {% endblock %}
+                        </div>
+                    {% endif %}
+                {% endblock %}
+                {% block nav-global %}{% endblock %}
+            </header>
+        {% endblock %}
+
+        {% block nav-breadcrumbs %}
+            <nav aria-label="{% translate 'Breadcrumbs' %}" class="admin-breadcrumb-shell">
+                {% block breadcrumbs %}
+                    <div class="breadcrumbs">
+                        <a href="{% url 'admin:index' %}">{% translate 'Admin' %}</a>
+                        {% if title %}<span class="breadcrumb-current">{{ title }}</span>{% endif %}
+                    </div>
+                {% endblock %}
+            </nav>
+        {% endblock %}
+    {% endif %}
+
+    <div class="main" id="main">
+        {% if not is_popup and is_nav_sidebar_enabled %}
+            {% block nav-sidebar %}
+                {% include 'admin/nav_sidebar.html' %}
+            {% endblock %}
+        {% endif %}
+        <main id="content-start" class="content" tabindex="-1">
+            {% block messages %}
+                {% if messages %}
+                    <ul class="messagelist">
+                        {% for message in messages %}
+                            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endblock messages %}
+            <div id="content" class="{% block coltype %}colM{% endblock %}">
+                {% block pretitle %}{% endblock %}
+                {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+                {% block content_subtitle %}{% if subtitle %}<h2>{{ subtitle }}</h2>{% endif %}{% endblock %}
+                {% block content %}
+                    {% block object-tools %}{% endblock %}
+                    {{ content }}
+                {% endblock %}
+                {% block sidebar %}{% endblock %}
+                <br class="clear">
+            </div>
+        </main>
+    </div>
+
+    <footer id="footer">
+        {% block footer %}
+            <span>Mental Wellness Platform Admin</span>
+        {% endblock %}
+    </footer>
+</div>
+
+{% block extrabody %}{% endblock extrabody %}
+</body>
+</html>

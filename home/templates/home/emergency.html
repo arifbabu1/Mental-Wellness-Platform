@@ -1,0 +1,785 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Emergency Help - Get immediate support for suicidal thoughts and mental health crisis. 24/7 helpline available." />
+    <meta name="keywords" content="emergency help, suicidal thoughts, crisis hotline, mental health emergency, suicide prevention" />
+    <meta name="author" content="Mental Wellness Platform" />
+    <title>Emergency Help | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/emergency.css' %}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <!-- Lazy load emergency responses for better performance -->
+    <script>
+      // Load emergency responses only when needed
+      function loadEmergencyResponses() {
+        if (typeof emergencyResponses === 'undefined') {
+          const script = document.createElement('script');
+          script.src = '{% static "js/emergency-responses.js" %}';
+          document.head.appendChild(script);
+        }
+      }
+      // Load responses when user first interacts with chatbot
+      document.addEventListener('DOMContentLoaded', function() {
+        const chatInput = document.getElementById('chatbotInput');
+        if (chatInput) {
+          chatInput.addEventListener('focus', loadEmergencyResponses, { once: true });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+      <div class="container">
+        <a href="{% url 'home' %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Platform</a>
+        <ul class="navbar-nav">
+          <li><a href="{% url 'home' %}" class="nav-link">Home</a></li>
+          {% if user.is_authenticated %}
+            <li><a href="{% url 'patient_dashboard' %}" class="nav-link">Dashboard</a></li>
+            <li><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+          {% else %}
+            <li><a href="{% url 'login' %}" class="nav-link">Login</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Emergency Hero Section -->
+    <section class="emergency-hero">
+      <div class="container">
+        <div class="emergency-hero-content">
+          <h1>Emergency Mental Health Support</h1>
+          
+          <!-- Three Column Emergency Section -->
+          <div class="emergency-grid">
+            
+            <!-- Left Column: AI Emergency Support -->
+            <div class="emergency-column ai-column">
+              <div class="column-header">
+                <h2>AI Emergency Support</h2>
+              </div>
+              
+              <div class="chatbot-container">
+                <div class="chat-messages" id="chatbotMessages">
+                  <div class="chat-message system">
+                    <span class="message-text">🤖 I'm here to help you 24/7. What's on your mind?</span>
+                  </div>
+                </div>
+                <div class="chat-input-container">
+                  <input type="text" id="chatbotInput" placeholder="Type your message..." class="chat-input">
+                  <button type="button" id="chatbotSendBtn" class="chat-send-btn">Send</button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Middle Column: 24/7 Emergency Hotline -->
+            <div class="emergency-column hotline-column">
+              <div class="column-header">
+                <h2>24/7 Emergency Hotline</h2>
+              </div>
+              
+              <div class="hotline-content">
+                <div class="hotline-number-display">
+                  <div class="call-icon">Call</div>
+                  <div class="number-text">16101</div>
+                  <div class="available-text">Available 24/7</div>
+                </div>
+                
+                <a href="#" class="btn-emergency-call">Call Now</a>
+              </div>
+            </div>
+            
+            <!-- Right Column: Visit Our Centers -->
+            <div class="emergency-column centers-column">
+              <div class="column-header">
+                <h2>Visit Our Centers</h2>
+              </div>
+              
+              <div class="map-image-container">
+                <a href="https://www.google.com/maps/place/Sonargaon+University/@23.7521151,90.3869061,573m/data=!3m1!1e3!4m6!3m5!1s0x3755b9ddba0d17ab:0xb4eb89d44152e3d5!8m2!3d23.7524543!4d90.3871614!16s%2Fm%2F01118pdw?entry=ttu&g_ep=EgoyMDI2MDIyNS4wIKXMDSoASAFQAw%3D%3D" target="_blank" class="map-link">
+                  <img src="https://i.postimg.cc/gjP3h4hZ/Screenshot-2026-03-04-003446.png" alt="Sonargaon University Location" class="location-map-image">
+                </a>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Crisis Management Steps -->
+    <section class="crisis-steps">
+      <div class="container">
+        <div class="steps-header">
+          <h2>Simple Steps to Handle Crisis</h2>
+          <p>Follow these steps when you're in crisis. Remember, this feeling will pass.</p>
+        </div>
+        
+        <div class="steps-grid">
+          <!-- Step 1 -->
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h3>STOP</h3>
+            <ul>
+              <li>Don't act</li>
+              <li>Wait 10 minutes</li>
+              <li>Take slow deep breaths</li>
+            </ul>
+            <div class="step-icon">⏸️</div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h3>STAY SAFE</h3>
+            <ul>
+              <li>Remove harmful things</li>
+              <li>Don't stay alone</li>
+              <li>Go to a safe place</li>
+            </ul>
+            <div class="step-icon">🛡️</div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h3>THINK AGAIN</h3>
+            <ul>
+              <li>Ask: "Is this really true?"</li>
+              <li>Thoughts are not facts</li>
+            </ul>
+            <div class="step-icon">🧠</div>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="step-card">
+            <div class="step-number">4</div>
+            <h3>TALK TO SOMEONE</h3>
+            <ul>
+              <li>Call or message a friend/family</li>
+              <li>Or call a helpline</li>
+            </ul>
+            <div class="step-icon">👥</div>
+          </div>
+
+          <!-- Step 5 -->
+          <div class="step-card">
+            <div class="step-number">5</div>
+            <h3>TAKE CARE OF BODY</h3>
+            <ul>
+              <li>Sleep</li>
+              <li>Eat</li>
+              <li>Walk outside</li>
+            </ul>
+            <div class="step-icon">🏃‍♂️</div>
+          </div>
+
+          <!-- Step 6 -->
+          <div class="step-card">
+            <div class="step-number">6</div>
+            <h3>GET HELP</h3>
+            <ul>
+              <li>Talk to a doctor or therapist</li>
+            </ul>
+            <div class="step-icon">🏥</div>
+          </div>
+
+          <!-- Step 7 -->
+          <div class="step-card">
+            <div class="step-number">7</div>
+            <h3>MAKE A PLAN</h3>
+            <ul>
+              <li>Who to call</li>
+              <li>Where to go</li>
+              <li>What helps you calm down</li>
+            </ul>
+            <div class="step-icon">📋</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Resources Section -->
+    <section class="quick-resources-section">
+      <div class="container">
+        <div class="resources-header">
+          <h2>Quick Emergency Resources</h2>
+          <p>Immediate help tools and information for crisis situations.</p>
+        </div>
+        
+        <div class="resources-grid">
+          <div class="resource-card">
+            <div class="resource-icon">📞</div>
+            <h3>Emergency Contacts</h3>
+            <p>Save important numbers for quick access during crisis.</p>
+            <ul>
+              <li>Emergency Hotline: 16101</li>
+              <li>Local Emergency Services</li>
+              <li>Trusted Friend/Family</li>
+            </ul>
+          </div>
+          
+          <div class="resource-card">
+            <div class="resource-icon">🧠</div>
+            <h3>Crisis Apps</h3>
+            <p>Download mental health apps for immediate support.</p>
+            <ul>
+              <li>Calm meditation apps</li>
+              <li>Emergency contact apps</li>
+              <li>Breathing exercise apps</li>
+            </ul>
+          </div>
+          
+          <div class="resource-card">
+            <div class="resource-icon">📚</div>
+            <h3>Safety Planning</h3>
+            <p>Create a personalized crisis plan for future situations.</p>
+            <ul>
+              <li>Emergency contact list</li>
+              <li>Coping strategies</li>
+              <li>Safe locations</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Breathing Exercise Section -->
+    <section class="breathing-exercise-section">
+      <div class="container">
+        <div class="breathing-header">
+          <h2>Quick Breathing Exercise</h2>
+          <p>Calm your mind with this simple breathing technique.</p>
+        </div>
+        
+        <div class="breathing-content">
+          <div class="breathing-visual">
+            <div class="breathing-circle">
+              <div class="circle" id="breathingCircle"></div>
+              <p class="breathing-text" id="breathingText">Click Start to begin</p>
+            </div>
+          </div>
+          
+          <div class="breathing-instructions">
+            <h3>3-3-3 Method:</h3>
+            <ol>
+              <li><strong>Breathe In:</strong> 3 seconds</li>
+              <li><strong>Hold:</strong> 3 seconds</li>
+              <li><strong>Breathe Out:</strong> 3 seconds</li>
+            </ol>
+            
+            <div class="breathing-tips">
+              <h4>Quick Tips:</h4>
+              <ul>
+                <li>Sit comfortably</li>
+                <li>Follow the circle's rhythm</li>
+                <li>Repeat until calm</li>
+              </ul>
+            </div>
+            
+            <button class="btn-breathing-start" id="startBtn">Start Exercise</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Important Message -->
+    <section class="important-message">
+      <div class="container">
+        <div class="message-card">
+          <div class="heart-icon">❤️</div>
+          <h2>Remember</h2>
+          <div class="remember-points">
+            <p>You don't want to die.</p>
+            <p>You want to pain to stop.</p>
+            <p>And pain can change.</p>
+          </div>
+          <div class="action-buttons">
+            <a href="#" class="btn-primary-emergency">Call Helpline Now</a>
+            <a href="{% url 'doctors_list' %}" class="btn-secondary-emergency">Find a Therapist</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="emergency-footer">
+      <div class="container">
+        <div class="footer-content">
+          <p>&copy; 2024 Mental Wellness Platform. All rights reserved.</p>
+          <p>Available 24/7 for your mental health needs.</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+      // Simple test function
+      console.log('Emergency page script loaded');
+      
+      // Emergency page functions
+      function startLiveChat() {
+        document.getElementById('chatInterface').style.display = 'block';
+        document.getElementById('chatInput').focus();
+      }
+
+      function findNearbyHelp() {
+        alert('Nearby help finder coming soon. Please call: hotline for immediate assistance.');
+      }
+
+      function scrollToMap() {
+        const mapSection = document.querySelector('.location-map-section');
+        mapSection.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+      }
+
+      function closeChatInterface() {
+        document.getElementById('chatInterface').style.display = 'none';
+      }
+
+      function openChatInterface() {
+        document.getElementById('chatInterface').style.display = 'block';
+        document.getElementById('chatInput').focus();
+      }
+
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+      }
+
+      function getChatSessionId() {
+        return localStorage.getItem('emergencyChatSessionId') || '';
+      }
+
+      function setChatSessionId(sessionId) {
+        if (sessionId) {
+          localStorage.setItem('emergencyChatSessionId', sessionId);
+        }
+      }
+
+      let isChatbotSending = false;
+
+      async function sendChatbotMessage() {
+        const input = document.getElementById('chatbotInput');
+        const messagesContainer = document.getElementById('chatbotMessages');
+        const sendButton = document.getElementById('chatbotSendBtn');
+        const message = input.value.trim();
+        
+        if (message === '' || isChatbotSending) return;
+        isChatbotSending = true;
+        if (sendButton) {
+          sendButton.disabled = true;
+        }
+        
+        // Add user message
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'chat-message user';
+        const userMessageText = document.createElement('span');
+        userMessageText.className = 'message-text';
+        userMessageText.textContent = message;
+        userMessageDiv.appendChild(userMessageText);
+        messagesContainer.appendChild(userMessageDiv);
+        
+        // Clear input
+        input.value = '';
+
+        const supportMessageDiv = document.createElement('div');
+        supportMessageDiv.className = 'chat-message support';
+        const supportMessageText = document.createElement('span');
+        supportMessageText.className = 'message-text';
+        supportMessageText.textContent = 'Thinking...';
+        supportMessageDiv.appendChild(supportMessageText);
+        messagesContainer.appendChild(supportMessageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        try {
+          const response = await fetch('{% url "emergency_chat" %}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+              message,
+              session_id: getChatSessionId()
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Chatbot request failed');
+          }
+
+          const data = await response.json();
+          setChatSessionId(data.session_id);
+          supportMessageText.textContent = data.response || generateAIResponse(message);
+        } catch (error) {
+          console.warn('Offline chatbot fallback used:', error);
+          supportMessageText.textContent = generateAIResponse(message);
+        } finally {
+          isChatbotSending = false;
+          if (sendButton) {
+            sendButton.disabled = false;
+          }
+          input.focus();
+        }
+
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      function generateAIResponse(userMessage) {
+        const lowerMessage = userMessage.toLowerCase();
+        const messageWords = lowerMessage.split(/\s+/);
+        
+        // Lazy load responses if not already loaded
+        if (typeof emergencyResponses === 'undefined') {
+          // Enhanced fallback responses
+          const fallbackResponses = [
+            "I'm here to help you. Can you tell me more about what's on your mind?",
+            "Thank you for reaching out. I'm here to listen without judgment. What would you like to share?",
+            "You've taken an important step by reaching out. What's been happening with you?"
+          ];
+          return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+        }
+        
+        // PRIORITY 1: SUICIDE AND SELF-HARM - Most Critical
+        if (lowerMessage.includes('suicide') || lowerMessage.includes('kill myself') || lowerMessage.includes('end my life') || lowerMessage.includes('want to die') || lowerMessage.includes('suicidal') || lowerMessage.includes('end it all') || lowerMessage.includes('want to suiside') || lowerMessage.includes('suiside') || lowerMessage.includes('daie') || lowerMessage.includes('daing')) {
+          return "I hear you're in incredible pain and thinking about ending your life. This is a mental health emergency, and I want you to know: **Your life matters deeply.** These feelings, while overwhelming right now, are temporary and treatable. Please call our emergency hotline **16101** immediately - they're trained professionals available 24/7 who can help you through this crisis. You don't have to carry this pain alone. I'll stay here with you while you make that call. Your life is worth saving, and help is available right now.";
+        }
+        
+        // PRIORITY 2: IMMEDIATE DANGER AND SAFETY CONCERNS
+        if (lowerMessage.includes('watching me') || lowerMessage.includes('someone watching') || lowerMessage.includes('followed') || lowerMessage.includes('stalked') || lowerMessage.includes('paranoid') || lowerMessage.includes('scared of someone') || lowerMessage.includes('danger') || lowerMessage.includes('unsafe') || lowerMessage.includes('threat') || lowerMessage.includes('abuse')) {
+          return "I'm concerned about your safety. If you feel you're in immediate danger, please call emergency services right away. You can also reach our crisis team at **16101**. Your safety is the absolute priority. Can you tell me more about what's making you feel unsafe? Are you currently in a safe location?";
+        }
+        
+        // PRIORITY 3: SEVERE MENTAL HEALTH CRISES
+        if (lowerMessage.includes('kill me') || lowerMessage.includes('harm me') || lowerMessage.includes('hurt me') || lowerMessage.includes('attack me') || lowerMessage.includes('hide') || lowerMessage.includes('abuse')) {
+          return "I'm deeply concerned about your safety. If you're in immediate danger, please call emergency services or our hotline at **16101**. Your wellbeing is my top priority. Please reach out for help right away - you don't have to face this alone.";
+        }
+        
+        // Enhanced conversation flow - more natural like ChatGPT/Gemini
+        
+        // Greetings with contextual awareness
+        if (lowerMessage.includes('hi') || lowerMessage.includes('hello') || lowerMessage.includes('hey') || lowerMessage.includes('greetings') || lowerMessage.includes('good morning') || lowerMessage.includes('good afternoon') || lowerMessage.includes('good evening')) {
+          return emergencyResponses.greeting[Math.floor(Math.random() * emergencyResponses.greeting.length)];
+        }
+        
+        // Questions about AI capabilities - more detailed responses
+        if (lowerMessage.includes('what can you do') || lowerMessage.includes('what can you do for me') || lowerMessage.includes('your capabilities') || lowerMessage.includes('help me with') || lowerMessage.includes('suggest') || lowerMessage.includes('suggestion')) {
+          return "I'm your mental health support assistant, here to help you 24/7. I can: \n\n**Emotional Support**: Listen to your concerns and provide empathetic responses\n**Coping Strategies**: Share breathing exercises, grounding techniques, and anxiety management\n**Resource Guidance**: Help you find professional help, therapists, and support services\n**Crisis Intervention**: Provide immediate support during difficult moments and connect you with emergency services\n**Information**: Explain mental health conditions, symptoms, and treatment options\n\nWhat would be most helpful for you right now? Whether you need someone to talk to, specific coping techniques, or guidance on finding professional help, I'm here to support you.";
+        }
+        
+        // Questions about AI identity
+        if (lowerMessage.includes('who are you') || lowerMessage.includes('what are you') || lowerMessage.includes('what is your name') || lowerMessage.includes('your name') || lowerMessage.includes('what should i call you')) {
+          return "I'm an AI mental health support assistant, designed to provide compassionate, evidence-based support for your emotional well-being. I'm trained to help with anxiety, depression, stress, and other mental health concerns. While I'm not human, I'm here to listen without judgment and help you find the support you need. Think of me as a safe space to explore your thoughts and feelings.";
+        }
+        
+        // Questions about AI well-being
+        if (lowerMessage.includes('how are you') || lowerMessage.includes('how r u') || lowerMessage.includes('are you okay') || lowerMessage.includes('you doing')) {
+          return emergencyResponses.personal_ai[Math.floor(Math.random() * emergencyResponses.personal_ai.length)];
+        }
+        
+        // Capability questions
+        if (lowerMessage.includes('can you help') || lowerMessage.includes('will you help') || lowerMessage.includes('can you support')) {
+          return "Absolutely! I'm here to help you. Whatever you're going through, you don't have to face it alone. I can provide emotional support, coping strategies, and help you find professional resources. What specific challenge are you facing right now?";
+        }
+        
+        // PRIORITY 4: SEVERE EMOTIONAL DISTRESS
+        if (lowerMessage.includes('bad') || lowerMessage.includes('terrible') || lowerMessage.includes('awful') || lowerMessage.includes('horrible') || lowerMessage.includes('miserable') || lowerMessage.includes('unwell') || lowerMessage.includes('not good') || lowerMessage.includes('feeling bad')) {
+          return "I'm really sorry to hear you're feeling this way. It takes courage to reach out when you're struggling. Can you tell me more about what's making you feel bad? Sometimes just putting our feelings into words can help us understand them better. I'm here to listen without judgment.";
+        }
+        
+        // PRIORITY 5: SELF-WORTH AND IDENTITY CRISES
+        if (lowerMessage.includes('not good person') || lowerMessage.includes('bad person') || lowerMessage.includes('worthless') || lowerMessage.includes('failure') || lowerMessage.includes('not good enough') || lowerMessage.includes('useless') || lowerMessage.includes('broken')) {
+          return "I hear that you're feeling like you're not a good person, and that must be incredibly painful. But I want you to know that your worth isn't determined by your thoughts or feelings about yourself. You're human, and humans make mistakes and have struggles - that doesn't make you bad. What specific experiences or thoughts are making you feel this way?";
+        }
+        
+        // PRIORITY 6: MENTAL HEALTH CONDITIONS
+        if (lowerMessage.includes('anxious') || lowerMessage.includes('anxiety') || lowerMessage.includes('panic') || lowerMessage.includes('worried') || lowerMessage.includes('nervous') || lowerMessage.includes('scared') || lowerMessage.includes('fear')) {
+          return emergencyResponses.anxiety[Math.floor(Math.random() * emergencyResponses.anxiety.length)];
+        }
+        
+        if (lowerMessage.includes('sad') || lowerMessage.includes('depressed') || lowerMessage.includes('depression') || lowerMessage.includes('hopeless') || lowerMessage.includes('empty') || lowerMessage.includes('numb') || lowerMessage.includes('cry') || lowerMessage.includes('crying')) {
+          return emergencyResponses.depression[Math.floor(Math.random() * emergencyResponses.depression.length)];
+        }
+        
+        if (lowerMessage.includes('stress') || lowerMessage.includes('stressed') || lowerMessage.includes('overwhelmed') || lowerMessage.includes('pressure') || lowerMessage.includes('burnout') || lowerMessage.includes('exhausted') || lowerMessage.includes('tired')) {
+          return emergencyResponses.stress[Math.floor(Math.random() * emergencyResponses.stress.length)];
+        }
+        
+        // PRIORITY 7: COPING AND TREATMENT ISSUES
+        if (messageWords.some(word => ['not working', 'still feel', 'same', 'tried', 'used', 'didnt work', 'doesnt work', 'no help', 'still same', 'still anxious', 'still sad', 'still tired', 'nothing helps'].includes(word)) ||
+            (messageWords.includes('still') && (messageWords.includes('feel') || messageWords.includes('anxious') || messageWords.includes('same')))) {
+          return "I hear you've tried different approaches and you're still struggling. That's incredibly frustrating, and I want you to know that doesn't mean you're doing anything wrong. Sometimes we need to try different strategies or combine approaches. Would you like to explore some new coping techniques, or would it be helpful to talk about what specifically isn't working?";
+        }
+        
+        // PRIORITY 8: COMPREHENSIVE TOPIC DETECTION
+        const topicKeywords = {
+          anxiety: ['anxious', 'anxiety', 'panic', 'panicking', 'worried', 'nervous', 'scared', 'fear', 'phobia', 'obsessive', 'compulsive', 'ocd', 'social anxiety', 'agoraphobia'],
+          depression: ['depressed', 'depression', 'sad', 'hopeless', 'empty', 'numb', 'cry', 'crying', 'no motivation', 'can\'t get out of bed', 'nothing matters', 'dark', 'bipolar', 'manic', 'melancholy', 'despair'],
+          stress: ['stress', 'stressed', 'overwhelmed', 'pressure', 'burnout', 'exhausted', 'tired', 'can\'t cope', 'too much', 'busy', 'deadline', 'overworked', 'fatigue'],
+          loneliness: ['lonely', 'alone', 'isolated', 'nobody', 'disconnected', 'no friends', 'no family', 'by myself', 'solitude', 'rejection', 'abandoned', 'friendless'],
+          sleep: ['sleep', 'insomnia', 'can\'t sleep', 'awake', 'nightmare', 'sleepless', 'restless', 'sleeping pills', 'melatonin', 'sleep apnea'],
+          relationships: ['relationship', 'breakup', 'divorce', 'marriage', 'partner', 'boyfriend', 'girlfriend', 'husband', 'wife', 'family', 'parents', 'children', 'friend', 'friends', 'conflict', 'argument', 'fight', 'cheating', 'betrayal', 'trust', 'communication', 'boundaries'],
+          work: ['work', 'job', 'career', 'boss', 'coworker', 'unemployed', 'fired', 'laid off', 'study', 'school', 'college', 'university', 'exam', 'test', 'homework', 'assignment', 'deadline', 'grades', 'academic', 'student', 'teacher', 'professor', 'performance'],
+          selfesteem: ['self-esteem', 'confidence', 'insecure', 'ugly', 'fat', 'stupid', 'failure', 'inadequate', 'imposter', 'self-doubt', 'self-criticism', 'perfectionism', 'compare', 'comparison'],
+          trauma: ['trauma', 'ptsd', 'abuse', 'assault', 'attack', 'violence', 'war', 'accident', 'injury', 'flashback', 'trigger', 'hypervigilant', 'dissociation', 'childhood', 'neglect'],
+          substance: ['addiction', 'addict', 'drugs', 'alcohol', 'drinking', 'sober', 'relapse', 'recovery', 'substance', 'opioid', 'heroin', 'cocaine', 'marijuana', 'weed', 'prescription', 'pills', 'withdrawal', 'craving', 'aa', 'na', 'rehab'],
+          grief: ['grief', 'grieving', 'loss', 'death', 'died', 'bereavement', 'mourning', 'funeral', 'memorial', 'goodbye', 'miss', 'gone', 'passed away', 'sorrow', 'heartbreak'],
+          physical: ['health', 'exercise', 'diet', 'nutrition', 'food', 'weight', 'pain', 'chronic', 'illness', 'disease', 'medication', 'medicine', 'doctor', 'hospital', 'symptoms', 'diagnosis', 'treatment'],
+          financial: ['money', 'financial', 'debt', 'bills', 'rent', 'mortgage', 'loan', 'bankruptcy', 'poor', 'broke', 'unemployed', 'jobless', 'income', 'salary', 'budget', 'saving', 'investment'],
+          existential: ['meaning', 'purpose', 'life', 'death', 'existential', 'spiritual', 'religion', 'god', 'faith', 'soul', 'consciousness', 'universe', 'why', 'what\'s the point', 'existence', 'identity', 'who am i'],
+          help: ['help', 'support', 'assist', 'guidance', 'advice', 'what should i do', 'what to do', 'how to', 'need help', 'please help'],
+          breathing: ['breathe', 'breathing', 'calm', 'relax', 'ground', 'meditate', 'peaceful', 'calm down'],
+          location: ['hospital', 'location', 'center', 'visit', 'appointment', 'therapy', 'therapist', 'doctor', 'clinic', 'treatment']
+        };
+        
+        // Check each topic category
+        for (const [topic, keywords] of Object.entries(topicKeywords)) {
+          if (messageWords.some(word => keywords.includes(word))) {
+            if (emergencyResponses[topic]) {
+              return emergencyResponses[topic][Math.floor(Math.random() * emergencyResponses[topic].length)];
+            }
+          }
+        }
+        
+        // Contextual responses for specific situations
+        if (messageWords.some(word => ['angry', 'mad', 'frustrated', 'irritated'].includes(word))) {
+          return "Anger is a valid emotion - it often signals that something important has been violated or that your boundaries have been crossed. Your feelings are justified. What triggered this anger? Sometimes just naming it helps the intensity decrease.";
+        }
+        
+        if (messageWords.some(word => ['confused', 'lost', 'don\'t know', 'uncertain'].includes(word))) {
+          return "Feeling confused is uncomfortable but also normal when dealing with difficult situations. You don't need all the answers right now. What's one small thing you do know for certain? Sometimes starting there helps clear the fog.";
+        }
+        
+        if (messageWords.some(word => ['scared', 'fear', 'afraid', 'terrified'].includes(word))) {
+          return "Fear is your body's protective system trying to keep you safe. Ask yourself: 'Am I in immediate danger right now?' If not, tell your body 'thank you for trying to protect me, but I'm safe.' You're stronger than you feel right now.";
+        }
+        
+        if (messageWords.some(word => ['guilt', 'ashamed', 'embarrassed', 'regret'].includes(word))) {
+          return "Guilt and shame are heavy emotions to carry. You deserve compassion, especially from yourself. Whatever happened, you're human and humans make mistakes. What would you tell a friend who was feeling this way?";
+        }
+        
+        // Empathetic responses for emotional expressions
+        if (messageWords.some(word => ['hurt', 'pain', 'suffering', 'struggling'].includes(word))) {
+          return "I hear your pain, and I'm so sorry you're going through this. You don't have to carry this hurt alone. It's okay to not be okay. What would feel most supportive right now - talking it through, or distraction, or practical help?";
+        }
+        
+        // Enhanced default responses - more natural and contextual
+        const contextualResponses = [
+          "I'm here to support you. Can you tell me more about what's on your mind?",
+          "Thank you for sharing that with me. I want to understand better - what's been happening?",
+          "I'm listening carefully. What would be most helpful for you to talk about right now?",
+          "You've taken an important step by reaching out. What's weighing on you today?",
+          "I'm here to help you through this. What feels most urgent or difficult right now?",
+          "That sounds challenging. I'm here to explore this with you - where would you like to start?",
+          "I appreciate you trusting me with this. What aspect feels most important to address first?",
+          "I'm here to support you without judgment. What would make you feel even a little better right now?"
+        ];
+        
+        return contextualResponses[Math.floor(Math.random() * contextualResponses.length)];
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('Initializing emergency page functionality...');
+        
+        // Emergency call button - Multiple selectors to catch all variations
+        const callButtons = document.querySelectorAll('.btn-emergency-call, .btn-primary-emergency');
+        callButtons.forEach(button => {
+          button.addEventListener('click', function(e) {
+            e.preventDefault();
+            makeEmergencyCall();
+          });
+        });
+        
+        // SMS buttons
+        const smsButtons = document.querySelectorAll('a[href^="sms:"]');
+        smsButtons.forEach(button => {
+          button.addEventListener('click', function(e) {
+            e.preventDefault();
+            sendEmergencySMS();
+          });
+        });
+        
+        // Find Centers buttons - Multiple selectors to catch all variations
+        const findCentersButtons = document.querySelectorAll('a[onclick*="scrollToMap"], .help-option[href="#"]');
+        findCentersButtons.forEach(button => {
+          button.addEventListener('click', function(e) {
+            e.preventDefault();
+            scrollToMap();
+          });
+        });
+        
+        // Breathing exercise button - More specific selector
+        const breathingButton = document.getElementById('startBtn');
+        if (breathingButton) {
+          breathingButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            startBreathingExercise();
+          });
+        }
+        
+        // Send button
+        const sendButton = document.getElementById('chatbotSendBtn');
+        if (sendButton) {
+          sendButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            sendChatbotMessage();
+          });
+        }
+
+        const chatbotInput = document.getElementById('chatbotInput');
+        if (chatbotInput) {
+          chatbotInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              sendChatbotMessage();
+            }
+          });
+        }
+        
+        // Add keyboard navigation for accessibility
+        document.addEventListener('keydown', function(e) {
+          // Ctrl/Cmd + K for quick chat focus
+          if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const chatInput = document.getElementById('chatbotInput');
+            if (chatInput) {
+              chatInput.focus();
+            }
+          }
+          
+          // Escape to stop breathing exercise
+          if (e.key === 'Escape') {
+            const breathingSection = document.querySelector('.breathing-exercise-section');
+            if (breathingSection && breathingSection.classList.contains('breathing-active')) {
+              startBreathingExercise(); // Toggle to stop
+            }
+          }
+        });
+        
+        // Add visual feedback for button clicks
+        const allButtons = document.querySelectorAll('button, .btn-emergency-call, .btn-primary-emergency, .btn-base, .help-option, .location-link');
+        allButtons.forEach(button => {
+          button.addEventListener('click', function() {
+            // Add a subtle animation
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              this.style.transform = '';
+            }, 100);
+          });
+        });
+        
+        console.log('Emergency page functionality initialized successfully');
+        console.log('Found buttons:', {
+          callButtons: callButtons.length,
+          smsButtons: smsButtons.length,
+          findCentersButtons: findCentersButtons.length,
+          breathingButtons: breathingButton ? 1 : 0,
+          sendButtons: sendButton ? 1 : 0,
+          locationLinks: document.querySelectorAll('.location-link').length
+        });
+      });
+      
+      // Breathing Exercise Variables
+      let isRunning = false;
+      let breathingInterval;
+      
+      function startBreathingExercise() {
+        const circle = document.getElementById('breathingCircle');
+        const text = document.getElementById('breathingText');
+        const button = document.getElementById('startBtn');
+        
+        if (!isRunning) {
+          // Start breathing exercise
+          isRunning = true;
+          button.textContent = 'Stop Exercise';
+          button.style.background = '#e74c3c';
+          
+          let phase = 0;
+          const phases = [
+            { text: 'Breathe In...', scale: 1.8, duration: 3000 },  // 3 seconds breathe in
+            { text: 'Hold...', scale: 1.8, duration: 3000 },        // 3 seconds hold
+            { text: 'Breathe Out...', scale: 0.6, duration: 3000 }  // 3 seconds breathe out
+          ];
+          
+          function runBreathingCycle() {
+            if (!isRunning) return;
+            
+            const currentPhase = phases[phase];
+            text.textContent = currentPhase.text;
+            
+            // Apply the transformation immediately for the full phase duration
+            circle.style.transform = `scale(${currentPhase.scale})`;
+            circle.style.boxShadow = currentPhase.scale > 1 
+              ? '0 0 60px rgba(8, 161, 247, 0.8)' 
+              : '0 0 30px rgba(8, 161, 247, 0.4)';
+            
+            phase = (phase + 1) % phases.length;
+            breathingInterval = setTimeout(runBreathingCycle, currentPhase.duration);
+          }
+          
+          runBreathingCycle();
+          
+        } else {
+          // Stop breathing exercise
+          isRunning = false;
+          button.textContent = 'Start Exercise';
+          button.style.background = '';
+          text.textContent = 'Click Start to begin';
+          circle.style.transform = 'scale(1.0)';
+          circle.style.boxShadow = '0 0 30px rgba(8, 161, 247, 0.4)';
+          
+          if (breathingInterval) {
+            clearTimeout(breathingInterval);
+          }
+        }
+      }
+      
+      function makeEmergencyCall() {
+        const phoneNumber = '16101';
+        
+        // Show confirmation dialog
+        const confirmed = confirm(`Are you sure you want to call the emergency hotline?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
+        
+        if (confirmed) {
+          // Try to make the call
+          window.location.href = `tel:${phoneNumber}`;
+          
+          // Log the call attempt for analytics (if needed)
+          console.log('Emergency call initiated:', phoneNumber);
+          
+          // Show a message after a short delay
+          setTimeout(() => {
+            alert('Connecting you to the emergency hotline...\n\nIf the call doesn\'t connect automatically, please dial: ' + phoneNumber);
+          }, 500);
+        }
+      }
+      
+      // Enhanced SMS functionality
+      function sendEmergencySMS() {
+        const phoneNumber = '16101';
+        
+        // Show confirmation dialog
+        const confirmed = confirm(`Do you want to send an SMS to the emergency hotline?\n\nPhone: ${phoneNumber}\n\nWe\'ll respond as quickly as possible.`);
+        
+        if (confirmed) {
+          // Try to open SMS app
+          window.location.href = `sms:${phoneNumber}?body=I need help with a mental health emergency.`; 
+        }
+      }
+        </script>
+  </body>
+</html>

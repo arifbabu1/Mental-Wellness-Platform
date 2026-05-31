@@ -1,0 +1,1067 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load admin_payment_filters %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-appointments-professional.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* Professional Appointments Management System */
+:root {
+    --primary-color: #2563eb;
+    --primary-dark: #1e40af;
+    --primary-light: #3b82f6;
+    --secondary-color: #10b981;
+    --secondary-dark: #059669;
+    --accent-color: #f59e0b;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --success-color: #10b981;
+    --info-color: #3b82f6;
+    --dark-color: #1f2937;
+    --gray-color: #6b7280;
+    --light-gray: #f3f4f6;
+    --white: #ffffff;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    --border-radius: 12px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+.appointments-container {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    min-height: 100vh;
+    padding: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Header Section */
+.appointments-header {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.appointments-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-light), var(--secondary-color));
+}
+
+.appointments-header .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.appointments-header h1 {
+    color: var(--dark-color);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+}
+
+.appointments-header .subtitle {
+    color: var(--gray-color);
+    font-size: 1.125rem;
+    margin: 0.5rem 0 0 0;
+    font-weight: 400;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: var(--white);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+}
+
+.btn-secondary {
+    background: var(--white);
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+    background: var(--primary-color);
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Statistics Overview */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.stat-card.total::before { background: var(--primary-color); }
+.stat-card.scheduled::before { background: var(--warning-color); }
+.stat-card.completed::before { background: var(--success-color); }
+.stat-card.cancelled::before { background: var(--danger-color); }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+}
+
+.stat-card:hover::before {
+    width: 8px;
+}
+
+.stat-card .icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    color: var(--white);
+}
+
+.stat-card.total .icon { background: linear-gradient(135deg, var(--primary-color), var(--primary-light)); }
+.stat-card.scheduled .icon { background: linear-gradient(135deg, var(--warning-color), #fbbf24); }
+.stat-card.completed .icon { background: linear-gradient(135deg, var(--success-color), #34d399); }
+.stat-card.cancelled .icon { background: linear-gradient(135deg, var(--danger-color), #f87171); }
+
+.stat-card h3 {
+    color: var(--gray-color);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-card .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--dark-color);
+    margin: 0 0 0.5rem 0;
+    line-height: 1;
+}
+
+.stat-card .change {
+    color: var(--gray-color);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Main Content Layout */
+.appointments-content {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    align-items: start;
+}
+
+.main-content {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.section-title {
+    color: var(--dark-color);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.5rem 2rem 0 2rem;
+}
+
+.section-title i {
+    color: var(--primary-color);
+    font-size: 1.125rem;
+}
+
+/* Filter Controls */
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+    padding: 0 2rem 1.5rem 2rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filter-controls select,
+.filter-controls input {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--light-gray);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: var(--transition);
+    background: var(--white);
+    color: var(--dark-color);
+}
+
+.filter-controls select:focus,
+.filter-controls input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.filter-controls input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-controls select {
+    min-width: 150px;
+}
+
+/* Appointments Table */
+.appointments-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+}
+
+.appointments-table thead {
+    background: linear-gradient(135deg, var(--light-gray), #e5e7eb);
+}
+
+.appointments-table th {
+    padding: 1rem 2rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--dark-color);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.appointments-table td {
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--light-gray);
+    color: var(--dark-color);
+    font-size: 0.9375rem;
+    vertical-align: middle;
+}
+
+.appointments-table tbody tr {
+    transition: var(--transition);
+}
+
+.appointments-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.02), rgba(59, 130, 246, 0.02));
+    transform: scale(1.01);
+}
+
+.appointment-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.appointment-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.appointment-details h4 {
+    font-weight: 600;
+    color: var(--dark-color);
+    margin: 0 0 0.25rem 0;
+    font-size: 0.9375rem;
+}
+
+.appointment-details p {
+    color: var(--gray-color);
+    font-size: 0.8125rem;
+    margin: 0;
+}
+
+.datetime-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.datetime-info .date {
+    font-weight: 600;
+    color: var(--dark-color);
+    font-size: 0.9375rem;
+}
+
+.datetime-info .time {
+    color: var(--gray-color);
+    font-size: 0.8125rem;
+}
+
+.status-badge {
+    padding: 0.375rem 0.875rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-block;
+    border: 1px solid transparent;
+}
+
+.status-badge.pending {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.1));
+    color: var(--warning-color);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.status-badge.pending_payment {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.1));
+    color: var(--warning-color);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.status-badge.scheduled {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+    color: var(--info-color);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.status-badge.in_progress {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.1));
+    color: #7c3aed;
+    border-color: rgba(139, 92, 246, 0.2);
+}
+
+.status-badge.confirmed {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
+    color: var(--success-color);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-badge.completed {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
+    color: var(--success-color);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-badge.cancelled {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(248, 113, 113, 0.1));
+    color: var(--danger-color);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.fee-display {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.125rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-btn-small {
+    background: transparent;
+    border: 1px solid var(--light-gray);
+    color: var(--gray-color);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.action-btn-small:hover {
+    background: var(--primary-color);
+    color: var(--white);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.action-btn-edit {
+    border-color: rgba(16, 185, 129, 0.3);
+    color: var(--success-color);
+}
+
+.action-btn-edit:hover {
+    background: var(--success-color);
+    color: var(--white);
+    border-color: var(--success-color);
+    box-shadow: var(--shadow-md);
+}
+
+.action-btn-danger {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--danger-color);
+}
+
+.action-btn-danger:hover {
+    background: var(--danger-color);
+    color: var(--white);
+    border-color: var(--danger-color);
+    box-shadow: var(--shadow-md);
+}
+
+/* Sidebar */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.status-breakdown,
+.quick-actions {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--light-gray);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-count {
+    font-weight: 700;
+    color: var(--dark-color);
+    font-size: 1.25rem;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: var(--white);
+    border: none;
+    padding: 0.875rem 1.25rem;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    width: 100%;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+}
+
+.action-btn-outline {
+    background: var(--white);
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.action-btn-outline:hover {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .appointments-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .appointments-container {
+        padding: 1rem;
+    }
+    
+    .appointments-header {
+        padding: 1.5rem;
+    }
+    
+    .appointments-header h1 {
+        font-size: 2rem;
+    }
+    
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .stats-overview {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0 1.5rem 1.5rem 1.5rem;
+    }
+    
+    .filter-controls select,
+    .filter-controls input {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .appointments-table th,
+    .appointments-table td {
+        padding: 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.375rem;
+    }
+    
+    .appointment-avatar {
+        width: 35px;
+        height: 35px;
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .appointments-container {
+        padding: 0.75rem;
+    }
+    
+    .appointments-header h1 {
+        font-size: 1.75rem;
+    }
+    
+    .stat-card .value {
+        font-size: 2rem;
+    }
+    
+    .appointments-table th,
+    .appointments-table td {
+        padding: 0.75rem;
+        font-size: 0.8125rem;
+    }
+    
+    .status-badge {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.625rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="appointments-container">
+    <!-- Header Section -->
+    <div class="appointments-header">
+        <div class="header-content">
+            <div>
+                <h1>Appointment Management</h1>
+                <p class="subtitle">Comprehensive appointment scheduling and management system</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-primary" onclick="exportAppointmentData()">
+                    <i class="fas fa-download"></i>
+                    Export Data
+                </button>
+                <a class="btn-secondary" href="/admin/home/appointment/add/">
+                    <i class="fas fa-calendar-plus"></i>
+                    Schedule Appointment
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-overview">
+        <div class="stat-card total">
+            <div class="icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <h3>Total Appointments</h3>
+            <div class="value">{{ total_appointments|default:"0" }}</div>
+            <div class="change">All time appointments</div>
+        </div>
+        
+        <div class="stat-card scheduled">
+            <div class="icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3>Upcoming</h3>
+            <div class="value">{{ scheduled_appointments|add:confirmed_appointments|default:"0" }}</div>
+            <div class="change">Scheduled or confirmed</div>
+        </div>
+        
+        <div class="stat-card completed">
+            <div class="icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Completed</h3>
+            <div class="value">{{ completed_appointments|default:"0" }}</div>
+            <div class="change">Successfully completed</div>
+        </div>
+        
+        <div class="stat-card cancelled">
+            <div class="icon">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <h3>Cancelled</h3>
+            <div class="value">{{ cancelled_appointments|default:"0" }}</div>
+            <div class="change">Cancelled appointments</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="appointments-content">
+        <div class="main-content">
+            <h2 class="section-title">
+                <i class="fas fa-list"></i>
+                Appointment List
+            </h2>
+            
+            <!-- Filter Controls -->
+            <div class="filter-controls">
+                <select id="statusFilter" onchange="filterAppointments()">
+                    <option value="">All Status</option>
+                    <option value="pending_payment">Pending Payment</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                
+                <select id="dateFilter" onchange="filterAppointments()">
+                    <option value="">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                </select>
+                
+                <input type="text" id="searchInput" placeholder="Search appointments..." onkeyup="filterAppointments()">
+                
+                <button class="btn-primary" onclick="resetFilters()">
+                    <i class="fas fa-redo"></i>
+                    Reset
+                </button>
+            </div>
+
+            <!-- Appointments Table -->
+            <table class="appointments-table">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Doctor</th>
+                        <th>Date & Time</th>
+                        <th>Status</th>
+                        <th>Fee</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment in appointments %}
+                    <tr data-appointment-id="{{ appointment.id }}">
+                        <td>
+                            <div class="appointment-info">
+                                <div class="appointment-avatar">
+                                    <i class="fas fa-user-injured"></i>
+                                </div>
+                                <div class="appointment-details">
+                                    <h4>{{ appointment.patient.get_full_name|default:appointment.patient.username }}</h4>
+                                    <p>{{ appointment.patient.email }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="appointment-info">
+                                <div class="appointment-avatar">
+                                    <i class="fas fa-user-md"></i>
+                                </div>
+                                <div class="appointment-details">
+                                    <h4>{{ appointment.doctor.user.get_full_name|default:appointment.doctor.user.username }}</h4>
+                                    <p>{{ appointment.doctor.specialty }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="datetime-info">
+                                <div class="date">{{ appointment.appointment_date|date:"M d, Y" }}</div>
+                                <div class="time">{{ appointment.appointment_date|time:"g:i A" }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="status-badge {{ appointment.status }}">
+                                {{ appointment.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="fee-display">
+                                ৳{{ appointment.consultation_fee|default:"0" }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a class="action-btn-small" href="/admin/home/appointment/{{ appointment.id }}/change/">
+                                    <i class="fas fa-eye"></i>
+                                    View
+                                </a>
+                                <a class="action-btn-small action-btn-edit" href="/admin/home/appointment/{{ appointment.id }}/change/">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </a>
+                                <a class="action-btn-small action-btn-danger" href="/admin/home/appointment/{{ appointment.id }}/delete/">
+                                    <i class="fas fa-trash"></i>
+                                    Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #6c757d;">
+                            <i class="fas fa-calendar-times" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
+                            No appointments found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Status Breakdown -->
+            <div class="status-breakdown">
+                <h3 class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Status Breakdown
+                </h3>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge pending_payment" style="font-size: 0.75rem;">Pending Payment</span>
+                    </div>
+                    <div class="status-count">{{ pending_appointments|default:"0" }}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge scheduled" style="font-size: 0.75rem;">Scheduled</span>
+                    </div>
+                    <div class="status-count">{{ scheduled_appointments|default:"0" }}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge confirmed" style="font-size: 0.75rem;">Confirmed</span>
+                    </div>
+                    <div class="status-count">{{ confirmed_appointments|default:"0" }}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge in_progress" style="font-size: 0.75rem;">In Progress</span>
+                    </div>
+                    <div class="status-count">{{ in_progress_appointments|default:"0" }}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge completed" style="font-size: 0.75rem;">Completed</span>
+                    </div>
+                    <div class="status-count">{{ completed_appointments|default:"0" }}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">
+                        <span class="status-badge cancelled" style="font-size: 0.75rem;">Cancelled</span>
+                    </div>
+                    <div class="status-count">{{ cancelled_appointments|default:"0" }}</div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3 class="section-title">
+                    <i class="fas fa-bolt"></i>
+                    Quick Actions
+                </h3>
+                <a class="action-btn" href="/admin/home/appointment/add/">
+                    <i class="fas fa-calendar-plus"></i>
+                    Add Appointment
+                </a>
+                <button class="action-btn action-btn-outline" onclick="exportAppointmentData()">
+                    <i class="fas fa-download"></i>
+                    Export Visible Rows
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Professional Appointments Management JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize filters
+    filterAppointments();
+    
+    // Add row hover effects
+    const tableRows = document.querySelectorAll('.appointments-table tbody tr');
+    tableRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.01)';
+            this.style.boxShadow = '0 4px 15px rgba(8, 161, 247, 0.15)';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            this.style.boxShadow = '';
+        });
+    });
+});
+
+// Filter appointments function
+function filterAppointments() {
+    const status = document.getElementById('statusFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    
+    const tableRows = document.querySelectorAll('.appointments-table tbody tr');
+    
+    tableRows.forEach(row => {
+        let showRow = true;
+        
+        // Filter by status
+        if (status) {
+            const statusBadge = row.querySelector('.status-badge');
+            if (statusBadge && !statusBadge.classList.contains(status)) {
+                showRow = false;
+            }
+        }
+        
+        // Filter by date
+        if (dateFilter && showRow) {
+            const dateCell = row.querySelector('.datetime-info .date');
+            if (dateCell) {
+                const appointmentDate = new Date(dateCell.textContent);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (dateFilter === 'today') {
+                    const appointmentDay = new Date(appointmentDate);
+                    appointmentDay.setHours(0, 0, 0, 0);
+                    if (appointmentDay.getTime() !== today.getTime()) {
+                        showRow = false;
+                    }
+                } else if (dateFilter === 'week') {
+                    const weekFromNow = new Date(today);
+                    weekFromNow.setDate(weekFromNow.getDate() + 7);
+                    if (appointmentDate < today || appointmentDate > weekFromNow) {
+                        showRow = false;
+                    }
+                } else if (dateFilter === 'month') {
+                    const monthFromNow = new Date(today);
+                    monthFromNow.setMonth(monthFromNow.getMonth() + 1);
+                    if (appointmentDate < today || appointmentDate > monthFromNow) {
+                        showRow = false;
+                    }
+                }
+            }
+        }
+        
+        // Filter by search term
+        if (search && showRow) {
+            const text = row.textContent.toLowerCase();
+            if (!text.includes(search)) {
+                showRow = false;
+            }
+        }
+        
+        // Show/hide row
+        row.style.display = showRow ? '' : 'none';
+    });
+    
+}
+
+// Reset filters function
+function resetFilters() {
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    document.getElementById('searchInput').value = '';
+    filterAppointments();
+}
+
+// Export appointment data
+function exportAppointmentData() {
+    // Get all visible rows
+    const rows = document.querySelectorAll('.appointments-table tbody tr:not([style*="display: none"])');
+    let csv = 'Patient,Doctor,Date,Time,Status,Fee,Email,Specialty\n';
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 6) {
+            return;
+        }
+        const rowData = [
+            cells[0].querySelector('h4').textContent,
+            cells[1].querySelector('h4').textContent,
+            cells[2].querySelector('.date').textContent,
+            cells[2].querySelector('.time').textContent,
+            cells[3].textContent.trim(),
+            cells[4].textContent.trim(),
+            cells[0].querySelector('p').textContent,
+            cells[1].querySelector('p').textContent
+        ].map(cell => `"${cell.trim()}"`).join(',');
+        
+        csv += rowData + '\n';
+    });
+    
+    // Create download link
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `appointment_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+</script>
+{% endblock %}

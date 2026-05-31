@@ -1,0 +1,773 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard | Mental Wellness Consultation</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/doctor-dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/doctor-dashboard-modals.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'doctor_dashboard' %}" class="active" aria-label="Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'doctor_appointments' %}" aria-label="Appointments">Appointments</a></li>
+                <li><a href="{% url 'doctor_schedule' %}" aria-label="My Schedule">My Schedule</a></li>
+                <li><a href="{% url 'doctor_blog_management' %}" aria-label="My Blogs">My Blogs</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <main class="dashboard-container">
+        <div class="container">
+            <!-- Dashboard Header -->
+            <section class="dashboard-header">
+                <div class="welcome-section">
+                    <div class="welcome-content">
+                        <h1>Welcome, Dr. {{ doctor.user.get_full_name }}!</h1>
+                        <p>Manage your appointments and help patients on their mental wellness journey.</p>
+                    </div>
+                    <div class="doctor-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>{{ doctor.specialty }}</h3>
+                                <p>Specialization</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>{{ doctor.years_of_experience }}+</h3>
+                                <p>Years Experience</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>{% if doctor.consultation_fee %}{{ doctor.consultation_fee }}৳{% else %}Not Set{% endif %}</h3>
+                                <p>Consultation Fee</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="quick-actions">
+                <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
+                <div class="action-grid">
+                    <a href="{% url 'doctor_appointments' %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-calendar-plus"></i>
+                        </div>
+                        <div class="action-content">
+                            <h3>View Schedule</h3>
+                            <p>Manage your appointment schedule</p>
+                        </div>
+                    </a>
+                    <a href="{% url 'edit_doctor_profile' %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-user-edit"></i>
+                        </div>
+                        <div class="action-content">
+                            <h3>Edit Profile</h3>
+                            <p>Update your professional information</p>
+                        </div>
+                    </a>
+                    <a href="{% url 'doctor_write_blog' %}" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-pen-fancy"></i>
+                        </div>
+                        <div class="action-content">
+                            <h3>Write Blog</h3>
+                            <p>Share your expertise with patients</p>
+                        </div>
+                    </a>
+                    <a href="#" class="action-card analytics-btn" data-action="analytics">
+                        <div class="action-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="action-content">
+                            <h3>View Analytics</h3>
+                            <p>Track your performance metrics</p>
+                        </div>
+                    </a>
+                    <a href="#" class="action-card settings-btn" data-action="settings">
+                        <div class="action-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="action-content">
+                            <h3>Settings</h3>
+                            <p>Configure your preferences</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Appointments Section -->
+            <section class="appointments-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-calendar-check"></i> Appointments</h2>
+                    <div class="section-actions">
+                        <button class="btn-base btn-primary">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Today's Appointments -->
+                <div class="appointments-group">
+                    <h3><i class="fas fa-calendar-day"></i> Today's Appointments</h3>
+                    {% if today_appointments %}
+                        <div class="appointments-list">
+                            {% for appointment in today_appointments %}
+                                <div class="appointment-card">
+                                    <div class="appointment-info">
+                                        <div class="appointment-patient">
+                                            <i class="fas fa-user"></i>
+                                            <span>{{ appointment.patient.get_full_name|default:appointment.patient.username }}</span>
+                                        </div>
+                                        <div class="appointment-datetime">
+                                            <i class="fas fa-calendar"></i>
+                                            <span>{{ appointment.appointment_date|date:"M d, Y H:i" }}</span>
+                                        </div>
+                                        <div class="appointment-fee">
+                                            <i class="fas fa-dollar-sign"></i>
+                                            <span>{% if appointment.consultation_fee %}{{ appointment.consultation_fee }}৳{% else %}Not Set{% endif %}</span>
+                                        </div>
+                                        <div class="appointment-status status-{{ appointment.status }}">
+                                            {{ appointment.get_status_display }}
+                                        </div>
+                                    </div>
+                                    <div class="appointment-actions">
+                                        {% if appointment.can_join_consultation %}
+                                            <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-sm btn-primary">
+                                                <i class="fas fa-video"></i> Start Consultation
+                                            </a>
+                                        {% elif appointment.consultation_access_message %}
+                                            <span class="btn-base btn-sm btn-outline disabled">{{ appointment.consultation_access_message }}</span>
+                                        {% endif %}
+                                        <button class="btn-base btn-sm btn-outline appointment-details-btn" data-appointment-id="{{ appointment.id }}">
+                                            <i class="fas fa-info-circle"></i> Details
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-calendar-times"></i>
+                            </div>
+                            <h3>No appointments today</h3>
+                            <p>Enjoy your day! Check back for upcoming appointments.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Upcoming Appointments -->
+                <div class="appointments-group">
+                    <h3><i class="fas fa-calendar-alt"></i> Upcoming Appointments</h3>
+                    {% if upcoming_appointments %}
+                        <div class="appointments-list">
+                            {% for appointment in upcoming_appointments %}
+                                <div class="appointment-card">
+                                    <div class="appointment-info">
+                                        <div class="appointment-patient">
+                                            <i class="fas fa-user"></i>
+                                            <span>{{ appointment.patient.get_full_name|default:appointment.patient.username }}</span>
+                                        </div>
+                                        <div class="appointment-datetime">
+                                            <i class="fas fa-calendar"></i>
+                                            <span>{{ appointment.appointment_date|date:"M d, Y H:i" }}</span>
+                                        </div>
+                                        <div class="appointment-fee">
+                                            <i class="fas fa-dollar-sign"></i>
+                                            <span>{% if appointment.consultation_fee %}{{ appointment.consultation_fee }}৳{% else %}Not Set{% endif %}</span>
+                                        </div>
+                                        <div class="appointment-status status-{{ appointment.status }}">
+                                            {{ appointment.get_status_display }}
+                                        </div>
+                                    </div>
+                                    <div class="appointment-actions">
+                                        <button class="btn-base btn-sm btn-outline appointment-details-btn" data-appointment-id="{{ appointment.id }}">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </button>
+                                        <button class="btn-base btn-sm btn-outline message-patient-btn" data-patient-id="{{ appointment.patient.id }}">
+                                            <i class="fas fa-comment"></i> Message Patient
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-calendar-plus"></i>
+                            </div>
+                            <h3>No upcoming appointments</h3>
+                            <p>You don't have any upcoming appointments scheduled.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Consultation</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Consultation. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/navigation.js' %}"></script>
+    <script src="{% static 'js/section-highlight.js' %}"></script>
+    <script>
+        // Doctor Dashboard Functionality
+        
+        // Function declarations - make them available globally
+        function showAppointmentDetails(appointmentId) {
+            // Fetch real appointment data
+            fetch(`/doctor/appointment-details/${appointmentId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    createAppointmentModal(data);
+                })
+                .catch(error => {
+                    // Fallback to modal with loading message
+                    createAppointmentModal({error: 'Failed to load appointment details'});
+                });
+        }
+
+        function messagePatient(patientId) {
+            // Create message modal
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Message Patient</h3>
+                        <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="message-form">
+                            <div class="form-group">
+                                <label>Message</label>
+                                <textarea id="messageText" placeholder="Type your message to the patient..." rows="4"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn-base btn-outline" onclick="closeModal(this)">Cancel</button>
+                                <button class="btn-base btn-primary" onclick="sendMessage(${patientId}, this)">Send Message</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function showAnalyticsModal() {
+            // Fetch real analytics data
+            fetch('/doctor/analytics/')
+                .then(response => response.json())
+                .then(data => {
+                    createAnalyticsModal(data);
+                })
+                .catch(error => {
+                                        // Fallback to modal with sample data
+                    createAnalyticsModal({
+                        total_patients: 0,
+                        completed_sessions: 0,
+                        total_earnings: 0
+                    });
+                });
+        }
+
+        function showSettingsModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Settings</h3>
+                        <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Notification Preferences</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" checked> Email notifications</label>
+                                    <label><input type="checkbox" checked> SMS notifications</label>
+                                    <label><input type="checkbox"> Push notifications</label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Consultation Settings</label>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" checked> Allow video consultations</label>
+                                    <label><input type="checkbox" checked> Allow chat consultations</label>
+                                    <label><input type="checkbox"> Show availability calendar</label>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn-base btn-outline" onclick="closeModal(this)">Cancel</button>
+                                <button class="btn-base btn-primary" onclick="saveSettings(this)">Save Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function closeModal(button) {
+            const modal = button.closest('.modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function saveSettings(button) {
+            // Simulate saving settings
+            button.textContent = 'Saving...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                button.textContent = 'Save Settings';
+                button.disabled = false;
+                closeModal(button);
+                // Show success message
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Settings Saved</h3>
+                            <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Your settings have been saved successfully!</p>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.style.display = 'block';
+            }, 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Refresh appointments
+            const refreshBtn = document.querySelector('.btn-primary');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    location.reload();
+                });
+            }
+
+            // Initialize dashboard
+            initializeDashboard();
+        });
+
+        function initializeDashboard() {
+            // Add hover effects to cards
+            const cards = document.querySelectorAll('.action-card, .appointment-card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // Add event listeners for appointment details buttons
+            const appointmentDetailsBtns = document.querySelectorAll('.appointment-details-btn');
+            appointmentDetailsBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const appointmentId = this.getAttribute('data-appointment-id');
+                    if (typeof showAppointmentDetails === 'function') {
+                        showAppointmentDetails(appointmentId);
+                    } else {
+                                            }
+                });
+            });
+            
+            // Add event listeners for message patient buttons
+            const messagePatientBtns = document.querySelectorAll('.message-patient-btn');
+            messagePatientBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const patientId = this.getAttribute('data-patient-id');
+                    if (typeof messagePatient === 'function') {
+                        messagePatient(patientId);
+                    } else {
+                                            }
+                });
+            });
+            
+            // Add event listeners for quick action buttons
+            const analyticsBtn = document.querySelector('.analytics-btn');
+            if (analyticsBtn) {
+                analyticsBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (typeof showAnalyticsModal === 'function') {
+                        showAnalyticsModal();
+                    } else {
+                                                alert('Analytics feature is being loaded...');
+                    }
+                });
+            }
+            
+            const settingsBtn = document.querySelector('.settings-btn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (typeof showSettingsModal === 'function') {
+                        showSettingsModal();
+                    } else {
+                                                alert('Settings feature is being loaded...');
+                    }
+                });
+            }
+        }
+
+        function showAppointmentDetails(appointmentId) {
+            // Fetch real appointment data
+            fetch(`/doctor/appointment-details/${appointmentId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    createAppointmentModal(data);
+                })
+                .catch(error => {
+                                        // Fallback to modal with loading message
+                    createAppointmentModal({error: 'Failed to load appointment details'});
+                });
+        }
+
+        function createAppointmentModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            
+            let modalContent = '';
+            if (data.error) {
+                modalContent = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Appointment Details</h3>
+                            <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${data.error}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                modalContent = `
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Appointment Details</h3>
+                            <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="appointment-details">
+                                <div class="detail-row">
+                                    <strong>Patient:</strong> ${data.patient_name}
+                                </div>
+                                <div class="detail-row">
+                                    <strong>Date:</strong> ${data.date}
+                                </div>
+                                <div class="detail-row">
+                                    <strong>Time:</strong> ${data.time}
+                                </div>
+                                <div class="detail-row">
+                                    <strong>Status:</strong> <span class="status-${data.status.toLowerCase()}">${data.status}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <strong>Consultation Type:</strong> ${data.consultation_type}
+                                </div>
+                                <div class="detail-row">
+                                    <strong>Fee:</strong> ${data.fee}৳
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = modalContent;
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function messagePatient(patientId) {
+            // Create message modal
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Message Patient</h3>
+                        <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="message-form">
+                            <div class="form-group">
+                                <label>Message</label>
+                                <textarea id="messageText" placeholder="Type your message to the patient..." rows="4"></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn-base btn-outline" onclick="closeModal(this)">Cancel</button>
+                                <button class="btn-base btn-primary" onclick="sendMessage(${patientId}, this)">Send Message</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function sendMessage(patientId, buttonElement) {
+            const messageText = document.getElementById('messageText').value.trim();
+            
+            if (!messageText) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            // Show loading state
+            buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            buttonElement.disabled = true;
+            
+            // Send message via API
+            fetch('/doctor/send-message/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    patient_id: patientId,
+                    message: messageText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Message sent successfully!');
+                    closeModal(buttonElement);
+                } else {
+                    alert('Failed to send message: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                                alert('Failed to send message. Please try again.');
+            })
+            .finally(() => {
+                buttonElement.innerHTML = 'Send Message';
+                buttonElement.disabled = false;
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function showAnalyticsModal() {
+            // Fetch real analytics data
+            fetch('/doctor/analytics/')
+                .then(response => response.json())
+                .then(data => {
+                    createAnalyticsModal(data);
+                })
+                .catch(error => {
+                                        // Fallback to modal with sample data
+                    createAnalyticsModal({
+                        total_patients: 0,
+                        completed_sessions: 0,
+                        total_earnings: 0
+                    });
+                });
+        }
+
+        function createAnalyticsModal(data) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Performance Analytics</h3>
+                        <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="analytics-grid">
+                            <div class="analytics-card">
+                                <div class="analytics-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="analytics-info">
+                                    <h4>Total Patients</h4>
+                                    <p>${data.total_patients || 0}</p>
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="analytics-info">
+                                    <h4>Completed Sessions</h4>
+                                    <p>${data.completed_sessions || 0}</p>
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="analytics-icon">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <div class="analytics-info">
+                                    <h4>Total Earnings</h4>
+                                    <p>৳${data.total_earnings || 0}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function showSettingsModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Settings</h3>
+                        <button class="modal-close" onclick="closeModal(this)">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>Notification Preferences</label>
+                                <div class="checkbox-group">
+                                    <label>
+                                        <input type="checkbox" checked> Email notifications
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" checked> SMS notifications
+                                    </label>
+                                    <label>
+                                        <input type="checkbox"> Appointment reminders
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Availability Status</label>
+                                <select>
+                                    <option value="available">Available</option>
+                                    <option value="busy">Busy</option>
+                                    <option value="unavailable">Unavailable</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn-base btn-outline" onclick="closeModal(this)">Cancel</button>
+                                <button class="btn-base btn-primary" onclick="saveSettings(this)">Save Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+        }
+
+        function closeModal(button) {
+            const modal = button.closest('.modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function sendMessage(button) {
+            const textarea = button.closest('.modal-body').querySelector('textarea');
+            const message = textarea.value.trim();
+            
+            if (message) {
+                alert('Message sent successfully!');
+                closeModal(button);
+            } else {
+                alert('Please enter a message.');
+            }
+        }
+
+        function saveSettings(button) {
+            alert('Settings saved successfully!');
+            closeModal(button);
+        }
+
+        // Modal styles moved to doctor-dashboard-modals.css
+        
+        // Add click outside modal to close
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.remove();
+            }
+        });
+        
+        function initializeModals() {
+            // Initialize any modal-related functionality
+        }
+        
+        // Initialize all modals
+        initializeModals();
+    </script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/booking-page-professional.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'patient_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="booking-container">
+        <div class="booking-header">
+            <div class="header-content">
+                <h1>Booking Confirmed</h1>
+                <p>Your consultation appointment is ready.</p>
+            </div>
+            <div class="header-breadcrumb">
+                <a href="{% url 'patient_dashboard' %}">Dashboard</a>
+                <span class="separator">/</span>
+                <a href="{% url 'patient_appointments' %}">Appointments</a>
+                <span class="separator">/</span>
+                <span class="current">Booking Confirmed</span>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="checkout-progress" aria-label="Checkout progress">
+            <div class="checkout-step active"><span class="step-dot">1</span><span>Schedule</span></div>
+            <div class="checkout-step active"><span class="step-dot">2</span><span>Method</span></div>
+            <div class="checkout-step active"><span class="step-dot">3</span><span>Details</span></div>
+            <div class="checkout-step active"><span class="step-dot">4</span><span>OTP</span></div>
+            <div class="checkout-step active"><span class="step-dot">5</span><span>Success</span></div>
+        </div>
+
+        <section class="booking-success-panel">
+            <div class="success-icon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h2>Payment successful. Appointment confirmed.</h2>
+            <p>Please join the consultation using the meeting link at the scheduled time.</p>
+
+            <div class="success-summary-grid">
+                <div class="success-summary-item">
+                    <span>Doctor</span>
+                    <strong>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Specialization</span>
+                    <strong>{{ doctor.specialty }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Date</span>
+                    <strong>{{ appointment.appointment_date|date:"F d, Y" }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Time</span>
+                    <strong>{{ appointment.appointment_date|date:"h:i A" }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Consultation Fee</span>
+                    <strong>BDT {{ appointment.consultation_fee }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Payment Method</span>
+                    <strong>{{ payment_method_label }}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Payment Status</span>
+                    <strong>{% if payment %}{{ payment.get_status_display }}{% else %}Not available{% endif %}</strong>
+                </div>
+                <div class="success-summary-item">
+                    <span>Transaction ID</span>
+                    <strong>{% if payment.transaction_id %}{{ payment.transaction_id }}{% else %}PAY-{{ payment.id }}{% endif %}</strong>
+                </div>
+                {% if payment.reference_id %}
+                <div class="success-summary-item">
+                    <span>Reference ID</span>
+                    <strong>{{ payment.reference_id }}</strong>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if appointment.meeting_link %}
+            <div class="meeting-link-card">
+                <strong>Meeting Link</strong>
+                <p><a href="{{ appointment.meeting_link }}" target="_blank" rel="noopener">{{ appointment.meeting_link }}</a></p>
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <a href="{% url 'patient_appointments' %}" class="btn-base btn-primary">
+                    <i class="fas fa-calendar-check"></i> View My Appointments
+                </a>
+                <button type="button"
+                        class="btn-base btn-outline"
+                        id="downloadReceipt"
+                        data-appointment-id="{{ appointment.id }}"
+                        data-doctor="Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}"
+                        data-date="{{ appointment.appointment_date|date:'F d, Y' }}"
+                        data-time="{{ appointment.appointment_date|date:'h:i A' }}"
+                        data-amount="BDT {{ appointment.consultation_fee }}"
+                        data-method="{{ payment_method_label }}"
+                        data-status="{{ payment.get_status_display }}"
+                        data-transaction="{% if payment.transaction_id %}{{ payment.transaction_id }}{% else %}PAY-{{ payment.id }}{% endif %}"
+                        data-meeting-link="{{ appointment.meeting_link }}">
+                    <i class="fas fa-download"></i> Download Receipt
+                </button>
+                <a href="{% url 'doctors_list' %}" class="btn-base btn-outline">
+                    <i class="fas fa-user-md"></i> Browse Doctors
+                </a>
+            </div>
+        </section>
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const receiptButton = document.getElementById('downloadReceipt');
+            if (!receiptButton) return;
+            receiptButton.addEventListener('click', function() {
+                const lines = [
+                    'Mental Wellness Platform Receipt',
+                    `Appointment ID: ${receiptButton.dataset.appointmentId}`,
+                    `Doctor: ${receiptButton.dataset.doctor}`,
+                    `Date: ${receiptButton.dataset.date}`,
+                    `Time: ${receiptButton.dataset.time}`,
+                    `Amount: ${receiptButton.dataset.amount}`,
+                    `Payment Method: ${receiptButton.dataset.method}`,
+                    `Payment Status: ${receiptButton.dataset.status}`,
+                    `Transaction ID: ${receiptButton.dataset.transaction}`,
+                    `Meeting Link: ${receiptButton.dataset.meetingLink}`
+                ];
+                const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `appointment-${receiptButton.dataset.appointmentId}-receipt.txt`;
+                link.click();
+                window.URL.revokeObjectURL(url);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1021 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* Payment Management Modal Styles */
+.payment-management {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.payment-overview {
+    margin-bottom: 30px;
+}
+
+.payment-overview h3 {
+    color: #2c3e50;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.overview-item {
+    background: linear-gradient(135deg, rgba(8, 161, 247, 0.05), rgba(9, 224, 254, 0.05));
+    border: 1px solid rgba(8, 161, 247, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.overview-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(8, 161, 247, 0.15);
+    border-color: rgba(8, 161, 247, 0.2);
+}
+
+.overview-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #08a1f7, #09e0fe);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.overview-content h4 {
+    color: #2c3e50;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.overview-content .amount {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #08a1f7;
+    margin-bottom: 5px;
+}
+
+.overview-content small {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.payment-actions {
+    margin-bottom: 30px;
+}
+
+.payment-actions h3 {
+    color: #2c3e50;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.payment-btn {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.payment-btn:hover {
+    border-color: #08a1f7;
+    background: linear-gradient(135deg, rgba(8, 161, 247, 0.05), rgba(9, 224, 254, 0.05));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(8, 161, 247, 0.15);
+    color: #08a1f7;
+}
+
+.payment-btn i {
+    font-size: 1.1rem;
+    color: #08a1f7;
+}
+
+.recent-transactions {
+    margin-bottom: 30px;
+}
+
+.recent-transactions h3 {
+    color: #2c3e50;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.transaction-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.transaction-item:hover {
+    border-color: rgba(8, 161, 247, 0.2);
+    box-shadow: 0 4px 15px rgba(8, 161, 247, 0.1);
+}
+
+.transaction-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.transaction-icon.success {
+    background: linear-gradient(135deg, #28a745, #20bf6b);
+}
+
+.transaction-icon.pending {
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+}
+
+.transaction-details {
+    flex: 1;
+}
+
+.transaction-details h4 {
+    color: #2c3e50;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.transaction-details p {
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin-bottom: 3px;
+}
+
+.transaction-details small {
+    color: #adb5bd;
+    font-size: 0.75rem;
+}
+
+.transaction-amount {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.transaction-amount.positive {
+    color: #28a745;
+}
+
+.transaction-amount.negative {
+    color: #dc3545;
+}
+
+.transaction-amount.pending {
+    color: #ffc107;
+}
+
+/* Modal responsiveness */
+@media (max-width: 768px) {
+    .overview-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .action-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .transaction-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .transaction-amount {
+        align-self: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <!-- Dashboard Header -->
+    <section class="dashboard-header">
+        <div class="header-content">
+            <div class="welcome-section">
+                <h1 class="dashboard-title">Welcome back, {{ user.get_full_name|default:user.username }}!</h1>
+                <p class="dashboard-subtitle">Manage your mental wellness platform with professional tools</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Overview -->
+    <section class="admin-stats-grid">
+        <div class="stat-card clickable" onclick="showUserDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_users|default:"0" }}</div>
+                <p class="stat-label">Total Users</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>{{ total_patients|default:"0" }} patients</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card clickable" onclick="showDoctorDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-user-md"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_doctors|default:"0" }}</div>
+                <p class="stat-label">Active Doctors</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>{{ total_doctors|default:"0" }} registered</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card clickable" onclick="showAppointmentDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_appointments|default:"0" }}</div>
+                <p class="stat-label">Total Appointments</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>All recorded visits</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card clickable" onclick="showAssessmentDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_assessments|default:"0" }}</div>
+                <p class="stat-label">Assessments</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Completed screenings</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card clickable" onclick="showPaymentDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-credit-card"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">BDT {{ total_revenue|default:0 }}</div>
+                <p class="stat-label">Total Revenue</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Completed payments</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card clickable" onclick="showPaymentDetails()">
+            <div class="stat-icon">
+                <i class="fas fa-receipt"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_payments|default:"0" }}</div>
+                <p class="stat-label">Total Payments</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-wallet"></i>
+                    <span>All payment records</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-video"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ pending_consultations|default:"0" }}</div>
+                <p class="stat-label">Pending Consultations</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-clock"></i>
+                    <span>Confirmed or in progress</span>
+                </div>
+            </div>
+        </div>
+
+        <a class="stat-card clickable" href="/admin/home/systememailconfig/">
+            <div class="stat-icon">
+                <i class="fas fa-envelope-circle-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{% if email_config_active %}Active{% else %}Missing{% endif %}</div>
+                <p class="stat-label">Email Config</p>
+                <div class="stat-trend {% if email_config_active %}trend-up{% else %}trend-down{% endif %}">
+                    <i class="fas fa-{% if email_config_active %}check{% else %}triangle-exclamation{% endif %}"></i>
+                    <span>{% if active_email_config %}{{ active_email_config.name }}{% else %}SMTP not configured{% endif %}</span>
+                </div>
+            </div>
+        </a>
+
+        <a class="stat-card clickable" href="/admin/home/systememailconfig/">
+            <div class="stat-icon">
+                <i class="fas fa-paper-plane"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{% if default_from_email %}Set{% else %}Fallback{% endif %}</div>
+                <p class="stat-label">Default From Email</p>
+                <div class="stat-trend {% if default_from_email %}trend-up{% else %}trend-down{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    <span>{% if default_from_email %}{{ default_from_email }}{% else %}settings.py fallback{% endif %}</span>
+                </div>
+            </div>
+        </a>
+
+        <a class="stat-card clickable" href="/admin/home/paymentreceiveraccount/">
+            <div class="stat-icon">
+                <i class="fas fa-money-check-dollar"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ active_payment_method_count|default:"0" }}</div>
+                <p class="stat-label">Active Receivers</p>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-credit-card"></i>
+                    <span>{% if active_payment_methods %}{{ active_payment_methods|join:", " }}{% else %}No active receivers{% endif %}</span>
+                </div>
+            </div>
+        </a>
+
+        <a class="stat-card clickable" href="/admin/home/paymentreceiveraccount/?payment_method__exact=bkash">
+            <div class="stat-icon">
+                <i class="fas fa-mobile-screen-button"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{% if active_bkash_receiver %}Active{% else %}Missing{% endif %}</div>
+                <p class="stat-label">bKash Receiver</p>
+                <div class="stat-trend {% if active_bkash_receiver %}trend-up{% else %}trend-down{% endif %}">
+                    <i class="fas fa-{% if active_bkash_receiver %}check{% else %}triangle-exclamation{% endif %}"></i>
+                    <span>{% if active_bkash_receiver %}{{ active_bkash_receiver.display_identifier }}{% else %}No active bKash{% endif %}</span>
+                </div>
+            </div>
+        </a>
+
+        <a class="stat-card clickable" href="/admin/home/paymentreceiveraccount/?payment_method__exact=nagad">
+            <div class="stat-icon">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{% if active_nagad_receiver %}Active{% else %}Missing{% endif %}</div>
+                <p class="stat-label">Nagad Receiver</p>
+                <div class="stat-trend {% if active_nagad_receiver %}trend-up{% else %}trend-down{% endif %}">
+                    <i class="fas fa-{% if active_nagad_receiver %}check{% else %}triangle-exclamation{% endif %}"></i>
+                    <span>{% if active_nagad_receiver %}{{ active_nagad_receiver.display_identifier }}{% else %}No active Nagad{% endif %}</span>
+                </div>
+            </div>
+        </a>
+
+        <a class="stat-card clickable" href="/admin/home/paymentreceiveraccount/?payment_method__exact=card">
+            <div class="stat-icon">
+                <i class="fas fa-credit-card"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{% if active_card_receiver %}Active{% else %}Missing{% endif %}</div>
+                <p class="stat-label">Card Receiver</p>
+                <div class="stat-trend {% if active_card_receiver %}trend-up{% else %}trend-down{% endif %}">
+                    <i class="fas fa-{% if active_card_receiver %}check{% else %}triangle-exclamation{% endif %}"></i>
+                    <span>{% if active_card_receiver %}{{ active_card_receiver.card_processor_name }}{% else %}No active card receiver{% endif %}</span>
+                </div>
+            </div>
+        </a>
+    </section>
+
+    <section class="dashboard-section-grid">
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-heart-pulse"></i>
+                Care Operations
+            </h2>
+            <div class="metric-mini-grid">
+                <a href="/admin/home/appointment/?appointment_date__date={{ local_today|date:'Y-m-d' }}" class="mini-stat">
+                    <span>Today</span>
+                    <strong>{{ today_appointments|default:"0" }}</strong>
+                    <small>Appointments</small>
+                </a>
+                <a href="/admin/home/appointment/" class="mini-stat">
+                    <span>Upcoming</span>
+                    <strong>{{ upcoming_appointments|default:"0" }}</strong>
+                    <small>Scheduled care</small>
+                </a>
+                <a href="/admin/home/consultation/?status__exact=completed" class="mini-stat">
+                    <span>Completed</span>
+                    <strong>{{ completed_consultations|default:"0" }}</strong>
+                    <small>Consultations</small>
+                </a>
+                <a href="/admin/home/consultation/" class="mini-stat warning">
+                    <span>Incomplete</span>
+                    <strong>{{ incomplete_consultations|default:"0" }}</strong>
+                    <small>Needs review</small>
+                </a>
+            </div>
+        </article>
+
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-layer-group"></i>
+                Content & Tasks
+            </h2>
+            <div class="metric-mini-grid">
+                <a href="/admin/home/blogpost/" class="mini-stat">
+                    <span>Blogs</span>
+                    <strong>{{ total_blogs|default:"0" }}</strong>
+                    <small>{{ published_blogs|default:"0" }} published</small>
+                </a>
+                <a href="/admin/home/blogpost/?status__exact=pending" class="mini-stat warning">
+                    <span>Pending</span>
+                    <strong>{{ pending_blogs|default:"0" }}</strong>
+                    <small>Blog reviews</small>
+                </a>
+                <a href="/admin/home/dailytask/" class="mini-stat">
+                    <span>Tasks</span>
+                    <strong>{{ total_daily_tasks|default:"0" }}</strong>
+                    <small>{{ active_daily_tasks|default:"0" }} active</small>
+                </a>
+                <a href="/admin/home/taskcompletion/" class="mini-stat">
+                    <span>Done</span>
+                    <strong>{{ completed_task_entries|default:"0" }}</strong>
+                    <small>Task entries</small>
+                </a>
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-section-grid">
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-user-plus"></i>
+                Recent Users
+            </h2>
+            <div class="activity-list compact-list">
+                {% for account in recent_users %}
+                    <a class="activity-item" href="/admin/home/user/{{ account.id }}/change/">
+                        <div class="activity-icon"><i class="fas fa-user"></i></div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ account.get_full_name|default:account.username }}</h3>
+                            <p class="activity-description">{{ account.email|default:"No email" }}</p>
+                        </div>
+                        <div class="activity-time">{{ account.date_joined|date:"M d" }}</div>
+                    </a>
+                {% empty %}
+                    <div class="empty-state compact-empty">
+                        <i class="fas fa-user"></i>
+                        <p class="empty-description">No users yet.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-calendar-day"></i>
+                Recent Appointments
+            </h2>
+            <div class="activity-list compact-list">
+                {% for appointment in recent_appointments %}
+                    <a class="activity-item" href="/admin/home/appointment/{{ appointment.id }}/change/">
+                        <div class="activity-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ appointment.patient.get_full_name|default:appointment.patient.username }}</h3>
+                            <p class="activity-description">Dr. {{ appointment.doctor.user.get_full_name|default:appointment.doctor.user.username }} - {{ appointment.get_status_display }}</p>
+                        </div>
+                        <div class="activity-time">{{ appointment.appointment_date|date:"M d, h:i A" }}</div>
+                    </a>
+                {% empty %}
+                    <div class="empty-state compact-empty">
+                        <i class="fas fa-calendar-check"></i>
+                        <p class="empty-description">No appointments yet.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-section-grid">
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-video"></i>
+                Recent Consultations
+            </h2>
+            <div class="activity-list compact-list">
+                {% for consultation in recent_consultations %}
+                    <a class="activity-item" href="/admin/home/consultation/{{ consultation.id }}/change/">
+                        <div class="activity-icon"><i class="fas fa-video"></i></div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ consultation.room_name }}</h3>
+                            <p class="activity-description">{{ consultation.appointment.patient.get_full_name|default:consultation.appointment.patient.username }} - {{ consultation.get_status_display }}</p>
+                        </div>
+                        <div class="activity-time">{{ consultation.created_at|date:"M d, h:i A" }}</div>
+                    </a>
+                {% empty %}
+                    <div class="empty-state compact-empty">
+                        <i class="fas fa-video"></i>
+                        <p class="empty-description">No consultations yet.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="activity-section dashboard-compact-section">
+            <h2 class="section-title">
+                <i class="fas fa-bell"></i>
+                Notifications
+            </h2>
+            <div class="metric-mini-grid single-row">
+                <a href="/admin/home/notification/?is_read__exact=0" class="mini-stat warning">
+                    <span>Unread</span>
+                    <strong>{{ unread_notifications|default:"0" }}</strong>
+                    <small>System notifications</small>
+                </a>
+            </div>
+            <div class="activity-list compact-list">
+                {% for notification in recent_notifications %}
+                    <a class="activity-item" href="/admin/home/notification/{{ notification.id }}/change/">
+                        <div class="activity-icon"><i class="fas fa-bell"></i></div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ notification.title }}</h3>
+                            <p class="activity-description">{{ notification.user.get_full_name|default:notification.user.username }} - {{ notification.get_notification_type_display }}</p>
+                        </div>
+                        <div class="activity-time">{{ notification.created_at|date:"M d" }}</div>
+                    </a>
+                {% empty %}
+                    <div class="empty-state compact-empty">
+                        <i class="fas fa-bell"></i>
+                        <p class="empty-description">No notifications yet.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="activity-section">
+        <h2 class="section-title">
+            <i class="fas fa-receipt"></i>
+            Recent Payments
+        </h2>
+        <div class="activity-list">
+            {% for payment in recent_payments %}
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-credit-card"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h3 class="activity-title">Payment #{{ payment.id }} - {{ payment.get_status_display }}</h3>
+                        <p class="activity-description">
+                            BDT {{ payment.amount }} via {{ payment.payment_method|default:"Not set" }}
+                            {% if payment.payment_receiver_account %}to {{ payment.payment_receiver_account.account_name }}{% endif %}
+                        </p>
+                    </div>
+                    <div class="activity-time">{{ payment.created_at|date:"M d, h:i A" }}</div>
+                </div>
+            {% empty %}
+                <div class="empty-state">
+                    <i class="fas fa-receipt"></i>
+                    <p class="empty-description">No recent payments yet.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="activity-section">
+        <h2 class="section-title">
+            <i class="fas fa-envelope-open-text"></i>
+            Email Delivery Logs
+        </h2>
+        <div class="activity-list">
+            {% if failed_email_logs %}
+                {% for log in failed_email_logs %}
+                    <div class="activity-item">
+                        <div class="activity-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ log }}</h3>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-circle-info"></i>
+                    <p class="empty-description">No persistent email failure log model is configured; failures are written to the application logger.</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Charts Section -->
+    <section class="charts-section">
+        <h2 class="section-title">
+            <i class="fas fa-chart-line"></i>
+            Platform Analytics
+        </h2>
+        <div class="chart-container">
+            <canvas id="userGrowthChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="appointmentChart"></canvas>
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+        <h2 class="section-title">
+            <i class="fas fa-bolt"></i>
+            Quick Actions
+        </h2>
+        <div class="quick-actions">
+            <a href="/admin/home/user/add/" class="action-btn">
+                <i class="fas fa-user-plus"></i>
+                Add User
+            </a>
+            <a href="/admin/home/user/add/?role=doctor" class="action-btn">
+                <i class="fas fa-user-md"></i>
+                Add Doctor
+            </a>
+            <a href="/admin/financial/" class="action-btn">
+                <i class="fas fa-credit-card"></i>
+                View Payments
+            </a>
+            <a href="/admin/home/systememailconfig/" class="action-btn">
+                <i class="fas fa-envelope"></i>
+                Email Settings
+            </a>
+            <a href="/admin/home/paymentreceiveraccount/" class="action-btn">
+                <i class="fas fa-money-check-dollar"></i>
+                Payment Settings
+            </a>
+            <a href="{% url 'appointments_detail' %}" class="action-btn action-btn-outline">
+                <i class="fas fa-calendar-check"></i>
+                Appointments
+            </a>
+        </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="activity-section">
+        <h2 class="section-title">
+            <i class="fas fa-history"></i>
+            Recent Activity
+        </h2>
+        <div class="activity-list">
+            {% if action_list %}
+                {% for action in action_list %}
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            {% if action.is_addition %}
+                                <i class="fas fa-plus"></i>
+                            {% elif action.is_change %}
+                                <i class="fas fa-edit"></i>
+                            {% else %}
+                                <i class="fas fa-trash"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <h3 class="activity-title">{{ action.get_action_display }} {{ action.object_repr }}</h3>
+                            <p class="activity-description">
+                                {% if action.is_addition %}
+                                    Added new {{ action.object_repr }}
+                                {% elif action.is_change %}
+                                    Modified {{ action.object_repr }}
+                                {% else %}
+                                    Deleted {{ action.object_repr }}
+                                {% endif %}
+                            </p>
+                            <span class="activity-time">{{ action.action_time|timesince }} ago</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <h3 class="empty-title">No Recent Activity</h3>
+                    <p class="empty-description">There are no recent activities to display.</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Professional Dashboard JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Add interactivity to stat cards
+    const statCards = document.querySelectorAll('.stat-card');
+    statCards.forEach(card => {
+        card.addEventListener('click', function() {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 150);
+        });
+        
+        // Add hover effect
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 12px 35px rgba(8, 161, 247, 0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            this.style.boxShadow = '';
+        });
+    });
+
+    // Animate numbers on load
+    animateNumbers();
+    
+    // Initialize Charts
+    initCharts();
+    
+    // Add click handlers to action buttons
+    const actionBtns = document.querySelectorAll('.action-btn');
+    actionBtns.forEach(btn => {
+        // Store original content in data attribute for restoration
+        btn.setAttribute('data-original', btn.innerHTML);
+        
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = this.getAttribute('href');
+            if (url && url !== '#') {
+                // Add loading state
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                this.style.pointerEvents = 'none';
+                
+                // Navigate after delay
+                setTimeout(() => {
+                    window.location.href = url;
+                }, 300);
+            }
+        });
+        
+        // Add hover effects
+        btn.addEventListener('mouseenter', function() {
+            if (!this.innerHTML.includes('Loading...')) {
+                this.style.transform = 'translateY(-2px)';
+                this.style.boxShadow = '0 6px 20px rgba(8, 161, 247, 0.35)';
+            }
+        });
+        
+        btn.addEventListener('mouseleave', function() {
+            this.style.transform = '';
+            this.style.boxShadow = '';
+        });
+    });
+    
+    // Fix for back button loading state persistence (bfcache issue)
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            // Page loaded from cache - reset all action buttons
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                const originalContent = btn.getAttribute('data-original');
+                if (originalContent && btn.innerHTML.includes('Loading...')) {
+                    btn.innerHTML = originalContent;
+                    btn.style.pointerEvents = 'auto';
+                }
+            });
+        }
+    });
+});
+
+function showAppointmentDetails() {
+    window.location.href = '/admin/appointments/';
+}
+
+function showUserDetails() {
+    window.location.href = '/admin/users/';
+}
+
+function showDoctorDetails() {
+    window.location.href = '/admin/doctors/';
+}
+
+function showAssessmentDetails() {
+    window.location.href = '/admin/assessments/';
+}
+
+function showPaymentDetails() {
+    window.location.href = '/admin/financial/';
+}
+
+function animateNumbers() {
+    const statValues = document.querySelectorAll('.stat-value');
+    statValues.forEach(element => {
+        // Extract number from text (remove currency symbols and text)
+        const textContent = element.textContent;
+        const numberMatch = textContent.match(/[\d,]+/);
+        if (!numberMatch) {
+            return;
+        }
+        const finalValue = parseInt(numberMatch[0].replace(/,/g, ''));
+        
+        let currentValue = 0;
+        const increment = finalValue / 50;
+        
+        const timer = setInterval(() => {
+            currentValue += increment;
+            if (currentValue >= finalValue) {
+                currentValue = finalValue;
+                clearInterval(timer);
+            }
+            // Preserve the original format (currency symbol + formatted number)
+            if (textContent.includes('BDT')) {
+                element.textContent = 'BDT ' + Math.floor(currentValue).toLocaleString();
+            } else if (textContent.includes('৳')) {
+                element.textContent = '৳' + Math.floor(currentValue).toLocaleString();
+            } else {
+                element.textContent = Math.floor(currentValue).toLocaleString();
+            }
+        }, 30);
+    });
+}
+
+// Initialize Charts
+function initCharts() {
+    // User Growth Chart
+    const userGrowthCtx = document.getElementById('userGrowthChart');
+    if (userGrowthCtx) {
+        new Chart(userGrowthCtx, {
+            type: 'line',
+            data: {
+                labels: {{ user_growth_labels|safe }},
+                datasets: [{
+                    label: 'New Users',
+                    data: {{ user_growth_data|safe }},
+                    borderColor: '#08a1f7',
+                    backgroundColor: 'rgba(8, 161, 247, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#09e0fe',
+                    pointBorderColor: '#08a1f7',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#1e3a8a',
+                            font: { size: 14, weight: '600' }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 12 }
+                        },
+                        grid: {
+                            color: 'rgba(8, 161, 247, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 12 }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Appointment Chart
+    const appointmentCtx = document.getElementById('appointmentChart');
+    if (appointmentCtx) {
+        const appointmentLabels = {{ appointment_labels|safe }};
+        const appointmentData = {{ appointment_data|safe }};
+        
+        new Chart(appointmentCtx, {
+            type: 'bar',
+            data: {
+                labels: appointmentLabels,
+                datasets: [{
+                    label: 'Daily Appointments',
+                    data: appointmentData,
+                    backgroundColor: 'rgba(8, 161, 247, 0.8)',
+                    borderColor: '#08a1f7',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    hoverBackgroundColor: 'rgba(8, 161, 247, 1)',
+                    hoverBorderColor: '#0691d4',
+                    hoverBorderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#1e3a8a',
+                            font: { size: 14, weight: '600' }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 12 }
+                        },
+                        grid: {
+                            color: 'rgba(8, 161, 247, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#64748b',
+                            font: { size: 12 }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+
+{% block footer %}
+<div class="admin-footer">
+    <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+</div>
+{% endblock %}

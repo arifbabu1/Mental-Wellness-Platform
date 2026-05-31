@@ -1,0 +1,80 @@
+{% load static %}
+
+{% block title %}Services - Mental Wellness Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <h1>Our Services</h1>
+                <p>Comprehensive mental health support for your wellbeing</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-user-md"></i>
+                </div>
+                <h3>Professional Consultation</h3>
+                <p>Connect with qualified mental health professionals for personalized care and support.</p>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3>Mental Health Assessment</h3>
+                <p>Comprehensive assessments to understand your mental health needs and get personalized recommendations.</p>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <h3>Appointment Booking</h3>
+                <p>Easy online scheduling system to book appointments with mental health professionals at your convenience.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.service-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    margin-bottom: 2rem;
+    transition: transform 0.3s;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+}
+
+.service-icon {
+    font-size: 3rem;
+    color: #08a1f7;
+    margin-bottom: 1rem;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.page-header h1 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Write Blog | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/doctor-write-blog.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'doctor_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'doctor_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'doctor_schedule' %}">My Schedule</a></li>
+                <li><a href="{% url 'doctor_blog_management' %}">My Blogs</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="blog-form-container">
+            <div class="form-header">
+                <h1><i class="fas fa-pen-fancy"></i> Write New Blog</h1>
+                <p>Share your expertise with patients and visitors</p>
+            </div>
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'doctor_write_blog' %}" id="blogForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="title">Blog Title *</label>
+                    <input type="text" id="title" name="title" required 
+                           placeholder="Enter an engaging title for your blog"
+                           value="{{ title|default:'' }}">
+                    <div class="help-text">Make it catchy and relevant to mental health</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Category *</label>
+                    <select id="category" name="category" required>
+                        {% for key, name in categories %}
+                        <option value="{{ key }}" {% if category == key %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="excerpt">Short Summary</label>
+                    <textarea id="excerpt" name="excerpt" rows="3" maxlength="500"
+                              placeholder="Brief summary that appears in blog previews">{{ excerpt|default:'' }}</textarea>
+                    <div class="help-text">Max 500 characters. Leave empty to use title.</div>
+                    <div class="char-counter" id="excerptCounter">0/500</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="featured_image">Featured Image URL</label>
+                    <input type="url" id="featured_image" name="featured_image"
+                           placeholder="https://example.com/image.jpg"
+                           value="{{ featured_image|default:'' }}">
+                    <div class="help-text">Optional. Provide a URL to a relevant image for your blog.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="content">Blog Content *</label>
+                    <textarea id="content" name="content" class="content-editor" rows="20" required
+                              placeholder="Write your blog content here...">{{ content|default:'' }}</textarea>
+                    <div class="help-text">Write detailed, helpful content for your readers. Be professional and empathetic.</div>
+                </div>
+
+                <div class="btn-group">
+                    <a href="{% url 'doctor_blog_management' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    <button type="submit" name="status" value="draft" class="btn btn-secondary" id="saveDraftBtn">
+                        <i class="fas fa-save"></i> Save as Draft
+                    </button>
+                    <button type="submit" name="status" value="published" class="btn btn-primary" id="publishBtn">
+                        <i class="fas fa-paper-plane"></i> Publish Blog
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Character counter for excerpt
+            const excerptTextarea = document.getElementById('excerpt');
+            const excerptCounter = document.getElementById('excerptCounter');
+            
+            function updateCharCounter() {
+                const currentLength = excerptTextarea.value.length;
+                const maxLength = 500;
+                excerptCounter.textContent = `${currentLength}/${maxLength}`;
+            }
+            
+            // Initialize counter
+            updateCharCounter();
+            
+            // Add event listener
+            excerptTextarea.addEventListener('input', updateCharCounter);
+            
+            // Add focus effects
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.classList.add('focus-within');
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.parentElement.classList.remove('focus-within');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

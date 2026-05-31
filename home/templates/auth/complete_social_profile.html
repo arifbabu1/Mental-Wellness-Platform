@@ -1,0 +1,100 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Profile | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/registration-page.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="register-page">
+    <main class="registration-section">
+        <div class="registration-container" style="max-width: 680px;">
+            <div class="registration-header">
+                <div class="logo-section">
+                    <div class="logo">
+                        <i class="fas fa-heart-pulse"></i>
+                    </div>
+                    <h1>Mental Wellness Platform</h1>
+                </div>
+                <div class="header-text">
+                    <h2>Complete Your Profile</h2>
+                    <p>Choose how you want to use the platform.</p>
+                </div>
+            </div>
+
+            <div class="registration-form-container">
+                {% if messages %}
+                    <div class="messages-container">
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post" class="registration-form">
+                    {% csrf_token %}
+                    <div class="form-section">
+                        <h3><i class="fas fa-id-card"></i> Account Type</h3>
+                        <div class="form-group">
+                            <label for="role" class="form-label">
+                                <i class="fas fa-user-check"></i>
+                                Role
+                            </label>
+                            <select id="role" name="role" class="form-control" required>
+                                <option value="patient">Patient / User</option>
+                                <option value="doctor">Doctor</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3><i class="fas fa-user-circle"></i> Basic Details</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="phone" class="form-label">
+                                    <i class="fas fa-phone"></i>
+                                    Phone
+                                </label>
+                                <input type="tel" id="phone" name="phone" class="form-control" value="{{ request.user.phone|default:'' }}" autocomplete="tel">
+                            </div>
+                            <div class="form-group">
+                                <label for="age" class="form-label">
+                                    <i class="fas fa-calendar"></i>
+                                    Age
+                                </label>
+                                <input type="number" id="age" name="age" class="form-control" value="{{ request.user.age|default:'' }}" min="13" max="120">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gender" class="form-label">
+                                <i class="fas fa-venus-mars"></i>
+                                Gender
+                            </label>
+                            <select id="gender" name="gender" class="form-control">
+                                <option value="">Prefer not to say</option>
+                                <option value="male" {% if request.user.gender == 'male' %}selected{% endif %}>Male</option>
+                                <option value="female" {% if request.user.gender == 'female' %}selected{% endif %}>Female</option>
+                                <option value="other" {% if request.user.gender == 'other' %}selected{% endif %}>Other</option>
+                                <option value="prefer_not_to_say" {% if request.user.gender == 'prefer_not_to_say' %}selected{% endif %}>Prefer not to say</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-register">
+                        <i class="fas fa-arrow-right"></i>
+                        Continue
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

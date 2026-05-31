@@ -1,0 +1,187 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Appointments | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'css/doctor-appointments.css' %}">
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'doctor_dashboard' %}" aria-label="Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'doctor_appointments' %}" class="active" aria-label="Appointments">Appointments</a></li>
+                <li><a href="{% url 'doctor_schedule' %}" aria-label="My Schedule">My Schedule</a></li>
+                <li><a href="{% url 'doctor_blog_management' %}" aria-label="My Blogs">My Blogs</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Appointments Section -->
+    <main class="appointments-container">
+        <div class="appointments-header">
+            <h1>My Appointments</h1>
+            <p>Manage and track your consultation appointments</p>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="appointments-content">
+            <!-- Upcoming Appointments -->
+            <div class="appointments-section">
+                <h2>Upcoming Appointments</h2>
+                {% if upcoming_appointments %}
+                    <div class="appointments-grid">
+                        {% for appointment in upcoming_appointments %}
+                            <div class="appointment-card upcoming">
+                                <div class="appointment-header">
+                                    <div class="appointment-patient">
+                                        <div class="patient-avatar">
+                                            {% if appointment.patient.profile_picture %}
+                                                <img src="{{ appointment.patient.profile_picture.url }}" alt="{{ appointment.patient.get_full_name }}">
+                                            {% else %}
+                                                <span>👤</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="patient-info">
+                                            <h3>{{ appointment.patient.get_full_name|default:appointment.patient.username }}</h3>
+                                            <p>Patient</p>
+                                        </div>
+                                    </div>
+                                    <div class="appointment-status status-{{ appointment.status|lower }}">
+                                        {{ appointment.get_status_display }}
+                                    </div>
+                                </div>
+                                
+                                <div class="appointment-details">
+                                    <div class="detail-item">
+                                        <span class="detail-icon">📅</span>
+                                        <span>{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-icon">🕐</span>
+                                        <span>{{ appointment.appointment_date|date:"g:i A" }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-icon">💰</span>
+                                        <span>{% if appointment.consultation_fee %}{{ appointment.consultation_fee }}৳{% else %}Not Set{% endif %}</span>
+                                    </div>
+                                    {% if appointment.notes %}
+                                    <div class="detail-item">
+                                        <span class="detail-icon">📝</span>
+                                        <span>{{ appointment.notes|truncatewords:10 }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if appointment.meeting_link and appointment.can_join_consultation %}
+                                    <div class="detail-item meeting-link">
+                                        <span class="detail-icon">🔗</span>
+                                            <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-text">
+                                                Join Meeting
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="appointment-actions">
+                                        {% if appointment.can_join_consultation %}
+                                            {% if appointment.meeting_link %}
+                                                <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
+                                                    Join Video Call
+                                                </a>
+                                            {% else %}
+                                                <a href="#" class="btn-base btn-primary btn-small disabled">
+                                                    Waiting for Meeting Link
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">📅</div>
+                        <h3>No upcoming appointments</h3>
+                        <p>You don't have any upcoming appointments scheduled.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Past Appointments -->
+            <div class="appointments-section">
+                <h2>Past Appointments</h2>
+                {% if past_appointments %}
+                    <div class="appointments-grid">
+                        {% for appointment in past_appointments %}
+                            <div class="appointment-card past">
+                                <div class="appointment-header">
+                                    <div class="appointment-patient">
+                                        <div class="patient-avatar">
+                                            {% if appointment.patient.profile_picture %}
+                                                <img src="{{ appointment.patient.profile_picture.url }}" alt="{{ appointment.patient.get_full_name }}">
+                                            {% else %}
+                                                <span>👤</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="patient-info">
+                                            <h3>{{ appointment.patient.get_full_name|default:appointment.patient.username }}</h3>
+                                            <p>Patient</p>
+                                        </div>
+                                    </div>
+                                    <div class="appointment-status status-{{ appointment.status|lower }}">
+                                        {{ appointment.get_status_display }}
+                                    </div>
+                                </div>
+                                    
+                                <div class="appointment-details">
+                                    <div class="detail-item">
+                                        <span class="detail-icon">📅</span>
+                                        <span>{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-icon">🕐</span>
+                                        <span>{{ appointment.appointment_date|date:"g:i A" }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-icon">💰</span>
+                                        <span>{% if appointment.consultation_fee %}{{ appointment.consultation_fee }}৳{% else %}Not Set{% endif %}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">📚</div>
+                        <h3>No past appointments</h3>
+                        <p>You don't have any past appointments.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,210 @@
+/* 🚀 Advanced Assessment Results - Professional Styling */
+
+/* Match Breakdown Styles */
+.match-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--light-gray);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+    font-size: 0.7rem;
+}
+
+.breakdown-label {
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.breakdown-value {
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+/* Enhanced Match Circle */
+.match-score-compact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.match-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.match-circle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.match-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.match-label {
+    font-size: 0.6rem;
+    font-weight: 500;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Clinical Triage Badge */
+.clinical-triage-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--gradient-primary);
+    color: var(--white);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--shadow-sm);
+}
+
+.clinical-triage-badge.high {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.clinical-triage-badge.moderate {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+}
+
+/* Enhanced Doctor Cards */
+.doctor-card.recommended.enhanced {
+    position: relative;
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 8px 25px rgba(8, 161, 247, 0.15);
+    transform: translateY(0);
+    transition: all 0.3s ease;
+}
+
+.doctor-card.recommended.enhanced:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(8, 161, 247, 0.25);
+}
+
+/* Score Animation */
+@keyframes scorePulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(8, 161, 247, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(8, 161, 247, 0.2);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(8, 161, 247, 0.4);
+    }
+}
+
+.match-score-compact:hover .match-circle {
+    animation: scorePulse 2s infinite;
+}
+
+/* Advanced Match Reason */
+.match-reason {
+    background: linear-gradient(135deg, var(--light-gray), var(--white));
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    position: relative;
+}
+
+.match-reason::before {
+    content: '🎯';
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    background: var(--gradient-primary);
+    color: var(--white);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .match-breakdown {
+        margin-top: 6px;
+        padding: 6px;
+    }
+    
+    .breakdown-item {
+        font-size: 0.65rem;
+    }
+    
+    .match-circle {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .match-value {
+        font-size: 0.9rem;
+    }
+    
+    .match-label {
+        font-size: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .match-breakdown {
+        gap: 2px;
+        padding: 4px;
+    }
+    
+    .breakdown-item {
+        font-size: 0.6rem;
+        padding: 1px 0;
+    }
+    
+    .match-circle {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .match-value {
+        font-size: 0.8rem;
+    }
+}

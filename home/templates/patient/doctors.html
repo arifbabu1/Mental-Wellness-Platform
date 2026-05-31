@@ -1,0 +1,374 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Doctors | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/doctors.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">
+                <i class="fas fa-heart"></i> Mental Wellness Platform
+            </a>
+            <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Go to Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="View Doctors" class="active">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'blogs' %}" aria-label="Mental Health Blogs">Blogs</a></li>
+                <li><a href="{% url 'about' %}" aria-label="About Us">About Us</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Page Header -->
+        <section class="doctors-header">
+            <h1><i class="fas fa-user-md"></i> Find Your Mental Health Professional</h1>
+            <p>Connect with certified doctors who can help you on your wellness journey</p>
+        </section>
+
+        <!-- Messages -->
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Search and Filter Section -->
+        <section class="search-filter-section">
+            <div class="search-filter-container">
+                <div class="search-box-wrapper">
+                    <div class="search-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <input type="text" placeholder="Search doctors by name, specialty, or qualification..." id="searchInput" class="search-input">
+                </div>
+                <div class="filter-dropdown-wrapper">
+                    <div class="filter-dropdown">
+                        <button class="dropdown-toggle" id="filterDropdownToggle">
+                            <i class="fas fa-filter"></i>
+                            <span id="selectedFilter">All Doctors</span>
+                            <i class="fas fa-chevron-down dropdown-arrow"></i>
+                        </button>
+                        <div class="dropdown-menu" id="filterDropdownMenu">
+                            <div class="dropdown-item active" data-filter="all">
+                                <i class="fas fa-users"></i>
+                                <span>All Doctors</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="psychiatrist">
+                                <i class="fas fa-user-md"></i>
+                                <span>Psychiatrist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="clinical psychologist">
+                                <i class="fas fa-brain"></i>
+                                <span>Clinical Psychologist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="therapist">
+                                <i class="fas fa-hands-helping"></i>
+                                <span>Therapist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="counselor">
+                                <i class="fas fa-comments"></i>
+                                <span>Counselor</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="child psychiatrist">
+                                <i class="fas fa-child"></i>
+                                <span>Child Psychiatrist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="child psychologist">
+                                <i class="fas fa-child"></i>
+                                <span>Child Psychologist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="geriatric psychologist">
+                                <i class="fas fa-user-md"></i>
+                                <span>Geriatric Psychologist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="addiction specialist">
+                                <i class="fas fa-pills"></i>
+                                <span>Addiction Specialist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="marriage and family therapist">
+                                <i class="fas fa-heart"></i>
+                                <span>Marriage and Family Therapist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="neuropsychiatrist">
+                                <i class="fas fa-brain"></i>
+                                <span>Neuropsychiatrist</span>
+                            </div>
+                            <div class="dropdown-item" data-filter="neuropsychologist">
+                                <i class="fas fa-brain"></i>
+                                <span>Neuropsychologist</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Doctors Grid -->
+        {% if doctors %}
+            <section class="doctors-grid" id="doctorsGrid">
+                {% for doctor in doctors %}
+                    <article class="doctor-card" data-specialty="{{ doctor.specialty|lower }}">
+                        <div class="doctor-header">
+                            <div class="doctor-profile">
+                                <div class="doctor-avatar">
+                                    {% if doctor.profile_picture %}
+                                        <img src="{{ doctor.profile_picture.url }}" alt="{{ doctor.user.get_full_name }}">
+                                    {% else %}
+                                        <i class="fas fa-user-md"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="doctor-basic-info">
+                                    <h3>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h3>
+                                    <div class="doctor-specialty">{{ doctor.specialty }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="doctor-body">
+                            <div class="doctor-details">
+                                <div class="detail-item">
+                                    <i class="fas fa-graduation-cap"></i>
+                                    <span>{{ doctor.qualification }}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-briefcase"></i>
+                                    <span>{{ doctor.years_of_experience }} years experience</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-language"></i>
+                                    <span>English, Bengali</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Available today</span>
+                                </div>
+                            </div>
+                            
+                            <div class="doctor-badges">
+                                <span class="badge primary">
+                                    <i class="fas fa-check-circle"></i> Verified
+                                </span>
+                                <span class="badge success">
+                                    <i class="fas fa-video"></i> Video Consultation
+                                </span>
+                                <span class="badge">
+                                    <i class="fas fa-award"></i> Top Rated
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="doctor-footer">
+                            <div class="consultation-fee">
+                                <div>
+                                    <div class="fee-amount">৳{{ doctor.consultation_fee }}</div>
+                                    <div class="fee-label">per session</div>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>45-60 min</span>
+                                </div>
+                            </div>
+                            
+                            <div class="doctor-actions">
+                                <a href="{% url 'book_appointment' doctor.id %}" class="btn-book">
+                                    <i class="fas fa-calendar-check"></i> Book Appointment
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </section>
+        {% else %}
+            <!-- No Doctors State -->
+            <section class="no-doctors">
+                <div class="no-doctors-icon">👨‍⚕️</div>
+                <h3>No Doctors Available</h3>
+                <p>We're sorry, but there are no doctors available at the moment. Please check back later or contact our support team for assistance.</p>
+                <a href="{% url 'patient_dashboard' %}" class="btn-base btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </section>
+        {% endif %}
+
+        <!-- Help Section -->
+        <section class="help-section">
+            <div class="help-content">
+                <h2><i class="fas fa-hands-helping"></i> Need Immediate Help?</h2>
+                <p>If you're in crisis or need immediate support, don't hesitate to reach out. Our team is here for you 24/7.</p>
+                <div class="help-actions">
+                    <button onclick="callHotline()" class="btn-help emergency">
+                        <i class="fas fa-phone-alt"></i> Call Hotline
+                    </button>
+                    <a href="{% url 'patient_dashboard' %}" class="btn-help">
+                        <i class="fas fa-home"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3><i class="fas fa-heart"></i> Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+                <div class="footer-links">
+                    <a href="{% url 'home' %}">Home</a>
+                    <a href="{% url 'doctors_list' %}">Find Doctors</a>
+                    <a href="{% url 'assessment' %}">Assessment</a>
+                    <a href="tel:16101">Emergency Support</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript for Search and Filter -->
+    <script>
+        // Hotline call function
+        function callHotline() {
+            const phoneNumber = '16101';
+            const confirmed = confirm(`Are you sure you want to call the emergency hotline?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
+
+            if (confirmed) {
+                // Try to open phone app on mobile
+                window.location.href = `tel:${phoneNumber}`;
+
+                // Fallback for desktop - show number
+                setTimeout(() => {
+                    alert(`Dialing: ${phoneNumber}\n\nIf the call didn't start automatically, please dial the number manually.`);
+                }, 1000);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const filterDropdownToggle = document.getElementById('filterDropdownToggle');
+            const filterDropdownMenu = document.getElementById('filterDropdownMenu');
+            const selectedFilter = document.getElementById('selectedFilter');
+            const dropdownItems = document.querySelectorAll('.dropdown-item');
+            const doctorCards = document.querySelectorAll('.doctor-card');
+
+            // Dropdown toggle functionality
+            filterDropdownToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                filterDropdownMenu.classList.toggle('show');
+                filterDropdownToggle.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!filterDropdownToggle.contains(e.target) && !filterDropdownMenu.contains(e.target)) {
+                    filterDropdownMenu.classList.remove('show');
+                    filterDropdownToggle.classList.remove('active');
+                }
+            });
+
+            // Filter functionality
+            dropdownItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all items
+                    dropdownItems.forEach(i => i.classList.remove('active'));
+                    // Add active class to clicked item
+                    this.classList.add('active');
+
+                    // Update selected filter text
+                    selectedFilter.textContent = this.querySelector('span').textContent;
+
+                    // Close dropdown
+                    filterDropdownMenu.classList.remove('show');
+                    filterDropdownToggle.classList.remove('active');
+
+                    const filter = this.dataset.filter;
+
+                    doctorCards.forEach(card => {
+                        if (filter === 'all') {
+                            card.style.display = 'block';
+                        } else {
+                            const cardSpecialty = card.dataset.specialty;
+                            if (cardSpecialty.includes(filter)) {
+                                card.style.display = 'block';
+                            } else {
+                                card.style.display = 'none';
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Search functionality
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+
+                doctorCards.forEach(card => {
+                    const doctorName = card.querySelector('h3').textContent.toLowerCase();
+                    const specialty = card.querySelector('.doctor-specialty').textContent.toLowerCase();
+                    const qualification = card.querySelector('.doctor-details').textContent.toLowerCase();
+
+                    if (doctorName.includes(searchTerm) ||
+                        specialty.includes(searchTerm) ||
+                        qualification.includes(searchTerm)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+
+            // Add smooth scroll behavior
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+        });
+        // Mobile Navbar Toggle Function
+        function toggleNavbar() {
+            const navbarNav = document.getElementById('navbarNav');
+            const navbarToggle = document.querySelector('.navbar-toggle');
+
+            if (navbarNav) {
+                navbarNav.classList.toggle('active');
+            }
+            if (navbarToggle) {
+                navbarToggle.classList.toggle('active');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Payment | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/booking-page-professional.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'patient_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="booking-container">
+        <div class="booking-header">
+            <div class="header-content">
+                <h1>Verify Payment</h1>
+                <p>Confirm your simulated payment to secure the appointment.</p>
+            </div>
+            <div class="header-breadcrumb">
+                <a href="{% url 'patient_dashboard' %}">Dashboard</a>
+                <span class="separator">/</span>
+                <a href="{% url 'book_appointment' doctor.id %}">Book Appointment</a>
+                <span class="separator">/</span>
+                <span class="current">Verify Payment</span>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="checkout-progress" aria-label="Checkout progress">
+            <div class="checkout-step active"><span class="step-dot">1</span><span>Schedule</span></div>
+            <div class="checkout-step active"><span class="step-dot">2</span><span>Method</span></div>
+            <div class="checkout-step active"><span class="step-dot">3</span><span>Details</span></div>
+            <div class="checkout-step active"><span class="step-dot">4</span><span>OTP</span></div>
+            <div class="checkout-step"><span class="step-dot">5</span><span>Success</span></div>
+        </div>
+
+        <div class="payment-content">
+            <aside class="appointment-summary-card">
+                <div class="summary-header">
+                    <h3>Appointment Summary</h3>
+                </div>
+                <div class="doctor-info">
+                    <div class="doctor-avatar-small">
+                        {% if doctor.profile_picture %}
+                            <img src="{{ doctor.profile_picture.url }}" alt="Dr. {{ doctor.user.get_full_name }}">
+                        {% else %}
+                            <div class="avatar-fallback"><i class="fas fa-user-md"></i></div>
+                        {% endif %}
+                    </div>
+                    <div class="doctor-details">
+                        <h4>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h4>
+                        <p>{{ doctor.specialty }}</p>
+                    </div>
+                </div>
+
+                <div class="appointment-details">
+                    <div class="detail-item">
+                        <span class="label">Date</span>
+                        <span class="value">{{ appointment.appointment_date|date:"F d, Y" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Time</span>
+                        <span class="value">{{ appointment.appointment_date|date:"h:i A" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Type</span>
+                        <span class="value">{{ appointment.consultation_type|title }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Amount</span>
+                        <span class="value">BDT {{ payment.amount }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Method</span>
+                        <span class="value">{{ payment_method_label }}</span>
+                    </div>
+                    {% if payment.wallet_number_masked %}
+                    <div class="detail-item">
+                        <span class="label">Wallet</span>
+                        <span class="value">{{ payment.wallet_number_masked }}</span>
+                    </div>
+                    {% endif %}
+                    {% if payment.card_last4 %}
+                    <div class="detail-item">
+                        <span class="label">Card</span>
+                        <span class="value">Ending {{ payment.card_last4 }}</span>
+                    </div>
+                    {% endif %}
+                    {% if payment.reference_id %}
+                    <div class="detail-item">
+                        <span class="label">Reference</span>
+                        <span class="value">{{ payment.reference_id }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if payment_receiver and payment_receiver.instructions %}
+                <div class="meeting-link-card">
+                    <strong>Receiver Instructions</strong>
+                    <p>{{ payment_receiver.instructions }}</p>
+                </div>
+                {% endif %}
+            </aside>
+
+            <section class="payment-form-card">
+                <div class="form-header">
+                    <h3><i class="fas fa-key"></i> OTP Verification</h3>
+                    <p>Complete the final simulated payment step. No real gateway request is sent.</p>
+                </div>
+
+                {% if payment_test_mode %}
+                <div class="testing-mode-banner">
+                    <i class="fas fa-flask"></i>
+                    TESTING MODE: Use OTP {{ payment_test_otp }}{% if generated_test_otp %} or generated OTP {{ generated_test_otp }}{% endif %}.
+                </div>
+                {% endif %}
+
+                <form method="post" id="otpPaymentForm">
+                    {% csrf_token %}
+                    <div class="payment-detail-panel">
+                        <div class="form-group">
+                            <label for="otp_code" class="form-label">
+                                <i class="fas fa-message"></i>
+                                OTP Code
+                            </label>
+                            <input type="text"
+                                   id="otp_code"
+                                   name="otp_code"
+                                   class="form-control"
+                                   placeholder="123456"
+                                   maxlength="6"
+                                   inputmode="numeric"
+                                   autocomplete="one-time-code"
+                                   required>
+                            <small class="form-help">In testing mode, the fixed test OTP is accepted.</small>
+                        </div>
+
+                        {% if wallet_method %}
+                        <div class="form-group">
+                            <label for="wallet_pin" class="form-label">
+                                <i class="fas fa-lock"></i>
+                                {{ payment_method_label }} PIN
+                            </label>
+                            <input type="password"
+                                   id="wallet_pin"
+                                   name="wallet_pin"
+                                   class="form-control"
+                                   placeholder="4 to 6 digit PIN"
+                                   maxlength="6"
+                                   inputmode="numeric"
+                                   autocomplete="off"
+                                   required>
+                            <small class="form-help">PIN is validated for format only and is never stored.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="security-info">
+                        <div class="security-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Gateway charging and real OTP verification are disabled for development.</span>
+                        </div>
+                        <div class="security-item">
+                            <i class="fas fa-eye-slash"></i>
+                            <span>Only masked wallet numbers or card last 4 digits are saved.</span>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="{% url 'book_appointment' doctor.id %}" class="btn-base btn-outline">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                        <button type="submit" class="btn-base btn-primary">
+                            <i class="fas fa-lock"></i> Confirm Payment
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            ['otp_code', 'wallet_pin'].forEach(id => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.addEventListener('input', function(e) {
+                        e.target.value = e.target.value.replace(/\D/g, '');
+                    });
+                }
+            });
+
+            const form = document.getElementById('otpPaymentForm');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const button = form.querySelector('button[type="submit"]');
+                    if (button) {
+                        button.disabled = true;
+                        button.classList.add('loading');
+                        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}
+{% if subtitle %}{{ subtitle }} | {% endif %}{% if title %}{{ title }} | {% endif %}Mental Wellness Platform Admin
+{% endblock %}
+
+{% block branding %}
+<a href="{% url 'admin_dashboard' %}" class="admin-brand-link" aria-label="Mental Wellness Platform Admin">
+    <span class="admin-brand-mark">MW</span>
+    <span class="admin-brand-copy">
+        <strong>Mental Wellness</strong>
+        <small>Platform Admin</small>
+    </span>
+</a>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

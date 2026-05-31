@@ -1,0 +1,231 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load admin_payment_filters %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-users-management.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="users-management admin-page-polish">
+    <header class="page-header">
+        <div class="header-top">
+            <div class="page-title-section">
+                <h1 class="page-title">
+                    <i class="fas fa-credit-card"></i>
+                    Financial Management
+                </h1>
+                <p class="page-description">Track payment status, revenue, platform commission, and doctor earnings.</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="exportPaymentCsv()">
+                <i class="fas fa-download"></i>
+                Export CSV
+            </button>
+        </div>
+        <div class="header-bottom">
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" id="paymentSearch" placeholder="Search by patient, doctor, transaction, or method..." autocomplete="off">
+            </div>
+        </div>
+    </header>
+
+    <section class="users-stats">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-receipt"></i></div>
+            <div class="stat-content">
+                <h3>Total Payments</h3>
+                <p class="stat-number">{{ total_payments|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-sack-dollar"></i></div>
+            <div class="stat-content">
+                <h3>Total Revenue</h3>
+                <p class="stat-number">৳{{ total_revenue|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-building-columns"></i></div>
+            <div class="stat-content">
+                <h3>Admin Commission</h3>
+                <p class="stat-number">৳{{ total_commission|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-user-md"></i></div>
+            <div class="stat-content">
+                <h3>Doctor Earnings</h3>
+                <p class="stat-number">৳{{ total_doctor_earnings|default:"0" }}</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-two-column">
+        <main class="users-table-container">
+            <div class="table-header">
+                <h2 class="section-title">
+                    <i class="fas fa-list"></i>
+                    Payment Records
+                </h2>
+                <select id="statusFilter" class="search-input compact-filter" onchange="filterPayments()">
+                    <option value="">All statuses</option>
+                    {% for value,label in status_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="table-wrapper">
+                <table class="users-table" id="paymentsTable">
+                    <thead>
+                        <tr>
+                            <th>Payment</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Method</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr data-status="{{ payment.status }}">
+                            <td>
+                                <div class="user-details">
+                                    <div class="user-name">#{{ payment.id }}</div>
+                                    <div class="user-email">{{ payment.transaction_id|default:"No transaction ID" }}</div>
+                                </div>
+                            </td>
+                            <td>{{ payment.appointment.patient.get_full_name|default:payment.appointment.patient.username }}</td>
+                            <td>Dr. {{ payment.appointment.doctor.user.get_full_name|default:payment.appointment.doctor.user.username }}</td>
+                            <td>
+                                <strong>৳{{ payment.amount }}</strong>
+                                <div class="user-email">Commission ৳{{ payment.admin_commission }}</div>
+                            </td>
+                            <td><span class="status-badge payment-{{ payment.status }}">{{ payment.get_status_display }}</span></td>
+                            <td>{{ payment.payment_method|default:"Not set" }}</td>
+                            <td>{{ payment.created_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="/admin/home/payment/{{ payment.id }}/change/" class="action-btn-small action-btn-primary">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="no-data">
+                                <div class="no-data-content">
+                                    <i class="fas fa-receipt"></i>
+                                    <p>No payments found</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+
+        <aside class="admin-side-panel">
+            <section class="users-table-container">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Status Breakdown
+                </h2>
+                <div class="severity-list">
+                    {% for value,label in status_choices %}
+                    <div class="severity-row">
+                        <span class="status-badge payment-{{ value }}">{{ label }}</span>
+                        <strong>{{ status_counts|get_item:value|default:"0" }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="users-table-container">
+                <h2 class="section-title">
+                    <i class="fas fa-money-check-dollar"></i>
+                    Active Receivers
+                </h2>
+                <div class="question-list">
+                    {% for account in active_payment_accounts %}
+                    <a class="question-row" href="/admin/home/paymentreceiveraccount/{{ account.id }}/change/">
+                        <span>{{ account.get_payment_method_display }} - {{ account.account_name }}</span>
+                        <small>{{ account.display_identifier|default:"Configured" }}</small>
+                    </a>
+                    {% empty %}
+                    <p class="empty-description">No active payment receiver accounts yet.</p>
+                    <a href="/admin/home/paymentreceiveraccount/add/" class="action-btn">
+                        <i class="fas fa-plus"></i>
+                        Add Receiver Account
+                    </a>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="users-table-container">
+                <h2 class="section-title">
+                    <i class="fas fa-ranking-star"></i>
+                    Top Doctor Earnings
+                </h2>
+                <div class="question-list">
+                    {% for earning in doctor_earnings %}
+                    <div class="question-row">
+                        <span>Dr. {{ earning.appointment__doctor__user__first_name }} {{ earning.appointment__doctor__user__last_name }}</span>
+                        <small>৳{{ earning.total_earnings }} across {{ earning.total_appointments }} payment{{ earning.total_appointments|pluralize }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="empty-description">No completed doctor earnings yet.</p>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </section>
+</div>
+
+<script>
+function filterPayments() {
+    const search = document.getElementById('paymentSearch').value.toLowerCase().trim();
+    const status = document.getElementById('statusFilter').value;
+    document.querySelectorAll('#paymentsTable tbody tr').forEach(row => {
+        if (row.querySelector('.no-data')) return;
+        const matchesSearch = !search || row.textContent.toLowerCase().includes(search);
+        const matchesStatus = !status || row.dataset.status === status;
+        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+
+function exportPaymentCsv() {
+    const rows = Array.from(document.querySelectorAll('#paymentsTable tbody tr')).filter(row => {
+        return row.style.display !== 'none' && !row.querySelector('.no-data');
+    });
+    let csv = 'Payment,Patient,Doctor,Amount,Status,Method,Date\\n';
+    rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td')).slice(0, 7);
+        csv += cells.map(cell => `"${cell.textContent.replace(/\\s+/g, ' ').trim()}"`).join(',') + '\\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `payments_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const search = document.getElementById('paymentSearch');
+    if (search) search.addEventListener('input', filterPayments);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,730 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Appointment | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/booking-page-professional.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Booking Section -->
+    <main class="booking-container">
+        <div class="booking-header">
+            <div class="header-content">
+                <h1>Book Your Consultation</h1>
+                <p>Schedule your appointment with our mental health professional</p>
+            </div>
+            <div class="header-breadcrumb">
+                <a href="{% url 'patient_dashboard' %}">Dashboard</a>
+                <span class="separator">/</span>
+                <a href="{% url 'doctors_list' %}">Doctors</a>
+                <span class="separator">/</span>
+                <span class="current">Book Appointment</span>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="checkout-progress" aria-label="Checkout progress">
+            <div class="checkout-step active">
+                <span class="step-dot">1</span>
+                <span>Schedule</span>
+            </div>
+            <div class="checkout-step active">
+                <span class="step-dot">2</span>
+                <span>Method</span>
+            </div>
+            <div class="checkout-step active">
+                <span class="step-dot">3</span>
+                <span>Details</span>
+            </div>
+            <div class="checkout-step">
+                <span class="step-dot">4</span>
+                <span>OTP</span>
+            </div>
+            <div class="checkout-step">
+                <span class="step-dot">5</span>
+                <span>Success</span>
+            </div>
+        </div>
+
+        <div class="booking-content">
+            <div class="doctor-info-card">
+                <div class="professional-profile">
+                    <div class="profile-left">
+                        <div class="doctor-avatar">
+                            {% if doctor.profile_picture %}
+                            <img src="{{ doctor.profile_picture.url }}" alt="Dr. {{ doctor.user.get_full_name }}">
+                            {% else %}
+                            <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #08a1f7, #00d4ff); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem;">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            {% endif %}
+                            <div class="availability-badge {{ doctor.is_available|yesno:'available,busy' }}">
+                                <i class="fas fa-circle"></i>
+                                {{ doctor.is_available|yesno:'Available,Busy' }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-right">
+                        <div class="professional-info">
+                            <h2>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h2>
+                            <p class="profession">{{ doctor.specialty }}</p>
+                        </div>
+                        
+                        <div class="fee-container">
+                            <div class="consultation-fee">
+                                <span class="fee-amount">BDT {{ consultation_fee }}</span>
+                                <small>per session</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="expertise-section">
+                    <h4><i class="fas fa-award"></i> Areas of Expertise</h4>
+                    <div class="expertise-tags">
+                        {% for specialization in doctor.specializations.all %}
+                            <span class="tag">{{ specialization.label }}</span>
+                        {% empty %}
+                            <span class="tag">{{ doctor.specialty }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="booking-form-card">
+                <div class="form-header">
+                    <h3><i class="fas fa-calendar-check"></i> Select Appointment Time</h3>
+                    <p>Choose your preferred date and time for the consultation</p>
+                </div>
+                {% if payment_test_mode %}
+                <div class="testing-mode-banner">
+                    <i class="fas fa-flask"></i>
+                    TESTING MODE: No real money is charged. Payment details are format-checked, then a simulated OTP confirms the appointment.
+                </div>
+                {% endif %}
+
+                <form method="post" id="bookingForm">
+                    {% csrf_token %}
+                    
+                    <div class="appointment-scheduler">
+                        
+                        <div class="scheduler-content">
+                            <div class="date-selection-section">
+                                <div class="section-header">
+                                    <h4>
+                                        <i class="fas fa-calendar-day"></i>
+                                        Select Date
+                                    </h4>
+                                    <div class="selected-info" id="selectedDateInfo">
+                                        <span class="info-label">Selected:</span>
+                                        <span class="info-value">--</span>
+                                    </div>
+                                </div>
+                                <div class="date-grid-modern">
+                                    {% for date in available_dates %}
+                                    <div class="date-card {% if date.is_today %}today{% endif %}" data-date="{{ date.date }}">
+                                        <input type="radio" id="date_{{ forloop.counter }}" name="appointment_date" value="{{ date.date }}" {% if selected_date == date.date %}checked{% endif %} required>
+                                        <label for="date_{{ forloop.counter }}" class="date-label">
+                                            <div class="date-content">
+                                                <div class="date-day">{{ date.day_name|slice:":3" }}</div>
+                                                <div class="date-number">{{ date.formatted_date|slice:"4:" }}</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="time-selection-section">
+                                <div class="section-header">
+                                    <h4>
+                                        <i class="fas fa-clock"></i>
+                                        Available Time Slots
+                                    </h4>
+                                    <div class="selected-info" id="selectedTimeInfo">
+                                        <span class="info-label">Selected:</span>
+                                        <span class="info-value">--</span>
+                                    </div>
+                                </div>
+                                <div class="time-grid-modern">
+                                    {% if time_slots %}
+                                        {% for time_slot in time_slots %}
+                                        <div class="time-card {% if time_slot.available %}available{% else %}unavailable{% endif %}" data-time="{{ time_slot.time }}">
+                                            <input type="radio" id="time_{{ forloop.counter }}" name="appointment_time" value="{{ time_slot.time }}" {% if not time_slot.available %}disabled{% endif %}>
+                                            <label for="time_{{ forloop.counter }}" class="time-label">
+                                                <div class="time-content">
+                                                    <span class="time-text">{{ time_slot.time }}</span>
+                                                    {% if not time_slot.available %}
+                                                    <i class="fas fa-lock unavailable-icon"></i>
+                                                    {% endif %}
+                                                </div>
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="no-slots-message">
+                                            <i class="fas fa-clock"></i>
+                                            <p>No available time slots for this date</p>
+                                            <small>Please select another date</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes" class="form-label">
+                            <i class="fas fa-comment"></i>
+                            Additional Notes (Optional)
+                        </label>
+                        <textarea id="notes" 
+                                  name="notes" 
+                                  class="form-control" 
+                                  rows="4" 
+                                  placeholder="Any specific concerns or topics you'd like to discuss...">{{ form_data.notes }}</textarea>
+                        <small class="form-help">Help us prepare for your consultation</small>
+                    </div>
+
+                    <div class="consultation-type">
+                        <h4>Consultation Type</h4>
+                        <div class="type-options">
+                            <label class="type-option">
+                                <input type="radio" name="consultation_type" value="video" {% if form_data.consultation_type != 'phone' and form_data.consultation_type != 'in_person' %}checked{% endif %}>
+                                <div class="option-content">
+                                    <i class="fas fa-video"></i>
+                                    <span>Video Consultation</span>
+                                    <small>Secure online video call</small>
+                                </div>
+                            </label>
+                            <label class="type-option">
+                                <input type="radio" name="consultation_type" value="phone" {% if form_data.consultation_type == 'phone' %}checked{% endif %}>
+                                <div class="option-content">
+                                    <i class="fas fa-phone"></i>
+                                    <span>Phone Consultation</span>
+                                    <small>Audio-only consultation</small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="payment-methods">
+                        <h4>Select Payment Method</h4>
+                        <div class="payment-options">
+                            {% for option in payment_options %}
+                            <div class="payment-option {{ option.value }}-option">
+                                <input type="radio" id="payment_{{ option.value }}" name="payment_method" value="{{ option.value }}" {% if form_data.payment_method == option.value or not form_data.payment_method and forloop.first %}checked{% endif %}>
+                                <label for="payment_{{ option.value }}" class="payment-content">
+                                    <div class="payment-icon {% if option.value == 'card' %}card-icon{% elif option.value == 'bkash' %}bkash-logo{% elif option.value == 'nagad' %}nagad-logo{% else %}card-icon{% endif %}">
+                                        {% if option.value == 'card' %}
+                                            <i class="fas fa-credit-card"></i>
+                                        {% elif option.value == 'bkash' %}
+                                            <span>bKash</span>
+                                        {% elif option.value == 'nagad' %}
+                                            <span>Nagad</span>
+                                        {% else %}
+                                            <i class="fas fa-building-columns"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="payment-details">
+                                        <div class="payment-name">{{ option.label }}</div>
+                                        <div class="payment-desc">
+                                            {% if option.account %}
+                                                Receiver: {{ option.account.account_name }}{% if option.account.display_identifier %} ({{ option.account.display_identifier }}){% endif %}
+                                            {% elif option.value == 'card' %}
+                                                Pay with Visa, Mastercard, or others
+                                            {% elif option.value == 'bkash' %}
+                                                Fast and secure mobile payment
+                                            {% elif option.value == 'nagad' %}
+                                                Digital payment solution
+                                            {% else %}
+                                                Bank payment option
+                                            {% endif %}
+                                        </div>
+                                        {% if option.account.instructions %}
+                                        <div class="payment-desc">{{ option.account.instructions|truncatechars:110 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </label>
+                            </div>
+                            {% empty %}
+                            <div class="no-slots-message">
+                                <i class="fas fa-credit-card"></i>
+                                <p>No payment methods are active right now.</p>
+                                <small>Please contact support before booking.</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="payment-detail-panel">
+                        <div class="section-header compact">
+                            <h4>
+                                <i class="fas fa-shield-halved"></i>
+                                Payment Details
+                            </h4>
+                            <div class="secure-note">Testing only</div>
+                        </div>
+
+                        <div id="mobile_fields" class="checkout-detail-fields">
+                            <div class="form-group">
+                                <label for="wallet_number" class="form-label">
+                                    <i class="fas fa-mobile-screen-button"></i>
+                                    Wallet Account Number
+                                </label>
+                                <input type="tel"
+                                       id="wallet_number"
+                                       name="wallet_number"
+                                       class="form-control"
+                                       placeholder="01XXXXXXXXX"
+                                       maxlength="11"
+                                       value="{{ form_data.wallet_number }}"
+                                       autocomplete="off">
+                                <small class="form-help">Use a Bangladesh mobile wallet number. Only a masked version is saved.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="reference_id" class="form-label">
+                                    <i class="fas fa-receipt"></i>
+                                    Transaction Reference (Optional)
+                                </label>
+                                <input type="text"
+                                       id="reference_id"
+                                       name="reference_id"
+                                       class="form-control"
+                                       placeholder="Optional test reference"
+                                       maxlength="120"
+                                       value="{{ form_data.reference_id }}">
+                            </div>
+                        </div>
+
+                        <div id="card_fields" class="checkout-detail-fields">
+                            <div class="form-group">
+                                <label for="cardholder_name" class="form-label">
+                                    <i class="fas fa-user"></i>
+                                    Cardholder Name
+                                </label>
+                                <input type="text"
+                                       id="cardholder_name"
+                                       name="cardholder_name"
+                                       class="form-control"
+                                       placeholder="Name on card"
+                                       value="{{ form_data.cardholder_name }}"
+                                       autocomplete="cc-name">
+                            </div>
+                            <div class="form-group">
+                                <label for="card_number" class="form-label">
+                                    <i class="fas fa-credit-card"></i>
+                                    Card Number
+                                </label>
+                                <input type="text"
+                                       id="card_number"
+                                       name="card_number"
+                                       class="form-control"
+                                       placeholder="4242 4242 4242 4242"
+                                       maxlength="23"
+                                       inputmode="numeric"
+                                       autocomplete="off">
+                                <small class="form-help">Format validation only. Full card numbers and CVV are never stored.</small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="expiry_month" class="form-label">
+                                        <i class="fas fa-calendar"></i>
+                                        Expiry Month
+                                    </label>
+                                    <input type="text"
+                                           id="expiry_month"
+                                           name="expiry_month"
+                                           class="form-control"
+                                           placeholder="MM"
+                                           maxlength="2"
+                                           value="{{ form_data.expiry_month }}"
+                                           inputmode="numeric"
+                                           autocomplete="off">
+                                </div>
+                                <div class="form-group">
+                                    <label for="expiry_year" class="form-label">
+                                        <i class="fas fa-calendar-check"></i>
+                                        Expiry Year
+                                    </label>
+                                    <input type="text"
+                                           id="expiry_year"
+                                           name="expiry_year"
+                                           class="form-control"
+                                           placeholder="YYYY"
+                                           maxlength="4"
+                                           value="{{ form_data.expiry_year }}"
+                                           inputmode="numeric"
+                                           autocomplete="off">
+                                </div>
+                                <div class="form-group">
+                                    <label for="cvv" class="form-label">
+                                        <i class="fas fa-lock"></i>
+                                        CVV
+                                    </label>
+                                    <input type="password"
+                                           id="cvv"
+                                           name="cvv"
+                                           class="form-control"
+                                           placeholder="123"
+                                           maxlength="4"
+                                           inputmode="numeric"
+                                           autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <a href="{% url 'doctors_list' %}" class="btn-base btn-outline">
+                            <i class="fas fa-arrow-left"></i> Back to Doctors
+                        </a>
+                        <button type="submit" class="btn-base btn-primary">
+                            <i class="fas fa-arrow-right"></i> Continue to OTP
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Interactive Appointment Scheduler
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateInputs = document.querySelectorAll('input[name="appointment_date"]');
+            const timeInputs = document.querySelectorAll('input[name="appointment_time"]');
+            const selectedDateInfo = document.getElementById('selectedDateInfo');
+            const selectedTimeInfoElement = document.getElementById('selectedTimeInfo');
+            
+            // Update selected date info and load time slots
+            dateInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    if (this.checked) {
+                        const dateCard = this.closest('.date-card');
+                        const date = dateCard.dataset.date;
+                        const dateObj = new Date(date);
+                        const formattedDate = dateObj.toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        selectedDateInfo.querySelector('.info-value').textContent = formattedDate;
+                        
+                        // Load time slots for selected date
+                        loadTimeSlotsForDate(date);
+                        
+                        // Add selection animation
+                        dateCard.style.animation = 'pulse 0.5s ease';
+                        setTimeout(() => {
+                            dateCard.style.animation = '';
+                        }, 500);
+                    }
+                });
+            });
+            
+            // Function to load time slots for a specific date
+            function loadTimeSlotsForDate(date) {
+                const doctorId = {{ doctor.id }};
+                const timeGrid = document.querySelector('.time-grid-modern');
+                const selectedTimeInfo = selectedTimeInfoElement;
+                
+                // Show loading state
+                timeGrid.innerHTML = '<div class="loading-slots"><i class="fas fa-spinner fa-spin"></i> Loading available slots...</div>';
+                selectedTimeInfo.querySelector('.info-value').textContent = '--';
+                
+                // Fetch available slots for the selected date
+                fetch(`/get-available-slots/${doctorId}/?date=${encodeURIComponent(date)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.available && data.slots.length > 0) {
+                            // Render time slots
+                            let slotsHtml = '';
+                            data.slots.forEach((slot, index) => {
+                                const availableClass = slot.available ? 'available' : 'unavailable';
+                                const disabledAttr = slot.available ? '' : 'disabled';
+                                const lockIcon = slot.available ? '' : '<i class="fas fa-lock unavailable-icon"></i>';
+                                
+                                slotsHtml += `
+                                    <div class="time-card ${availableClass}" data-time="${slot.time}">
+                                        <input type="radio" id="time_${index}" name="appointment_time" value="${slot.time}" ${disabledAttr}>
+                                        <label for="time_${index}" class="time-label">
+                                            <div class="time-content">
+                                                <span class="time-text">${slot.time}</span>
+                                                ${lockIcon}
+                                            </div>
+                                        </label>
+                                    </div>
+                                `;
+                            });
+                            timeGrid.innerHTML = slotsHtml;
+                            
+                            // Re-attach event listeners to new time inputs
+                            const newTimeInputs = document.querySelectorAll('input[name="appointment_time"]');
+                            newTimeInputs.forEach(input => {
+                                input.addEventListener('change', function() {
+                                    if (this.checked) {
+                                        const timeCard = this.closest('.time-card');
+                                        const time = timeCard.dataset.time;
+                                        selectedTimeInfo.querySelector('.info-value').textContent = time;
+                                        
+                                        // Add selection animation
+                                        timeCard.style.animation = 'pulse 0.5s ease';
+                                        setTimeout(() => {
+                                            timeCard.style.animation = '';
+                                        }, 500);
+                                    }
+                                });
+                            });
+                            
+                            // Re-attach hover effects
+                            document.querySelectorAll('.time-card.available').forEach(card => {
+                                card.addEventListener('mouseenter', function() {
+                                    this.style.transform = 'translateY(-3px) scale(1.02)';
+                                });
+                                
+                                card.addEventListener('mouseleave', function() {
+                                    if (!this.querySelector('input:checked')) {
+                                        this.style.transform = '';
+                                    }
+                                });
+                            });
+                        } else {
+                            // Show no slots message
+                            timeGrid.innerHTML = `
+                                <div class="no-slots-message">
+                                    <i class="fas fa-clock"></i>
+                                    <p>No available time slots for this date</p>
+                                    <small>Please select another date</small>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading time slots:', error);
+                        timeGrid.innerHTML = `
+                            <div class="no-slots-message">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <p>Error loading time slots</p>
+                                <small>Please try again</small>
+                            </div>
+                        `;
+                    });
+            }
+            
+            // Update selected time info
+            timeInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    if (this.checked) {
+                        const timeCard = this.closest('.time-card');
+                        const time = timeCard.dataset.time;
+                        selectedTimeInfoElement.querySelector('.info-value').textContent = time;
+                        
+                        // Add selection animation
+                        timeCard.style.animation = 'pulse 0.5s ease';
+                        setTimeout(() => {
+                            timeCard.style.animation = '';
+                        }, 500);
+                    }
+                });
+            });
+            
+            // Add hover effects
+            document.querySelectorAll('.date-card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-4px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    if (!this.querySelector('input:checked')) {
+                        this.style.transform = '';
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.time-card.available').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-3px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    if (!this.querySelector('input:checked')) {
+                        this.style.transform = '';
+                    }
+                });
+            });
+        });
+        
+        
+        // Payment method switching
+        document.addEventListener('DOMContentLoaded', function() {
+            const paymentMethods = document.querySelectorAll('input[name="payment_method"]');
+            const cardFields = document.getElementById('card_fields');
+            const mobileFields = document.getElementById('mobile_fields');
+            
+            function togglePaymentFields() {
+                if (!cardFields || !mobileFields) {
+                    return;
+                }
+                const selected = document.querySelector('input[name="payment_method"]:checked');
+                if (!selected) {
+                    return;
+                }
+                const selectedMethod = selected.value;
+                
+                cardFields.classList.remove('active');
+                mobileFields.classList.remove('active');
+                cardFields.querySelectorAll('input').forEach(input => input.required = false);
+                mobileFields.querySelectorAll('input').forEach(input => input.required = false);
+
+                if (selectedMethod === 'card') {
+                    cardFields.classList.add('active');
+                    ['cardholder_name', 'card_number', 'expiry_month', 'expiry_year', 'cvv'].forEach(id => {
+                        const input = document.getElementById(id);
+                        if (input) input.required = true;
+                    });
+                } else if (selectedMethod === 'bkash' || selectedMethod === 'nagad') {
+                    mobileFields.classList.add('active');
+                    const walletNumber = document.getElementById('wallet_number');
+                    if (walletNumber) walletNumber.required = true;
+                }
+            }
+            
+            // Add event listeners to payment method radios
+            paymentMethods.forEach(method => {
+                method.addEventListener('change', togglePaymentFields);
+            });
+            
+            // Initialize with card fields visible
+            togglePaymentFields();
+            
+            // Card number formatting
+            const cardNumber = document.getElementById('card_number');
+            if (cardNumber) {
+                cardNumber.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\s/g, '');
+                    let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+                    e.target.value = formattedValue;
+                });
+            }
+            
+            ['expiry_month', 'expiry_year', 'cvv', 'wallet_number'].forEach(id => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.addEventListener('input', function(e) {
+                        e.target.value = e.target.value.replace(/\D/g, '');
+                    });
+                }
+            });
+
+            const referenceId = document.getElementById('reference_id');
+            if (referenceId) {
+                referenceId.addEventListener('input', function(e) {
+                    e.target.value = e.target.value.replace(/[<>]/g, '');
+                });
+            }
+        });
+
+        // Form validation
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            const selectedDate = document.querySelector('input[name="appointment_date"]:checked');
+            const selectedTime = document.querySelector('input[name="appointment_time"]:checked');
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked');
+            
+            if (!selectedDate) {
+                e.preventDefault();
+                alert('Please select a date for your appointment.');
+                return false;
+            }
+            
+            if (!selectedTime) {
+                e.preventDefault();
+                alert('Please select a time slot for your appointment.');
+                return false;
+            }
+            if (!paymentMethod) {
+                e.preventDefault();
+                alert('Please select an active payment method.');
+                return false;
+            }
+
+            if (paymentMethod.value === 'bkash' || paymentMethod.value === 'nagad') {
+                const walletNumber = document.getElementById('wallet_number').value.trim();
+                if (!/^01[3-9]\d{8}$/.test(walletNumber)) {
+                    e.preventDefault();
+                    alert('Please enter a valid Bangladesh mobile wallet number.');
+                    return false;
+                }
+            }
+
+            if (paymentMethod.value === 'card') {
+                const cardNumber = document.getElementById('card_number').value.replace(/\s/g, '');
+                const expiryMonth = document.getElementById('expiry_month').value.trim();
+                const expiryYear = document.getElementById('expiry_year').value.trim();
+                const cvv = document.getElementById('cvv').value.trim();
+                const cardholderName = document.getElementById('cardholder_name').value.trim();
+
+                if (!cardholderName || !/^\d{13,19}$/.test(cardNumber) || !/^\d{1,2}$/.test(expiryMonth) || !/^\d{2,4}$/.test(expiryYear) || !/^\d{3,4}$/.test(cvv)) {
+                    e.preventDefault();
+                    alert('Please enter valid test card details.');
+                    return false;
+                }
+            }
+
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.add('loading');
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing OTP';
+            }
+        });
+        
+        // Initial slots are rendered server-side for the selected date.
+    </script>
+</body>
+</html>

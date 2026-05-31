@@ -1,0 +1,175 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-users-management.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="users-management admin-page-polish">
+    <header class="page-header">
+        <div class="header-top">
+            <div class="page-title-section">
+                <h1 class="page-title">
+                    <i class="fas fa-clipboard-check"></i>
+                    Assessments Management
+                </h1>
+                <p class="page-description">Review assessment activity, severity distribution, and configured screening questions.</p>
+            </div>
+            <a href="/admin/home/assessmentquestion/add/" class="btn-primary">
+                <i class="fas fa-plus"></i>
+                Add Question
+            </a>
+        </div>
+        <div class="header-bottom">
+            <div class="search-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" placeholder="Search assessments or questions..." id="assessmentSearch" autocomplete="off">
+            </div>
+        </div>
+    </header>
+
+    <section class="users-stats">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-question-circle"></i></div>
+            <div class="stat-content">
+                <h3>Total Questions</h3>
+                <p class="stat-number">{{ total_questions|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-tasks"></i></div>
+            <div class="stat-content">
+                <h3>Total Assessments</h3>
+                <p class="stat-number">{{ total_assessments|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+                <h3>Completed</h3>
+                <p class="stat-number">{{ completed_assessments|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
+            <div class="stat-content">
+                <h3>High / Severe</h3>
+                <p class="stat-number">{{ stress_counts.high|default:"0" }}/{{ stress_counts.severe|default:"0" }}</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-two-column">
+        <main class="users-table-container">
+            <div class="table-header">
+                <h2 class="section-title">
+                    <i class="fas fa-list-check"></i>
+                    Recent Assessments
+                </h2>
+            </div>
+            <div class="table-wrapper">
+                <table class="users-table searchable-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Score</th>
+                            <th>Stress Level</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assessment in assessments %}
+                        <tr>
+                            <td>
+                                <div class="user-info">
+                                    <div class="user-avatar"><i class="fas fa-user-injured"></i></div>
+                                    <div class="user-details">
+                                        <div class="user-name">{{ assessment.patient.get_full_name|default:assessment.patient.username }}</div>
+                                        <div class="user-email">{{ assessment.patient.email|default:"No email" }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><strong>{{ assessment.total_score }}</strong></td>
+                            <td>
+                                <span class="status-badge severity-{{ assessment.stress_level }}">{{ assessment.get_stress_level_display }}</span>
+                            </td>
+                            <td>{{ assessment.created_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="/admin/home/patientassessment/{{ assessment.id }}/change/" class="action-btn-small action-btn-primary">
+                                    <i class="fas fa-eye"></i>
+                                    View
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="no-data">
+                                <div class="no-data-content">
+                                    <i class="fas fa-clipboard"></i>
+                                    <p>No assessments found</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+
+        <aside class="admin-side-panel">
+            <section class="users-table-container">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Stress Distribution
+                </h2>
+                <div class="severity-list">
+                    <div class="severity-row"><span class="status-badge severity-low">Low</span><strong>{{ stress_counts.low|default:"0" }}</strong></div>
+                    <div class="severity-row"><span class="status-badge severity-moderate">Moderate</span><strong>{{ stress_counts.moderate|default:"0" }}</strong></div>
+                    <div class="severity-row"><span class="status-badge severity-high">High</span><strong>{{ stress_counts.high|default:"0" }}</strong></div>
+                    <div class="severity-row"><span class="status-badge severity-severe">Severe</span><strong>{{ stress_counts.severe|default:"0" }}</strong></div>
+                </div>
+            </section>
+
+            <section class="users-table-container">
+                <h2 class="section-title">
+                    <i class="fas fa-question"></i>
+                    Questions
+                </h2>
+                <div class="question-list searchable-list">
+                    {% for question in questions %}
+                    <a href="/admin/home/assessmentquestion/{{ question.id }}/change/" class="question-row">
+                        <span>{{ question.question_text|truncatechars:90 }}</span>
+                        <small>{{ question.category }}</small>
+                    </a>
+                    {% empty %}
+                    <p class="empty-description">No questions configured.</p>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('assessmentSearch');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        document.querySelectorAll('.searchable-table tbody tr, .searchable-list .question-row').forEach(item => {
+            item.style.display = item.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

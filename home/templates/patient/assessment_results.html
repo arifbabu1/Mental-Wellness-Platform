@@ -1,0 +1,502 @@
+{% load static %}
+{% load home_extras %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Results | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/assessment-results-page.css' %}">
+    <link rel="stylesheet" href="{% static 'css/advanced-assessment-results.css' %}">
+    <link rel="stylesheet" href="{% static 'css/assessment-results-reordered.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="{% static 'js/navigation.js' %}" defer></script>
+    <script src="{% static 'js/section-highlight.js' %}" defer></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Consultation</a>
+            <ul class="navbar-nav">
+                <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+                <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Results Section -->
+    <main class="assessment-container">
+        <div class="results-header">
+            <h1>Assessment Results</h1>
+            <p>Here's your personalized mental wellness assessment based on your responses.</p>
+        </div>
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="results-content">
+            <!-- Emergency Banner -->
+            {% if emergency %}
+            <div class="emergency-banner">
+                <div class="emergency-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="emergency-content">
+                    <h3>⚠️ Immediate Professional Help Recommended</h3>
+                    <p>Based on your assessment responses, we strongly recommend consulting with a mental health professional as soon as possible. If you're in crisis, please call our emergency hotline at 16101.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Rule-Based Assessment Summary -->
+            <div class="result-card clinical-summary">
+                <h3><i class="fas fa-clipboard-list"></i> Recommendation Engine Summary</h3>
+                <div class="clinical-grid">
+                    <div class="clinical-item">
+                        <div class="clinical-label">Primary Condition</div>
+                        <div class="clinical-condition">{{ primary_condition }}</div>
+                    </div>
+                    <div class="clinical-item">
+                        <div class="clinical-label">Secondary Condition</div>
+                        <div class="clinical-condition">{{ secondary_condition }}</div>
+                    </div>
+                    <div class="clinical-item">
+                        <div class="clinical-label">Severity Level</div>
+                        <div class="clinical-severity severity-{{ severity_level|lower }}">{{ severity_level }}</div>
+                    </div>
+                    <div class="clinical-item">
+                        <div class="clinical-label">Emotional Risk</div>
+                        <div class="clinical-severity severity-{{ emotional_risk_level|lower }}">{{ emotional_risk_level }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overall Score Card -->
+            <div class="result-card overall-score">
+                <div class="score-circle">
+                    <div class="score-value">{{ assessment.total_score }}</div>
+                    <div class="score-label">Total Score</div>
+                </div>
+                <div class="score-details">
+                    <h2>{{ assessment.get_stress_level_display }}</h2>
+                    <p>{{ assessment.recommendations }}</p>
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="result-card categories">
+                <h3>Category Breakdown</h3>
+                <div class="category-grid">
+                    {% for category, score_data in score_breakdown.items %}
+                    <div class="category-item">
+                        <div class="category-icon">
+                            {% if category == 'Depression' %}🌧️{% endif %}
+                            {% if category == 'Anxiety' %}😰{% endif %}
+                            {% if category == 'Sleep' %}😴{% endif %}
+                            {% if category == 'Energy' %}⚡{% endif %}
+                            {% if category == 'Self-esteem' %}💪{% endif %}
+                        </div>
+                        <div class="category-info">
+                            <h4>{{ category }}</h4>
+                            <div class="category-score">{{ score_data.normalized|floatformat:2 }}</div>
+                            <div class="category-raw">{{ score_data.raw }}/{{ score_data.max }}</div>
+                            <div class="category-bar">
+                                {% if score_data.normalized >= 0.67 %}
+                                    <div class="category-fill severe" style="width: 100%"></div>
+                                {% elif score_data.normalized >= 0.34 %}
+                                    <div class="category-fill medium" style="width: 60%"></div>
+                                {% else %}
+                                    <div class="category-fill good" style="width: 30%"></div>
+                                {% endif %}
+                            </div>
+                            <div class="category-status">
+                                {% if score_data.normalized >= 0.67 %}
+                                    <span class="status-text severe">High Concern</span>
+                                {% elif score_data.normalized >= 0.34 %}
+                                    <span class="status-text medium">Mild Concern</span>
+                                {% else %}
+                                    <span class="status-text good">Low Concern</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-categories">
+                        <p>No category data available. Please retake the assessment.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="result-card categories">
+                <h3>Dynamic Questions Triggered</h3>
+                {% if dynamic_questions_triggered %}
+                <div class="blog-category-tags">
+                    {% for module in dynamic_questions_triggered %}
+                    <span class="blog-category-tag">
+                        <i class="fas fa-notes-medical"></i> {{ module.label }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p>No follow-up modules were needed from this assessment.</p>
+                {% endif %}
+            </div>
+
+            
+            <!-- Recommended Doctors Section -->
+            {% if recommended_doctors %}
+            <div class="result-card recommended-doctors">
+                <div class="doctors-header">
+                    <h3><i class="fas fa-user-md"></i> Recommended Doctors for You</h3>
+                    <p>Based on your assessment results, we've identified these mental health professionals who specialize in your specific needs</p>
+                </div>
+                
+                <div class="recommended-doctors-grid">
+                    {% for doctor_rec in recommended_doctors %}
+                    {% with doctor=doctor_rec.doctor match=doctor_rec.match_percentage reason=doctor_rec.match_reason %}
+                    <div class="doctor-card recommended enhanced">
+                        <div class="doctor-avatar-section">
+                            <div class="doctor-avatar">
+                                {% if doctor.user.profile_image %}
+                                <img src="{{ doctor.user.profile_image.url }}" alt="Dr. {{ doctor.user.get_full_name }}">
+                                {% else %}
+                                <div class="avatar-placeholder">
+                                    <i class="fas fa-user-md"></i>
+                                </div>
+                                {% endif %}
+                                <div class="availability-badge {% if doctor.is_available %}available{% else %}busy{% endif %}">
+                                    {% if doctor.is_available %}<i class="fas fa-circle"></i> Available{% else %}<i class="fas fa-clock"></i> Busy{% endif %}
+                                </div>
+                            </div>
+                            <div class="match-score-compact">
+                                <div class="match-circle">
+                                    <div class="match-value">{{ doctor_rec.match_percentage }}%</div>
+                                    <div class="match-label">Match</div>
+                                </div>
+                                <div class="match-breakdown">
+                                    <div class="breakdown-item">
+                                        <span class="breakdown-label">Specialty:</span>
+                                        <span class="breakdown-value">{{ doctor_rec.score_breakdown.specialty_match }}/40</span>
+                                    </div>
+                                    <div class="breakdown-item">
+                                        <span class="breakdown-label">Focus:</span>
+                                        <span class="breakdown-value">{{ doctor_rec.score_breakdown.primary_focus_match }}/30</span>
+                                    </div>
+                                    <div class="breakdown-item">
+                                        <span class="breakdown-label">Experience:</span>
+                                        <span class="breakdown-value">{{ doctor_rec.score_breakdown.experience }}/20</span>
+                                    </div>
+                                    <div class="breakdown-item">
+                                        <span class="breakdown-label">Availability:</span>
+                                        <span class="breakdown-value">{{ doctor_rec.score_breakdown.availability }}/10</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="doctor-content">
+                            <div class="doctor-info">
+                                <h4>Dr. {{ doctor.user.get_full_name }}</h4>
+                                <p class="specialty">{{ doctor.specialty }}</p>
+                            </div>
+                            
+                            <div class="doctor-highlights">
+                                <div class="highlight-item">
+                                    <i class="fas fa-award"></i>
+                                    <span>{{ doctor.years_of_experience }}+ Years</span>
+                                </div>
+                                <div class="highlight-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>{{ doctor_rec.actual_patients_helped }} Patients</span>
+                                </div>
+                                <div class="highlight-item">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    <span>{{ doctor.consultation_fee }}৳/session</span>
+                                </div>
+                            </div>
+                            
+                            <div class="match-reason">
+                                <i class="fas fa-check-circle"></i>
+                                <span>{{ reason }}</span>
+                            </div>
+                            
+                            <div class="doctor-actions">
+                                <a href="{% url 'doctor_details' doctor.id %}" class="btn-base btn-primary">
+                                    <i class="fas fa-user"></i> View Profile
+                                </a>
+                                <a href="{% url 'book_appointment' doctor.id %}" class="btn-base btn-outline">
+                                    <i class="fas fa-calendar"></i> Book Now
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="result-card recommended-doctors">
+                <div class="doctors-header">
+                    <h3><i class="fas fa-user-md"></i> No Doctors Available</h3>
+                    <p>No doctors are currently available for recommendations. Please check back later.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            
+            <!-- Action Buttons -->
+            <div class="action-section">
+                <button onclick="trackProgress()" class="btn-base btn-primary">
+                    <i class="fas fa-chart-line"></i> Track Progress
+                </button>
+                <button onclick="reassessWithDifferentFocus()" class="btn-base btn-outline">
+                    <i class="fas fa-redo"></i> Retake Assessment
+                </button>
+                <a href="{% url 'doctors_list' %}" class="btn-base btn-primary">
+                    <i class="fas fa-user-md"></i> Choose Doctor
+                </a>
+                <a href="{% url 'patient_dashboard' %}" class="btn-base btn-primary">
+                    <i class="fas fa-home"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Personalized Recommendations -->
+            <div class="result-card recommendations compact">
+                <h3><i class="fas fa-lightbulb"></i> Personalized Recommendations</h3>
+                <div class="recommendation-list-compact">
+                    {% for recommendation in recommendations %}
+                    <div class="recommendation-item-compact priority-{{ recommendation.priority }}">
+                        <div class="rec-icon-compact">{{ recommendation.icon }}</div>
+                        <div class="rec-content-compact">
+                            <h4>{{ recommendation.title }}</h4>
+                            <p>{{ recommendation.description|truncatewords:15 }}</p>
+                            <div class="rec-priority-compact">
+                                <span class="priority-badge-compact {{ recommendation.priority }}">
+                                    {% if recommendation.priority == 'urgent' %}Urgent{% endif %}
+                                    {% if recommendation.priority == 'high' %}High{% endif %}
+                                    {% if recommendation.priority == 'medium' %}Medium{% endif %}
+                                    {% if recommendation.priority == 'low' %}Low{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-recommendations-compact">
+                        <p>No specific recommendations available at this time.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recommended Blog Categories -->
+            {% if recommended_blog_categories %}
+            <div class="result-card blog-categories">
+                <h3><i class="fas fa-book-reader"></i> Recommended Reading Categories</h3>
+                <p>Based on your assessment results, we recommend reading blogs from these categories:</p>
+                <div class="blog-category-tags">
+                    {% for cat_key in recommended_blog_categories %}
+                    <a href="{% url 'blogs' %}?category={{ cat_key }}" class="blog-category-tag">
+                        <i class="fas fa-{{ cat_key|category_icon }}"></i>
+                        {% if cat_key == 'anxiety' %}Anxiety & Stress
+                        {% elif cat_key == 'depression' %}Depression
+                        {% elif cat_key == 'therapy' %}Therapy
+                        {% elif cat_key == 'mindfulness' %}Mindfulness
+                        {% elif cat_key == 'self-care' %}Self-Care
+                        {% elif cat_key == 'sleep' %}Sleep Health
+                        {% elif cat_key == 'relationships' %}Relationships
+                        {% elif cat_key == 'workplace' %}Workplace Wellness
+                        {% elif cat_key == 'mental-health' %}Mental Health Awareness
+                        {% else %}{{ cat_key|title }}
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Important Disclaimer -->
+            <div class="disclaimer-banner">
+                <div class="disclaimer-icon">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div class="disclaimer-content">
+                    <h4>Important Disclaimer</h4>
+                    <p>This assessment is a screening tool only and does not provide a clinical diagnosis. The results and recommendations are for informational purposes only and should not be used as a substitute for professional medical advice, diagnosis, or treatment. If you're experiencing a mental health crisis, please seek immediate professional help or call emergency services.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3>Mental Wellness Platform</h3>
+                <p>Your compassionate partner in mental health care</p>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Mental Wellness Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Doctor recommendation functions
+        function bookDoctor(doctorId) {
+            // Navigate to booking page
+            window.location.href = `/patient/book-appointment/${doctorId}/`;
+        }
+
+        function viewDoctorProfile(doctorId) {
+            // In a real implementation, this would show doctor details
+            const doctors = {
+                1: 'Dr. Sarah Johnson',
+                2: 'Dr. Michael Chen',
+                3: 'Dr. Emily Rodriguez'
+            };
+            
+            alert(`Viewing profile for ${doctors[doctorId]}\n\nThis would show detailed information including:\n- Education and credentials\n- Specializations\n- Available time slots\n- Treatment approaches`);
+        }
+
+        function reassessWithDifferentFocus() {
+            if (confirm('Retake the assessment with different focus areas?')) {
+                window.location.href = '/patient/assessment/';
+            }
+        }
+
+        
+        function trackProgress() {
+            // Save progress to localStorage
+            const progressData = {
+                assessmentId: '{{ assessment.id }}',
+                date: new Date().toISOString(),
+                totalScore: '{{ assessment.total_score }}',
+                stressLevel: '{{ assessment.stress_level }}'
+            };
+            
+            // Get existing progress or create new array
+            let existingProgress = JSON.parse(localStorage.getItem('assessmentProgress') || '[]');
+            existingProgress.push(progressData);
+            
+            // Keep only last 10 assessments
+            if (existingProgress.length > 10) {
+                existingProgress = existingProgress.slice(-10);
+            }
+            
+            localStorage.setItem('assessmentProgress', JSON.stringify(existingProgress));
+            
+            // Show success message with option to view progress
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white; padding: 30px; border-radius: 15px;
+                max-width: 400px; text-align: center;
+            `;
+            content.innerHTML = `
+                <div style="color: #28a745; font-size: 3rem; margin-bottom: 15px;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3 style="margin-bottom: 15px; color: #333;">Progress Tracked!</h3>
+                <p style="margin-bottom: 20px; color: #666;">Your assessment has been saved to your progress history. You can view your progress trend in your dashboard.</p>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="viewProgressHistory()" style="padding: 10px 20px; background: #08a1f7; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        View Progress
+                    </button>
+                    <button onclick="this.closest('div').parentElement.parentElement.remove()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+        }
+
+        function showProgressHistory() {
+            const progressData = JSON.parse(localStorage.getItem('assessmentProgress') || '[]');
+            
+            if (progressData.length === 0) {
+                alert('No progress history available. Take more assessments to track your progress.');
+                return;
+            }
+            
+            let history = "YOUR MENTAL WELLNESS PROGRESS\n";
+            history += "============================\n\n";
+            
+            progressData.forEach((assessment, index) => {
+                const date = new Date(assessment.date).toLocaleDateString();
+                history += `Assessment #${index + 1} - ${date}\n`;
+                history += `Score: ${assessment.totalScore} (${assessment.stressLevel})\n`;
+                history += "Categories: ";
+                for (const [category, score] of Object.entries(assessment.categoryScores)) {
+                    history += `${category}: ${score}, `;
+                }
+                history = history.slice(0, -2); // Remove last comma
+                history += "\n\n";
+            });
+            
+            // Show in modal or alert
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white; padding: 30px; border-radius: 15px;
+                max-width: 600px; max-height: 80vh; overflow-y: auto;
+                font-family: monospace; white-space: pre-line;
+            `;
+            content.textContent = history;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.cssText = `
+                margin-top: 20px; padding: 10px 20px; background: #08a1f7;
+                color: white; border: none; border-radius: 5px; cursor: pointer;
+            `;
+            closeBtn.onclick = () => document.body.removeChild(modal);
+            
+            content.appendChild(closeBtn);
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+        }
+
+        // Add animation to match score bars when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const matchFills = document.querySelectorAll('.match-fill');
+            matchFills.forEach(fill => {
+                const width = fill.style.width;
+                fill.style.width = '0%';
+                setTimeout(() => {
+                    fill.style.width = width;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
