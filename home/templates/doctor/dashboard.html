@@ -163,11 +163,13 @@
                                         </div>
                                     </div>
                                     <div class="appointment-actions">
-                                        {% if appointment.can_join_consultation %}
+                                        {% if appointment.has_consultation_room %}
                                             <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-sm btn-primary">
-                                                <i class="fas fa-video"></i> Start Consultation
+                                                <i class="fas fa-video"></i>
+                                                {% if appointment.can_join_consultation %}Start Consultation{% else %}Consultation Link{% endif %}
                                             </a>
-                                        {% elif appointment.consultation_access_message %}
+                                        {% endif %}
+                                        {% if appointment.consultation_access_message and not appointment.can_join_consultation %}
                                             <span class="btn-base btn-sm btn-outline disabled">{{ appointment.consultation_access_message }}</span>
                                         {% endif %}
                                         <button class="btn-base btn-sm btn-outline appointment-details-btn" data-appointment-id="{{ appointment.id }}">
@@ -213,6 +215,15 @@
                                         </div>
                                     </div>
                                     <div class="appointment-actions">
+                                        {% if appointment.has_consultation_room %}
+                                            <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-sm btn-primary">
+                                                <i class="fas fa-video"></i>
+                                                {% if appointment.can_join_consultation %}Start Consultation{% else %}Consultation Link{% endif %}
+                                            </a>
+                                        {% endif %}
+                                        {% if appointment.consultation_access_message and not appointment.can_join_consultation %}
+                                            <span class="btn-base btn-sm btn-outline disabled">{{ appointment.consultation_access_message }}</span>
+                                        {% endif %}
                                         <button class="btn-base btn-sm btn-outline appointment-details-btn" data-appointment-id="{{ appointment.id }}">
                                             <i class="fas fa-eye"></i> View Details
                                         </button>

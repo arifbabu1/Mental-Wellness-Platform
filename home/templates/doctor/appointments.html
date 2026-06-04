@@ -94,27 +94,24 @@
                                         <span>{{ appointment.notes|truncatewords:10 }}</span>
                                     </div>
                                     {% endif %}
-                                    {% if appointment.meeting_link and appointment.can_join_consultation %}
+                                    {% if appointment.has_consultation_room %}
                                     <div class="detail-item meeting-link">
                                         <span class="detail-icon">🔗</span>
-                                            <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-text">
-                                                Join Meeting
+                                            <a href="{% url 'consultation_room' appointment.id %}" class="meeting-link-text">
+                                                Consultation Link
                                             </a>
                                         </div>
                                         {% endif %}
                                     </div>
                                     
                                     <div class="appointment-actions">
-                                        {% if appointment.can_join_consultation %}
-                                            {% if appointment.meeting_link %}
-                                                <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
-                                                    Join Video Call
-                                                </a>
-                                            {% else %}
-                                                <a href="#" class="btn-base btn-primary btn-small disabled">
-                                                    Waiting for Meeting Link
-                                                </a>
-                                            {% endif %}
+                                        {% if appointment.has_consultation_room %}
+                                            <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-primary btn-small">
+                                                {% if appointment.can_join_consultation %}Join Video Call{% else %}Consultation Link{% endif %}
+                                            </a>
+                                        {% endif %}
+                                        {% if appointment.consultation_access_message and not appointment.can_join_consultation %}
+                                            <span class="btn-base btn-outline btn-small disabled">{{ appointment.consultation_access_message }}</span>
                                         {% endif %}
                                     </div>
                                 </div>

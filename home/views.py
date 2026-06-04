@@ -244,6 +244,7 @@ def _annotate_consultation_access(appointments):
     for appointment in annotated:
         access = _appointment_access_state(appointment)
         appointment.can_join_consultation = access['can_join']
+        appointment.has_consultation_room = appointment.status in CONSULTATION_JOIN_STATUSES
         appointment.consultation_access_state = access['state']
         appointment.consultation_access_message = access['message']
         appointment.consultation_opens_at = access['opens_at']

@@ -1108,6 +1108,21 @@ class ConsultationRoomFlowTests(TestCase):
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, 'confirmed')
 
+    def test_doctor_pages_show_consultation_link_for_active_appointments(self):
+        appointment = self.make_appointment(offset_minutes=45, meeting_id='doctor-link-room')
+        consultation_url = reverse('consultation_room', args=[appointment.id])
+        self.client.login(username='room_doctor', password='pass1234')
+
+        dashboard_response = self.client.get(reverse('doctor_dashboard'))
+        appointments_response = self.client.get(reverse('doctor_appointments'))
+
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertEqual(appointments_response.status_code, 200)
+        self.assertContains(dashboard_response, consultation_url)
+        self.assertContains(dashboard_response, 'Consultation Link')
+        self.assertContains(appointments_response, consultation_url)
+        self.assertContains(appointments_response, 'Consultation Link')
+
     def test_expired_room_marks_incomplete_and_expired(self):
         appointment = self.make_appointment(offset_minutes=-130, meeting_id='expired-room')
         self.client.login(username='room_patient', password='pass1234')
