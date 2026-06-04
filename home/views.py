@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.http.request import RawPostDataException
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
@@ -98,18 +98,86 @@ def _consultation_window(appointment):
 
 
 def _get_or_create_consultation_for_appointment(appointment):
+    try:
+        consultation = appointment.consultation
+    except Consultation.DoesNotExist:
+        consultation = None
+
+    if consultation:
+        update_fields = []
+        if not appointment.meeting_id:
+            appointment.meeting_id = consultation.room_name
+            update_fields.append('meeting_id')
+        if not appointment.meeting_link:
+            appointment.meeting_link = f"/consultation/{appointment.id}/"
+            update_fields.append('meeting_link')
+        if update_fields:
+            update_fields.append('updated_at')
+            appointment.save(update_fields=update_fields)
+        return consultation
+
     if not appointment.meeting_id:
         appointment.meeting_id = f"room_{appointment.id}"
         appointment.meeting_link = appointment.meeting_link or f"/consultation/{appointment.id}/"
         appointment.save(update_fields=['meeting_id', 'meeting_link', 'updated_at'])
 
-    return Consultation.objects.get_or_create(
+    room_name = appointment.meeting_id
+    if Consultation.objects.filter(room_name=room_name).exists():
+        room_name = f"room_{appointment.id}"
+        suffix = 1
+        while Consultation.objects.filter(room_name=room_name).exists():
+            suffix += 1
+            room_name = f"room_{appointment.id}_{suffix}"
+        appointment.meeting_id = room_name
+        appointment.meeting_link = f"/consultation/{appointment.id}/"
+        appointment.save(update_fields=['meeting_id', 'meeting_link', 'updated_at'])
+
+    return Consultation.objects.create(
         appointment=appointment,
-        defaults={
-            'room_name': appointment.meeting_id,
-            'status': 'scheduled',
-        },
-    )[0]
+        room_name=room_name,
+        status='scheduled',
+    )
+
+
+def _is_platform_admin(user):
+    return bool(
+        getattr(user, 'is_superuser', False)
+        or getattr(user, 'is_staff', False)
+        or getattr(user, 'role', None) == 'admin'
+    )
+
+
+def _consultation_participant_role(user, appointment):
+    if appointment.patient_id == user.id:
+        return 'patient'
+    doctor_user_id = getattr(getattr(appointment, 'doctor', None), 'user_id', None)
+    if doctor_user_id == user.id:
+        return 'doctor'
+    if _is_platform_admin(user):
+        return 'admin'
+    return None
+
+
+def _can_access_consultation(user, appointment):
+    return _consultation_participant_role(user, appointment) is not None
+
+
+def _consultation_forbidden(message='You are not allowed to join this consultation.'):
+    return HttpResponseForbidden(message)
+
+
+def _safe_user_name(user):
+    if not user:
+        return 'Unknown user'
+    return user.get_full_name() or user.username or f'User #{user.pk}'
+
+
+def _consultation_redirect_name(user):
+    if getattr(user, 'role', None) == 'doctor':
+        return 'doctor_appointments'
+    if _is_platform_admin(user):
+        return 'admin_appointments'
+    return 'patient_appointments'
 
 
 def _expire_consultation_if_needed(appointment, now=None):
@@ -4297,50 +4365,70 @@ def consultation_room(request, appointment_id):
 
     """Video consultation room"""
 
-    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor__user'), id=appointment_id)
+    try:
+        appointment = get_object_or_404(
+            Appointment.objects.select_related('patient', 'doctor', 'doctor__user'),
+            id=appointment_id,
+        )
 
-    
+        participant_role = _consultation_participant_role(request.user, appointment)
+        if not participant_role:
+            logger.warning(
+                "Unauthorized consultation room access: appointment_id=%s user_id=%s",
+                appointment_id,
+                request.user.id,
+            )
+            return _consultation_forbidden()
 
-    # Check permissions
+        access = _appointment_access_state(appointment)
+        if not access['can_join'] and participant_role != 'admin':
+            messages.error(request, access['message'])
+            return redirect(_consultation_redirect_name(request.user))
 
-    if request.user.role == 'patient' and appointment.patient != request.user:
+        consultation = _get_or_create_consultation_for_appointment(appointment)
+        if participant_role in {'patient', 'doctor'}:
+            _mark_participant_joined(consultation, request.user)
 
-        return HttpResponseForbidden('You are not allowed to join this consultation.')
+        doctor = appointment.doctor
+        patient = appointment.patient
+        doctor_user = getattr(doctor, 'user', None)
+        doctor_image_url = ''
+        if getattr(doctor, 'profile_image', None):
+            try:
+                doctor_image_url = doctor.profile_image.url
+            except ValueError:
+                doctor_image_url = ''
 
-    elif request.user.role == 'doctor' and appointment.doctor.user != request.user:
+        context = {
+            'appointment': appointment,
+            'consultation': consultation,
+            'room_name': consultation.room_name,
+            'consultation_access': access,
+            'participant_role': participant_role,
+            'patient_display_name': _safe_user_name(patient),
+            'doctor_display_name': _safe_user_name(doctor_user),
+            'doctor_image_url': doctor_image_url,
+            'patient_image_url': getattr(patient, 'profile_picture_url', '') or '',
+            'websocket_available': False,
+            'realtime_notice': 'Live status uses safe polling on this deployment. WebSocket signaling is not required for this page to load.',
+        }
 
-        return HttpResponseForbidden('You are not allowed to join this consultation.')
-
-    elif request.user.role not in {'patient', 'doctor'}:
-
-        return HttpResponseForbidden('Only the assigned patient or doctor can join this consultation.')
-
-    access = _appointment_access_state(appointment)
-
-    if not access['can_join']:
-
-        messages.error(request, access['message'])
-
-        return redirect('patient_appointments' if request.user.role == 'patient' else 'doctor_appointments')
-
-    consultation = _get_or_create_consultation_for_appointment(appointment)
-    _mark_participant_joined(consultation, request.user)
-
-    
-
-    context = {
-
-        'appointment': appointment,
-
-        'consultation': consultation,
-
-        'room_name': consultation.room_name,
-
-        'consultation_access': access,
-
-    }
-
-    return render(request, 'consultation/room.html', context)
+        return render(request, 'consultation/room.html', context)
+    except Http404:
+        raise
+    except Exception:
+        logger.exception(
+            "Consultation room render failed: appointment_id=%s user_id=%s",
+            appointment_id,
+            request.user.id,
+        )
+        messages.error(request, 'The consultation room could not be loaded right now. Please try again or contact support.')
+        return render(
+            request,
+            'consultation/room_unavailable.html',
+            {'appointment_id': appointment_id},
+            status=503,
+        )
 
 
 
@@ -4358,13 +4446,16 @@ def save_consultation_notes(request, appointment_id):
 
     
 
-    appointment = get_object_or_404(Appointment, id=appointment_id)
+    appointment = get_object_or_404(
+        Appointment.objects.select_related('patient', 'doctor', 'doctor__user'),
+        id=appointment_id,
+    )
 
     
 
     # Check if doctor owns this appointment
 
-    if appointment.doctor.user != request.user:
+    if appointment.doctor.user_id != request.user.id:
 
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
@@ -4409,13 +4500,13 @@ def complete_consultation(request, appointment_id):
 
     """Complete consultation"""
 
-    appointment = get_object_or_404(Appointment.objects.select_related('doctor__user'), id=appointment_id)
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
 
     
 
     # Check permissions
 
-    if request.user.role != 'doctor' or appointment.doctor.user != request.user:
+    if request.user.role != 'doctor' or appointment.doctor.user_id != request.user.id:
 
         return JsonResponse({'success': False, 'error': 'Only the assigned doctor can complete this consultation'}, status=403)
 
@@ -4455,12 +4546,9 @@ def complete_consultation(request, appointment_id):
 
 @login_required
 def leave_consultation(request, appointment_id):
-    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor__user'), id=appointment_id)
-    if request.user.role == 'patient' and appointment.patient != request.user:
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    if request.user.role == 'doctor' and appointment.doctor.user != request.user:
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    if request.user.role not in {'patient', 'doctor'}:
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if not participant_role:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     if request.method != 'POST':
@@ -4477,12 +4565,9 @@ def leave_consultation(request, appointment_id):
 
 @login_required
 def consultation_status(request, appointment_id):
-    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor__user'), id=appointment_id)
-    if request.user.role == 'patient' and appointment.patient != request.user:
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    if request.user.role == 'doctor' and appointment.doctor.user != request.user:
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    if request.user.role not in {'patient', 'doctor'}:
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if not participant_role:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     access = _appointment_access_state(appointment)
@@ -4538,11 +4623,20 @@ def save_consultation_data(request):
 
         patient_id = data.get('patientId') or data.get('patient_id')
 
+        if not appointment_id:
+            return JsonResponse({'error': 'appointmentId is required'}, status=400)
+
         
 
         # Get appointment and consultation
 
-        appointment = get_object_or_404(Appointment, id=appointment_id)
+        appointment = get_object_or_404(
+            Appointment.objects.select_related('patient', 'doctor', 'doctor__user'),
+            id=appointment_id,
+        )
+
+        if patient_id and str(appointment.patient_id) != str(patient_id):
+            return JsonResponse({'error': 'Patient is not assigned to this appointment'}, status=403)
 
         consultation = _get_or_create_consultation_for_appointment(appointment)
         logger.debug("PATIENT: %s", appointment.patient)
@@ -4560,49 +4654,15 @@ def save_consultation_data(request):
 
         
 
-        # Get doctor profile safely
-
-        doctor_profile = None
-
         try:
-
             doctor_profile = request.user.doctor_profile
-
-        except Exception as e:
-
-            logger.warning("Doctor profile missing while saving consultation data: %s", e)
-
-            # Create doctor profile if it doesn't exist
-
-            from .models import Doctor
-
-            doctor_profile, created = Doctor.objects.get_or_create(
-
-                user=request.user,
-
-                defaults={
-
-                    'qualification': 'MBBS',
-
-                    'years_of_experience': 0,
-
-                    'consultation_fee': 0,
-
-                    'clinic_name': 'General Clinic',
-
-                    'license_number': 'TEMP-' + str(request.user.id)
-
-                }
-
+        except Doctor.DoesNotExist:
+            logger.warning(
+                "Doctor profile missing while saving consultation data: user_id=%s appointment_id=%s",
+                request.user.id,
+                appointment_id,
             )
-
-            if created:
-                default_specialization = DoctorSpecialization.objects.filter(value='Therapist').first()
-                default_focus = DoctorPrimaryFocus.objects.filter(value=DEFAULT_PRIMARY_FOCUS).first()
-                if default_specialization:
-                    doctor_profile.specializations.set([default_specialization])
-                if default_focus:
-                    doctor_profile.primary_focuses.set([default_focus])
+            return JsonResponse({'error': 'Doctor profile is missing.'}, status=403)
 
         if appointment.doctor_id != doctor_profile.id:
             return JsonResponse({'error': 'Doctor is not assigned to this appointment'}, status=403)
@@ -4615,7 +4675,7 @@ def save_consultation_data(request):
         from django.db import transaction
 
         with transaction.atomic():
-            prescription = getattr(consultation, 'prescription', None)
+            prescription = Prescription.objects.filter(consultation=consultation).first()
             if prescription_data.get('details') or prescription_data.get('instructions') or prescription_data.get('medications'):
                 prescription, prescription_created = Prescription.objects.update_or_create(
                     consultation=consultation,
@@ -4660,6 +4720,10 @@ def save_consultation_data(request):
     except json.JSONDecodeError:
 
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+
+    except Http404:
+
+        return JsonResponse({'error': 'Appointment not found'}, status=404)
 
     except Exception as e:
 
@@ -5010,11 +5074,22 @@ def save_prescription_and_tasks(request, consultation_id):
 
         try:
 
-            consultation = Consultation.objects.get(id=consultation_id)
+            consultation = get_object_or_404(
+                Consultation.objects.select_related('appointment', 'appointment__patient', 'appointment__doctor', 'appointment__doctor__user'),
+                id=consultation_id,
+            )
 
             appointment = consultation.appointment
 
-            doctor = Doctor.objects.get(user=request.user)
+            try:
+                doctor = request.user.doctor_profile
+            except Doctor.DoesNotExist:
+                logger.warning(
+                    "Doctor profile missing while saving prescription/tasks: user_id=%s consultation_id=%s",
+                    request.user.id,
+                    consultation_id,
+                )
+                return JsonResponse({'success': False, 'error': 'Doctor profile is missing.'}, status=403)
 
             if appointment.doctor_id != doctor.id:
 
@@ -5040,7 +5115,7 @@ def save_prescription_and_tasks(request, consultation_id):
             from django.db import transaction
 
             with transaction.atomic():
-                prescription = getattr(consultation, 'prescription', None)
+                prescription = Prescription.objects.filter(consultation=consultation).first()
                 prescription_text = prescription_data.get('text') or prescription_data.get('details') or ''
                 if prescription_text or prescription_data.get('instructions') or prescription_data.get('medications'):
                     prescription, _prescription_created = Prescription.objects.update_or_create(
@@ -5104,6 +5179,10 @@ def save_prescription_and_tasks(request, consultation_id):
             })
 
             
+
+        except Http404:
+
+            return JsonResponse({'success': False, 'error': 'Consultation not found'}, status=404)
 
         except Exception as e:
 
