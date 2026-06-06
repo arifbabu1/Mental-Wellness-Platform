@@ -6,11 +6,14 @@ from types import SimpleNamespace
 from django.core import mail
 from django.core.management import call_command
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.utils import timezone
 
 from allauth.account.models import EmailAddress
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.models import SocialAccount, SocialLogin
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
 
 from .adapters import MentalWellnessSocialAccountAdapter
 from .models import (
@@ -181,13 +184,16 @@ class AuthenticationUpgradeTests(TestCase):
 
         self.assertContains(login_response, 'Continue with Google')
         self.assertContains(register_response, 'Continue with Google')
-        self.assertContains(login_response, 'Google sign-in will be available after OAuth credentials are configured.')
+        self.assertContains(login_response, 'href="/accounts/google/login/?process=login"')
+        self.assertContains(register_response, 'href="/accounts/google/login/?process=signup"')
+        self.assertNotContains(login_response, 'google-login-btn disabled')
+        self.assertNotContains(register_response, 'google-login-btn disabled')
 
-    def test_google_wrapper_handles_missing_oauth_config_cleanly(self):
-        response = self.client.post(reverse('google_login'), follow=True)
+    def test_google_login_url_is_allauth_view(self):
+        match = resolve('/accounts/google/login/')
 
-        self.assertRedirects(response, reverse('login'))
-        self.assertContains(response, 'Google sign-in is not configured yet')
+        self.assertEqual(reverse('google_login'), '/accounts/google/login/')
+        self.assertEqual(match.url_name, 'google_login')
 
     def test_auth_redirect_uses_platform_role(self):
         self.client.login(username='auth_patient', password='pass1234')
@@ -228,6 +234,30 @@ class AuthenticationUpgradeTests(TestCase):
         self.assertEqual(user.first_name, 'Google')
         self.assertEqual(user.last_name, 'Patient')
         self.assertEqual(user.profile_picture_url, 'https://example.com/avatar.jpg')
+
+    def test_google_adapter_blocks_existing_doctor_email(self):
+        doctor = User.objects.create_user(
+            username='google_doctor',
+            email='google_doctor@example.com',
+            password='pass1234',
+            role='doctor',
+        )
+        request = RequestFactory().get('/accounts/google/login/callback/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request._messages = FallbackStorage(request)
+        sociallogin = SocialLogin(
+            user=User(username='google_doctor', email=doctor.email),
+            account=SocialAccount(
+                provider='google',
+                uid='google-doctor-123',
+                extra_data={'email': doctor.email, 'email_verified': True},
+            ),
+            email_addresses=[EmailAddress(email=doctor.email, verified=True, primary=True)],
+        )
+
+        with self.assertRaises(ImmediateHttpResponse):
+            MentalWellnessSocialAccountAdapter().pre_social_login(request, sociallogin)
 
 
 class BookingPaymentFlowTests(TestCase):

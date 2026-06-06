@@ -69,7 +69,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/auth/redirect/'
+LOGIN_REDIRECT_URL = '/patient/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
@@ -80,11 +80,15 @@ ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 
-SOCIALACCOUNT_ADAPTER = 'home.adapters.MentalWellnessSocialAccountAdapter'
+ACCOUNT_LOGOUT_REDIRECT_URL = '/'
+ACCOUNT_SIGNUP_REDIRECT_URL = '/patient/dashboard/'
+
+SOCIALACCOUNT_ADAPTER = 'home.adapters.CustomSocialAccountAdapter'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = False
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -93,13 +97,11 @@ SOCIALACCOUNT_PROVIDERS = {
             'access_type': 'online',
             'prompt': 'select_account',
         },
-        'APPS': [
-            {
-                'client_id': GOOGLE_CLIENT_ID,
-                'secret': GOOGLE_CLIENT_SECRET,
-                'key': '',
-            }
-        ] if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET else [],
+        'APP': {
+            'client_id': GOOGLE_CLIENT_ID,
+            'secret': GOOGLE_CLIENT_SECRET,
+            'key': '',
+        },
     }
 }
 
@@ -185,7 +187,7 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-if importlib.util.find_spec('whitenoise'):
+if importlib.util.find_spec('whitenoise') and not DEBUG and (BASE_DIR / 'staticfiles' / 'staticfiles.json').exists():
     STORAGES = {
         'default': {
             'BACKEND': 'django.core.files.storage.FileSystemStorage',

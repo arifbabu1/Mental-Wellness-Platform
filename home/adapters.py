@@ -9,6 +9,8 @@ from django.shortcuts import redirect
 class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
     """Google OAuth behavior tailored for the platform's custom User model."""
 
+    patient_only_message = 'Google login is only available for patient accounts.'
+
     def pre_social_login(self, request, sociallogin):
         super().pre_social_login(request, sociallogin)
 
@@ -19,17 +21,20 @@ class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
             raise ImmediateHttpResponse(redirect('login'))
 
         if sociallogin.is_existing:
+            self._block_non_patient(request, sociallogin.user)
             self._sync_user_from_google(sociallogin.user, sociallogin, email_verified)
             return
 
-        email_taken = (
-            EmailAddress.objects.filter(email__iexact=email).exists()
-            or get_user_model().objects.filter(email__iexact=email).exists()
-        )
-        if not email_verified and email_taken:
+        existing_user = get_user_model().objects.filter(email__iexact=email).first()
+        if existing_user:
+            self._block_non_patient(request, existing_user)
+            if email_verified:
+                sociallogin.user = existing_user
+                self._sync_user_from_google(existing_user, sociallogin, email_verified)
+                return
             messages.error(
                 request,
-                'An account already exists with this email address. Please sign in manually, then connect Google from your account.',
+                'An account already exists with this email address. Please sign in manually before using Google login.',
             )
             raise ImmediateHttpResponse(redirect('login'))
 
@@ -46,8 +51,7 @@ class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def populate_user(self, request, sociallogin, data):
         user = super().populate_user(request, sociallogin, data)
-        if not user.role:
-            user.role = 'patient'
+        user.role = 'patient'
         self._apply_google_profile(user, sociallogin)
         return user
 
@@ -57,12 +61,18 @@ class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
         return user
 
     def _sync_user_from_google(self, user, sociallogin, email_verified):
+        self._block_non_patient(None, user)
         self._apply_google_profile(user, sociallogin)
-        if not user.role:
-            user.role = 'patient'
+        user.role = 'patient'
         if email_verified and hasattr(user, 'is_verified'):
             user.is_verified = True
-        user.save(update_fields=['first_name', 'last_name', 'profile_picture_url', 'role', 'is_verified'])
+        update_fields = ['first_name', 'last_name', 'role']
+        if hasattr(user, 'profile_picture_url'):
+            update_fields.append('profile_picture_url')
+        if hasattr(user, 'is_verified'):
+            update_fields.append('is_verified')
+        user.save(update_fields=update_fields)
+        self._sync_email_address(user, self._get_email(sociallogin), email_verified)
 
     def _apply_google_profile(self, user, sociallogin):
         extra_data = sociallogin.account.extra_data or {}
@@ -75,6 +85,31 @@ class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
         if picture and hasattr(user, 'profile_picture_url'):
             user.profile_picture_url = picture
 
+    def _sync_email_address(self, user, email, email_verified):
+        if not email:
+            return
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=email,
+            defaults={
+                'primary': True,
+                'verified': bool(email_verified),
+            },
+        )
+
+    def _block_non_patient(self, request, user):
+        if not user:
+            return
+        is_blocked = (
+            getattr(user, 'is_staff', False)
+            or getattr(user, 'is_superuser', False)
+            or getattr(user, 'role', None) != 'patient'
+        )
+        if is_blocked:
+            if request is not None:
+                messages.error(request, self.patient_only_message)
+            raise ImmediateHttpResponse(redirect('login'))
+
     def _get_email(self, sociallogin):
         for email_address in sociallogin.email_addresses:
             if email_address.email:
@@ -86,3 +121,6 @@ class MentalWellnessSocialAccountAdapter(DefaultSocialAccountAdapter):
             return True
         value = (sociallogin.account.extra_data or {}).get('email_verified')
         return value is True or str(value).lower() == 'true'
+
+
+CustomSocialAccountAdapter = MentalWellnessSocialAccountAdapter

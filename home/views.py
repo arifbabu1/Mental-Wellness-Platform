@@ -983,11 +983,7 @@ def complete_social_profile(request):
     """Fallback profile completion for OAuth users missing platform role details."""
 
     if request.method == 'POST':
-        selected_role = request.POST.get('role') or 'patient'
-        if selected_role not in {'patient', 'doctor'}:
-            messages.error(request, 'Please choose a valid account type.')
-            return render(request, 'auth/complete_social_profile.html')
-
+        selected_role = 'patient'
         request.user.role = selected_role
         phone = request.POST.get('phone', '').strip()
         age = request.POST.get('age', '').strip()
@@ -1004,8 +1000,6 @@ def complete_social_profile(request):
             request.user.gender = gender
         request.user.save(update_fields=['role', 'phone', 'age', 'gender'])
 
-        if selected_role == 'doctor':
-            return redirect('complete_doctor_profile', user_id=request.user.id)
         return redirect('patient_dashboard')
 
     if request.user.role:

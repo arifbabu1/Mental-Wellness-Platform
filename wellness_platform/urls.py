@@ -4,7 +4,6 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from home import admin_views
-from home import views as home_views
 
 urlpatterns = [
     # Custom admin URLs (must come before Django admin)
@@ -17,8 +16,6 @@ urlpatterns = [
     path('admin/financial/', admin_views.admin_payments, name='admin_payments'),
     # Django admin URLs
     path('admin/', admin.site.urls),
-    # Authentication provider URLs
-    path('accounts/google/login/', home_views.google_oauth_login, name='google_login'),
     # Main app URLs
     path('', include('home.urls')),
     path('accounts/', include('allauth.urls')),

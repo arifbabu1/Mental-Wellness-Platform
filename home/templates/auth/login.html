@@ -1,4 +1,4 @@
-{% load static %}
+{% load static socialaccount %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -67,24 +67,10 @@
 
         <div class="auth-divider"><span>or</span></div>
 
-        {% if google_oauth_enabled %}
-            <form method="post" action="{% url 'google_login' %}" class="social-login-form">
-                {% csrf_token %}
-                {% if request.GET.next %}
-                    <input type="hidden" name="next" value="{{ request.GET.next }}">
-                {% endif %}
-                <button type="submit" class="google-login-btn">
-                    <span class="google-icon" aria-hidden="true">G</span>
-                    Continue with Google
-                </button>
-            </form>
-        {% else %}
-            <button type="button" class="google-login-btn disabled" disabled>
-                <span class="google-icon" aria-hidden="true">G</span>
-                Continue with Google
-            </button>
-            <p class="oauth-config-note">Google sign-in will be available after OAuth credentials are configured.</p>
-        {% endif %}
+        <a href="{% provider_login_url 'google' process='login' %}" class="google-login-btn">
+            <span class="google-icon" aria-hidden="true">G</span>
+            Continue with Google
+        </a>
         
         <div class="quick-links">
             <a href="{% url 'register' %}" class="quick-link">
