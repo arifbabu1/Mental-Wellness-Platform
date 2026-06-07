@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mental Health Blogs | Mental Wellness Consultation</title>
+    <title>Mental Health Blogs | Mental Wellness Platform</title>
     <meta name="description" content="Expert articles on mental health, wellness tips, and professional insights from our mental health professionals.">
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/blogs.css' %}">
@@ -14,12 +14,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <script src="{% static 'js/section-highlight.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Platform</a>
             <button class="navbar-toggle" aria-label="Toggle navigation menu">
                 <span class="hamburger"></span>
             </button>

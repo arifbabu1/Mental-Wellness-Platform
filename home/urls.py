@@ -156,6 +156,7 @@ urlpatterns = [
     path('test-patient-data/', views.test_patient_data, name='test_patient_data'),
     
     path('consultation/<int:appointment_id>/complete/', views.complete_consultation, name='complete_consultation'),
+    path('consultation/<int:appointment_id>/start/', views.start_consultation, name='start_consultation'),
     path('consultation/<int:appointment_id>/leave/', views.leave_consultation, name='leave_consultation'),
     path('consultation/<int:appointment_id>/status/', views.consultation_status, name='consultation_status'),
 

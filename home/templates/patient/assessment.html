@@ -14,12 +14,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <script src="{% static 'js/section-highlight.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
-            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Platform</a>
             <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
                 <span class="hamburger"></span>
             </button>

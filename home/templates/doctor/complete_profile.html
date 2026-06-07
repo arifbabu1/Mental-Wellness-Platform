@@ -4,19 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complete Profile | Mental Wellness Consultation</title>
+    <title>Complete Profile | Mental Wellness Platform</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/doctor-complete-profile.css' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    </head>
+        <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
+</head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
-            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Consultation</a>
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Platform</a>
             <ul class="navbar-nav">
                 <li><a href="{% url 'doctor_dashboard' %}" aria-label="Dashboard">Dashboard</a></li>
                 <li><a href="{% url 'logout' %}" aria-label="Logout">Logout</a></li>

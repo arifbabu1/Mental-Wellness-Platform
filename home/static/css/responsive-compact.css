@@ -1,0 +1,758 @@
+/* Compact responsive polish for patient, doctor, auth, consultation, and public pages. */
+
+:root {
+    --compact-radius: 14px;
+    --compact-radius-sm: 10px;
+    --compact-gap: 14px;
+    --compact-gap-sm: 10px;
+    --compact-shadow: 0 8px 22px rgba(31, 45, 61, 0.08);
+    --compact-border: 1px solid rgba(31, 45, 61, 0.08);
+}
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+}
+
+    .responsive-grid,
+    .dashboard-grid,
+.card-grid,
+.service-grid,
+.stats-grid,
+.action-grid,
+.category-grid,
+.features-grid,
+.quick-actions,
+.quick-actions-grid,
+.dashboard-cards-row,
+.stats-cards,
+.doctor-stats,
+.appointments-grid,
+.doctors-grid,
+.blog-grid,
+.blogs-grid,
+.tasks-grid,
+.assessment-grid,
+.recommendations-grid,
+.specialties-grid,
+.contact-grid,
+    .resource-grid {
+        display: grid;
+        gap: var(--compact-gap);
+    }
+
+.table-responsive,
+.table-container,
+.appointments-table,
+.schedule-table,
+.prescription-table {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid,
+    .card-grid,
+    .service-grid,
+    .stats-grid,
+    .action-grid,
+    .category-grid,
+    .features-grid,
+    .quick-actions,
+    .quick-actions-grid,
+    .dashboard-cards-row,
+    .stats-cards,
+    .doctor-stats,
+    .appointments-grid,
+    .doctors-grid,
+    .blog-grid,
+    .blogs-grid,
+    .tasks-grid,
+    .assessment-grid,
+    .recommendations-grid,
+    .specialties-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .container,
+    .page-container,
+    .dashboard-container,
+    .doctor-container,
+    .patient-container,
+    .main-container,
+    .content-container,
+    .assessment-container,
+    .appointments-container,
+    .doctors-container,
+    .booking-container,
+    .blog-container,
+    .clinical-container,
+    .registration-container,
+    .login-container {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    section,
+    .section,
+    .page-section,
+    .dashboard-section,
+    .services-section,
+    .features-section,
+    .appointments-section,
+    .assessment-section,
+    .doctors-section,
+    .tasks-section,
+    .blog-section,
+    .emergency-section,
+    .registration-section {
+        padding: 22px 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    .row:has(.service-card),
+    .row:has(.feature-card),
+    .row:has(.pricing-card),
+    .row:has(.category-card),
+    .row:has(.stat-card),
+    .row:has(.stats-card),
+    .row:has(.action-card),
+    .row:has(.quick-action-card) {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+    }
+
+    .row:has(.contact-form),
+    .row:has(.contact-info),
+    .row:has(.booking-form),
+    .row:has(.profile-form),
+    .row:has(.doctor-profile),
+    .row:has(.consultation-room) {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    .row > [class*="col-"] {
+        min-width: 0;
+    }
+
+    .hero,
+    .hero-section,
+    .page-hero,
+    .dashboard-hero,
+    .dashboard-header,
+    .page-header,
+    .doctor-header,
+    .patient-header,
+    .assessment-header,
+    .appointments-header,
+    .booking-header,
+    .blog-header,
+    .registration-header,
+    .login-header,
+    .emergency-header {
+        min-height: auto !important;
+        padding: 22px 14px !important;
+        margin-bottom: 16px !important;
+        border-radius: 0 0 18px 18px !important;
+    }
+
+    h1,
+    .hero-title,
+    .page-title,
+    .dashboard-title {
+        font-size: clamp(23px, 6vw, 31px) !important;
+        line-height: 1.18 !important;
+        letter-spacing: 0 !important;
+        margin-bottom: 8px !important;
+    }
+
+    h2,
+    .section-title,
+    .dashboard-header h2,
+    .page-header h2 {
+        font-size: clamp(19px, 5vw, 25px) !important;
+        line-height: 1.22 !important;
+        letter-spacing: 0 !important;
+        margin-bottom: 8px !important;
+    }
+
+    h3,
+    .card-title,
+    .service-card h3,
+    .dashboard-card h3,
+    .doctor-card h3 {
+        font-size: clamp(15px, 4vw, 19px) !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0 !important;
+    }
+
+    p,
+    .section-description,
+    .page-description,
+    .hero-subtitle,
+    .dashboard-subtitle,
+    .card-description {
+        font-size: 13px !important;
+        line-height: 1.45 !important;
+        margin-bottom: 8px !important;
+    }
+
+    .navbar,
+    .header {
+        min-height: 54px;
+    }
+
+    .navbar .container,
+    .header .container {
+        min-height: 54px;
+        padding: 8px 12px !important;
+    }
+
+    .navbar-brand,
+    .logo,
+    .brand {
+        font-size: 16px !important;
+        line-height: 1.15 !important;
+        max-width: calc(100% - 52px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .navbar-nav {
+        gap: 6px !important;
+        padding: 8px 0 !important;
+        margin-top: 8px !important;
+    }
+
+    .navbar-nav a {
+        padding: 9px 10px !important;
+        font-size: 13px !important;
+        border-radius: 9px !important;
+    }
+
+    .navbar-toggle,
+    .mobile-menu-btn {
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 20px !important;
+    }
+
+    .emergency-top-bar,
+    .emergency-banner,
+    .hotline-banner,
+    .alert-banner {
+        padding: 8px 12px !important;
+        font-size: 12.5px !important;
+        line-height: 1.35 !important;
+    }
+
+    .card,
+    .dashboard-card,
+    .service-card,
+    .appointment-card,
+    .doctor-card,
+    .task-card,
+    .category-card,
+    .pricing-card,
+    .feature-card,
+    .stat-card,
+    .stats-card,
+    .action-card,
+    .quick-action-card,
+    .blog-card,
+    .assessment-card,
+    .result-card,
+    .profile-card,
+    .schedule-card,
+    .consultation-card,
+    .prescription-card,
+    .filter-card,
+    .search-card,
+    .form-card,
+    .empty-state,
+    .no-data,
+    .no-results {
+        min-height: auto !important;
+        padding: 14px !important;
+        margin-bottom: 12px !important;
+        border-radius: var(--compact-radius) !important;
+        box-shadow: var(--compact-shadow) !important;
+    }
+
+    .dashboard-grid,
+    .card-grid,
+    .service-grid,
+    .stats-grid,
+    .action-grid,
+    .category-grid,
+    .features-grid,
+    .quick-actions,
+    .quick-actions-grid,
+    .dashboard-cards-row,
+    .appointments-grid,
+    .doctors-grid,
+    .blog-grid,
+    .blogs-grid,
+    .tasks-grid,
+    .assessment-grid,
+    .recommendations-grid,
+    .specialties-grid,
+    .contact-grid,
+    .resource-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    .stats-cards,
+    .doctor-stats,
+    .summary-grid,
+    .metrics-grid,
+    .doctor-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+    }
+
+    .card-icon,
+    .service-icon,
+    .empty-icon,
+    .feature-icon,
+    .stat-icon,
+    .action-icon,
+    .dashboard-icon,
+    .doctor-icon,
+    .appointment-icon {
+        width: 42px !important;
+        height: 42px !important;
+        min-width: 42px !important;
+        font-size: 24px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .stat-number,
+    .metric-value,
+    .dashboard-stat-number,
+    .card-number {
+        font-size: clamp(20px, 6vw, 28px) !important;
+        line-height: 1.1 !important;
+        margin-bottom: 4px !important;
+    }
+
+    .stat-label,
+    .metric-label,
+    .card-label {
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+    }
+
+    .empty-state,
+    .no-data,
+    .no-results {
+        text-align: center;
+        padding: 20px 14px !important;
+    }
+
+    .empty-state i,
+    .empty-state .empty-icon,
+    .no-data i,
+    .no-results i {
+        font-size: 32px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .empty-state h2,
+    .empty-state h3,
+    .no-data h2,
+    .no-data h3,
+    .no-results h2,
+    .no-results h3 {
+        font-size: 17px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .btn,
+    .btn-base,
+    button,
+    .primary-btn,
+    .secondary-btn,
+    .btn-primary,
+    .btn-secondary,
+    .action-btn,
+    .submit-btn,
+    .login-btn,
+    .btn-register,
+    .google-login-btn {
+        min-height: 40px !important;
+        padding: 9px 12px !important;
+        font-size: 13px !important;
+        line-height: 1.2 !important;
+        border-radius: var(--compact-radius-sm) !important;
+        gap: 6px !important;
+    }
+
+    .form-group,
+    .form-row,
+    .field-group,
+    .input-group,
+    .filter-group {
+        margin-bottom: 12px !important;
+        gap: 10px !important;
+    }
+
+    .form-row,
+    .filters-row,
+    .search-filter-row,
+    .profile-grid,
+    .doctor-profile-grid,
+    .booking-grid,
+    .consultation-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    .form-control,
+    input,
+    select,
+    textarea,
+    .search-box,
+    .search-input,
+    .filter-box {
+        min-height: 40px !important;
+        padding: 9px 11px !important;
+        font-size: 14px !important;
+        border-radius: var(--compact-radius-sm) !important;
+    }
+
+    textarea,
+    textarea.form-control {
+        min-height: 88px !important;
+    }
+
+    .table-container table,
+    .table-responsive table,
+    .appointments-table table,
+    .schedule-table table,
+    .prescription-table table {
+        min-width: 620px;
+    }
+
+    table {
+        font-size: 12.5px !important;
+    }
+
+    th,
+    td {
+        padding: 8px !important;
+    }
+
+    .modal-content,
+    .popup-content,
+    .dialog-content {
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        margin: 12px !important;
+        padding: 16px !important;
+        border-radius: var(--compact-radius) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .container,
+    .page-container,
+    .dashboard-container,
+    .doctor-container,
+    .patient-container,
+    .main-container,
+    .content-container,
+    .assessment-container,
+    .appointments-container,
+    .doctors-container,
+    .booking-container,
+    .blog-container,
+    .clinical-container,
+    .registration-container,
+    .login-container {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    section,
+    .section,
+    .page-section,
+    .dashboard-section,
+    .services-section,
+    .features-section,
+    .appointments-section,
+    .assessment-section,
+    .doctors-section,
+    .tasks-section,
+    .blog-section,
+    .emergency-section,
+    .registration-section {
+        padding: 18px 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .hero,
+    .hero-section,
+    .page-hero,
+    .dashboard-hero,
+    .dashboard-header,
+    .page-header,
+    .doctor-header,
+    .patient-header,
+    .assessment-header,
+    .appointments-header,
+    .booking-header,
+    .blog-header,
+    .registration-header,
+    .login-header,
+    .emergency-header {
+        padding: 18px 12px !important;
+        margin-bottom: 12px !important;
+    }
+
+    h1,
+    .hero-title,
+    .page-title,
+    .dashboard-title {
+        font-size: 24px !important;
+    }
+
+    h2,
+    .section-title,
+    .dashboard-header h2,
+    .page-header h2 {
+        font-size: 20px !important;
+    }
+
+    h3,
+    .card-title,
+    .service-card h3,
+    .dashboard-card h3,
+    .doctor-card h3 {
+        font-size: 14px !important;
+    }
+
+    p,
+    .section-description,
+    .page-description,
+    .hero-subtitle,
+    .dashboard-subtitle,
+    .card-description {
+        font-size: 12px !important;
+    }
+
+    .dashboard-grid,
+    .card-grid,
+    .service-grid,
+    .stats-grid,
+    .action-grid,
+    .category-grid,
+    .features-grid,
+    .quick-actions,
+    .quick-actions-grid,
+    .dashboard-cards-row,
+    .appointments-grid,
+    .doctors-grid,
+    .blog-grid,
+    .blogs-grid,
+    .tasks-grid,
+    .assessment-grid,
+    .recommendations-grid,
+    .specialties-grid,
+    .contact-grid,
+    .resource-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    .stats-cards,
+    .doctor-stats,
+    .summary-grid,
+    .metrics-grid,
+    .doctor-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .card,
+    .dashboard-card,
+    .service-card,
+    .appointment-card,
+    .doctor-card,
+    .task-card,
+    .category-card,
+    .pricing-card,
+    .feature-card,
+    .stat-card,
+    .stats-card,
+    .action-card,
+    .quick-action-card,
+    .blog-card,
+    .assessment-card,
+    .result-card,
+    .profile-card,
+    .schedule-card,
+    .consultation-card,
+    .prescription-card,
+    .filter-card,
+    .search-card,
+    .form-card {
+        padding: 11px !important;
+        border-radius: 12px !important;
+    }
+
+    .card-icon,
+    .service-icon,
+    .empty-icon,
+    .feature-icon,
+    .stat-icon,
+    .action-icon,
+    .dashboard-icon,
+    .doctor-icon,
+    .appointment-icon {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        font-size: 20px !important;
+    }
+
+    .btn,
+    .btn-base,
+    button,
+    .primary-btn,
+    .secondary-btn,
+    .btn-primary,
+    .btn-secondary,
+    .action-btn,
+    .submit-btn,
+    .login-btn,
+    .btn-register,
+    .google-login-btn {
+        min-height: 38px !important;
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+    }
+
+    .empty-state,
+    .no-data,
+    .no-results {
+        padding: 16px 12px !important;
+    }
+
+    .empty-state i,
+    .empty-state .empty-icon,
+    .no-data i,
+    .no-results i {
+        font-size: 28px !important;
+    }
+
+    .form-control,
+    input,
+    select,
+    textarea,
+    .search-box,
+    .search-input,
+    .filter-box {
+        min-height: 38px !important;
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .dashboard-grid,
+    .card-grid,
+    .service-grid,
+    .stats-grid,
+    .action-grid,
+    .category-grid,
+    .features-grid,
+    .quick-actions,
+    .quick-actions-grid,
+    .dashboard-cards-row,
+    .appointments-grid,
+    .doctors-grid,
+    .blog-grid,
+    .blogs-grid,
+    .tasks-grid,
+    .assessment-grid,
+    .recommendations-grid,
+    .specialties-grid,
+    .contact-grid,
+    .resource-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .stats-cards,
+    .doctor-stats,
+    .summary-grid,
+    .metrics-grid,
+    .doctor-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .card,
+    .dashboard-card,
+    .service-card,
+    .appointment-card,
+    .doctor-card,
+    .task-card,
+    .category-card,
+    .pricing-card,
+    .feature-card,
+    .stat-card,
+    .stats-card,
+    .action-card,
+    .quick-action-card,
+    .blog-card,
+    .assessment-card,
+    .result-card {
+        padding: 10px !important;
+    }
+
+    h1,
+    .hero-title,
+    .page-title,
+    .dashboard-title {
+        font-size: 22px !important;
+    }
+
+    h2,
+    .section-title {
+        font-size: 18px !important;
+    }
+
+    h3,
+    .card-title,
+    .service-card h3,
+    .dashboard-card h3,
+    .doctor-card h3 {
+        font-size: 13px !important;
+    }
+}

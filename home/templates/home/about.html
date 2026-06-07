@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About Us | Mental Wellness Consultation Platform</title>
+    <title>About Us | Mental Wellness Platform</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <link rel="stylesheet" href="{% static 'css/about.css' %}">
@@ -12,12 +12,13 @@
     <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Platform</a>
             <button class="navbar-toggle" aria-label="Toggle navigation menu">
                 <span class="hamburger"></span>
             </button>
@@ -42,7 +43,7 @@
     <section class="about-hero">
         <div class="container">
             <div class="hero-content">
-                <h1>About Mental Wellness Consultation</h1>
+                <h1>About Mental Wellness Platform</h1>
                 <p>Empowering minds through compassionate mental health care, built by students for students.</p>
                 <div class="hero-stats">
                     <div class="stat">
@@ -120,7 +121,7 @@
                     </div>
                     <div class="member-info">
                         <h3>Shoumik Barua Shoumo</h3>
-                        <p class="member-role">Lead Developer & Backend Specialist</p>
+                        <p class="member-role">Frontend Developer & UI/UX Designer</p>
                         <p class="member-department">CSE Department</p>
                         <div class="member-social">
                             <a href="#"><i class="fab fa-github"></i></a>
@@ -138,12 +139,12 @@
  </div>
                     <div class="member-info">
                         <h3>Md. Arif Babu</h3>
-                        <p class="member-role">Frontend Developer & UI/UX Designer</p>
+                        <p class="member-role">Lead Developer & Backend Specialist</p>
                         <p class="member-department">CSE Department</p>
                         <div class="member-social">
-                            <a href="#"><i class="fab fa-github"></i></a>
-                            <a href="#"><i class="fab fa-linkedin"></i></a>
-                            <a href="#"><i class="fas fa-envelope"></i></a>
+                            <a href="https://github.com/arifbabu1"><i class="fab fa-github"></i></a>
+                            <a href="www.linkedin.com/in/arif-babu4033"><i class="fab fa-linkedin"></i></a>
+                            <a href="arifbabu4033@gmail.com"><i class="fas fa-envelope"></i></a>
                         </div>
                     </div>
                 </div>
@@ -214,7 +215,7 @@
                         <div class="timeline-date">2024</div>
                         <div class="timeline-content">
                             <h3>Platform Launch</h3>
-                            <p>After months of development, testing, and refinement, we launched the Mental Wellness Consultation Platform - a comprehensive solution for mental health support.</p>
+                            <p>After months of development, testing, and refinement, we launched the Mental Wellness Platform - a comprehensive solution for mental health support.</p>
                         </div>
                     </div>
                     <div class="timeline-item">
@@ -370,7 +371,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
-                    <h3>Mental Wellness Consultation</h3>
+                    <h3>Mental Wellness Platform</h3>
                     <p>Your compassionate partner in mental health care.</p>
                     <div class="footer-social">
                         <a href="#"><i class="fab fa-facebook"></i></a>
@@ -399,7 +400,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 Mental Wellness Consultation. All rights reserved.</p>
+                <p>&copy; 2024 Mental Wellness Platform. All rights reserved.</p>
                 <p>Built with ❤️ by CSE students, Sonargaon University</p>
             </div>
         </div>

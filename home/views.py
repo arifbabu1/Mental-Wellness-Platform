@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -26,6 +27,7 @@ from decimal import Decimal, InvalidOperation
 
 import json
 import logging
+import uuid
 
 import random
 import re
@@ -88,6 +90,45 @@ CONSULTATION_JOIN_STATUSES = {'scheduled', 'confirmed', 'waiting', 'in_progress'
 CONSULTATION_TERMINAL_STATUSES = {'completed', 'cancelled', 'incomplete', 'expired'}
 
 
+def _is_legacy_meeting_id(meeting_id):
+    return not meeting_id or str(meeting_id).startswith('room_')
+
+
+def _build_jitsi_room_name(appointment_id):
+    return f"mentalwellness-appointment-{appointment_id}-{uuid.uuid4().hex}"
+
+
+def _ensure_jitsi_meeting_details(appointment, request=None, force_new=False, save=True):
+    update_fields = []
+    existing_consultation = None
+    try:
+        existing_consultation = appointment.consultation
+    except Consultation.DoesNotExist:
+        pass
+
+    if force_new or _is_legacy_meeting_id(appointment.meeting_id):
+        if existing_consultation and not _is_legacy_meeting_id(existing_consultation.room_name):
+            room_name = existing_consultation.room_name
+        else:
+            room_name = _build_jitsi_room_name(appointment.id)
+            while Consultation.objects.filter(room_name=room_name).exclude(appointment=appointment).exists():
+                room_name = _build_jitsi_room_name(appointment.id)
+        appointment.meeting_id = room_name
+        update_fields.append('meeting_id')
+
+    consultation_path = reverse('consultation_room', args=[appointment.id])
+    meeting_link = request.build_absolute_uri(consultation_path) if request else consultation_path
+    if appointment.meeting_link != meeting_link:
+        appointment.meeting_link = meeting_link
+        update_fields.append('meeting_link')
+
+    if save and update_fields:
+        update_fields.append('updated_at')
+        appointment.save(update_fields=update_fields)
+
+    return appointment.meeting_link
+
+
 def _consultation_window(appointment):
     scheduled_at = timezone.localtime(appointment.appointment_date)
     return {
@@ -105,31 +146,40 @@ def _get_or_create_consultation_for_appointment(appointment):
 
     if consultation:
         update_fields = []
-        if not appointment.meeting_id:
+        appointment_needs_room = _is_legacy_meeting_id(appointment.meeting_id)
+        consultation_needs_room = _is_legacy_meeting_id(consultation.room_name)
+
+        if appointment_needs_room or consultation_needs_room:
+            room_name = _build_jitsi_room_name(appointment.id)
+            while Consultation.objects.filter(room_name=room_name).exclude(pk=consultation.pk).exists():
+                room_name = _build_jitsi_room_name(appointment.id)
+            appointment.meeting_id = room_name
+            consultation.room_name = room_name
+            update_fields.append('meeting_id')
+            consultation.save(update_fields=['room_name'])
+        elif appointment.meeting_id != consultation.room_name:
             appointment.meeting_id = consultation.room_name
             update_fields.append('meeting_id')
-        if not appointment.meeting_link:
-            appointment.meeting_link = f"/consultation/{appointment.id}/"
+
+        consultation_path = reverse('consultation_room', args=[appointment.id])
+        if not appointment.meeting_link or not appointment.meeting_link.endswith(consultation_path):
+            appointment.meeting_link = consultation_path
             update_fields.append('meeting_link')
+
         if update_fields:
             update_fields.append('updated_at')
             appointment.save(update_fields=update_fields)
         return consultation
 
-    if not appointment.meeting_id:
-        appointment.meeting_id = f"room_{appointment.id}"
-        appointment.meeting_link = appointment.meeting_link or f"/consultation/{appointment.id}/"
-        appointment.save(update_fields=['meeting_id', 'meeting_link', 'updated_at'])
+    _ensure_jitsi_meeting_details(appointment, request=None, save=True)
 
     room_name = appointment.meeting_id
     if Consultation.objects.filter(room_name=room_name).exists():
-        room_name = f"room_{appointment.id}"
-        suffix = 1
+        room_name = _build_jitsi_room_name(appointment.id)
         while Consultation.objects.filter(room_name=room_name).exists():
-            suffix += 1
-            room_name = f"room_{appointment.id}_{suffix}"
+            room_name = _build_jitsi_room_name(appointment.id)
         appointment.meeting_id = room_name
-        appointment.meeting_link = f"/consultation/{appointment.id}/"
+        appointment.meeting_link = reverse('consultation_room', args=[appointment.id])
         appointment.save(update_fields=['meeting_id', 'meeting_link', 'updated_at'])
 
     return Consultation.objects.create(
@@ -3781,30 +3831,9 @@ def booking_success(request, appointment_id):
 
 def generate_meeting_link(appointment, request=None):
 
-    """Generate unique meeting link for consultation"""
+    """Generate or refresh the platform consultation link backed by Jitsi."""
 
-    import secrets
-
-    
-
-    # Generate unique meeting ID
-
-    meeting_id = secrets.token_urlsafe(8)
-
-    consultation_path = f"/consultation/{appointment.id}/"
-    meeting_link = request.build_absolute_uri(consultation_path) if request else f"http://127.0.0.1:8000{consultation_path}"
-
-    
-
-    # Save meeting details
-
-    appointment.meeting_id = meeting_id
-
-    appointment.meeting_link = meeting_link
-
-    
-
-    return meeting_link
+    return _ensure_jitsi_meeting_details(appointment, request=request, save=True)
 
 
 
@@ -4381,8 +4410,13 @@ def consultation_room(request, appointment_id):
             return redirect(_consultation_redirect_name(request.user))
 
         consultation = _get_or_create_consultation_for_appointment(appointment)
-        if participant_role in {'patient', 'doctor'}:
+        if participant_role == 'patient':
             _mark_participant_joined(consultation, request.user)
+        consultation_started = bool(
+            consultation.started_at
+            or consultation.doctor_joined_at
+            or consultation.status == 'in_progress'
+        )
 
         doctor = appointment.doctor
         patient = appointment.patient
@@ -4398,12 +4432,17 @@ def consultation_room(request, appointment_id):
             'appointment': appointment,
             'consultation': consultation,
             'room_name': consultation.room_name,
+            'jitsi_room_name': consultation.room_name,
+            'jitsi_domain': 'meet.jit.si',
             'consultation_access': access,
             'participant_role': participant_role,
             'patient_display_name': _safe_user_name(patient),
             'doctor_display_name': _safe_user_name(doctor_user),
             'doctor_image_url': doctor_image_url,
             'patient_image_url': getattr(patient, 'profile_picture_url', '') or '',
+            'consultation_started': consultation_started,
+            'show_patient_waiting': participant_role == 'patient' and not consultation_started,
+            'show_doctor_start': participant_role == 'doctor' and not consultation_started,
             'websocket_available': False,
             'realtime_notice': 'Live status uses safe polling on this deployment. WebSocket signaling is not required for this page to load.',
         }
@@ -4540,6 +4579,50 @@ def complete_consultation(request, appointment_id):
 
 
 @login_required
+def start_consultation(request, appointment_id):
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
+    if request.user.role != 'doctor' or appointment.doctor.user_id != request.user.id:
+        return JsonResponse({'success': False, 'error': 'Only the assigned doctor can start this consultation'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    access = _appointment_access_state(appointment)
+    if not access['can_join']:
+        return JsonResponse({'success': False, 'error': access['message']}, status=403)
+
+    try:
+        consultation = _get_or_create_consultation_for_appointment(appointment)
+        now = timezone.now()
+        consultation.doctor_joined_at = consultation.doctor_joined_at or now
+        consultation.started_at = consultation.started_at or now
+        consultation.start_time = consultation.start_time or now
+        consultation.status = 'in_progress'
+        consultation.last_activity_at = now
+        consultation.save(update_fields=[
+            'doctor_joined_at',
+            'started_at',
+            'start_time',
+            'status',
+            'last_activity_at',
+        ])
+
+        appointment.status = 'in_progress'
+        appointment.save(update_fields=['status', 'updated_at'])
+
+        return JsonResponse({
+            'success': True,
+            'started': True,
+            'doctor_joined': True,
+            'consultation_status': consultation.status,
+            'room_name': consultation.room_name,
+            'meeting_id': appointment.meeting_id,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
 def leave_consultation(request, appointment_id):
     appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
     participant_role = _consultation_participant_role(request.user, appointment)
@@ -4571,10 +4654,20 @@ def consultation_status(request, appointment_id):
     except Consultation.DoesNotExist:
         consultation = None
 
+    started = bool(
+        consultation
+        and (
+            consultation.started_at
+            or consultation.doctor_joined_at
+            or consultation.status == 'in_progress'
+        )
+    )
+
     return JsonResponse({
         'success': True,
         'appointment_status': appointment.status,
         'consultation_status': consultation.status if consultation else 'scheduled',
+        'started': started,
         'doctor_joined': bool(consultation and consultation.doctor_joined_at),
         'patient_joined': bool(consultation and consultation.patient_joined_at),
         'can_join': access['can_join'],

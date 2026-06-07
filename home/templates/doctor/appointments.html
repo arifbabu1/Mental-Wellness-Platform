@@ -13,11 +13,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <link rel="stylesheet" href="{% static 'css/doctor-appointments.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
+</head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
-            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Consultation</a>
+            <a href="{% url 'doctor_dashboard' %}" class="navbar-brand">Mental Wellness Platform</a>
             <button class="navbar-toggle" aria-label="Toggle navigation menu">
                 <span class="hamburger"></span>
             </button>

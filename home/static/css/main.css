@@ -12,6 +12,9 @@
 /* Import Page-Specific Styles */
 @import url('appointments.css');
 
+/* Import compact responsive overrides */
+@import url('responsive-compact.css');
+
 /* Global Overrides and Customizations */
 :root {
     /* Enhanced Color Palette */

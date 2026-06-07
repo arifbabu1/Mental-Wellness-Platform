@@ -16,12 +16,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <script src="{% static 'js/section-highlight.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
-            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Consultation</a>
+            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Platform</a>
             <ul class="navbar-nav">
                 <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
                 <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>

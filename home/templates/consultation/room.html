@@ -13,28 +13,53 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
     <!-- Consultation Room - Image Design Match -->
     <div class="consultation-room">
         <!-- Main Content Area -->
         <div class="consultation-container">
+            {% if show_patient_waiting %}
+            <div id="patientWaitingRoom" class="consultation-waiting-room">
+                <div class="waiting-room-card">
+                    <div class="waiting-room-icon">
+                        <i class="fas fa-user-md"></i>
+                    </div>
+                    <h1>Waiting for Dr. {{ doctor_display_name }}</h1>
+                    <p>Your consultation room is ready. You will enter the video call automatically as soon as your doctor starts the session.</p>
+                    <div class="waiting-room-status">
+                        <span class="waiting-pulse"></span>
+                        Checking consultation status...
+                    </div>
+                    <p class="waiting-room-note">Your browser may ask for camera and microphone permission when the call starts.</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if show_doctor_start %}
+            <div id="doctorStartRoom" class="consultation-waiting-room doctor-start-room">
+                <div class="waiting-room-card">
+                    <div class="waiting-room-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h1>Start Consultation</h1>
+                    <p>Start the secure video session when you are ready. The patient will be moved into the meeting automatically.</p>
+                    <button id="startConsultationBtn" class="btn-base btn-primary start-consultation-btn" type="button">
+                        <i class="fas fa-play"></i>
+                        Start Consultation
+                    </button>
+                    <p class="waiting-room-note">Your browser may ask for camera and microphone permission.</p>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Video Section -->
+            <div id="meetingArea" class="meeting-area" {% if show_patient_waiting or show_doctor_start %}style="display: none;"{% endif %}>
             <div class="video-section">
-                <!-- Main Video Display -->
                 <div class="main-video-wrapper">
                     <div class="main-video-container">
-                        <video id="remoteVideo" autoplay playsinline class="main-video"></video>
-                                            </div>
-                </div>
-
-                <!-- Self Video (Small) -->
-                <div class="self-video-wrapper">
-                    <div class="self-video-container">
-                        <video id="localVideo" autoplay muted playsinline class="self-video"></video>
-                        <div class="self-video-overlay">
-                            <span class="self-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                        </div>
+                        <div id="jitsiMeetingFrame" class="jitsi-meeting-frame"></div>
                     </div>
                 </div>
             </div>
@@ -76,6 +101,7 @@
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
 
@@ -166,13 +192,21 @@
 
         <!-- Doctor Panel - Only for doctors -->
         {% if request.user.role == 'doctor' %}
-        <div class="doctor-panel">
+        <button id="doctorPanelToggle" class="doctor-panel-toggle" type="button">
+            <i class="fas fa-prescription"></i>
+            Prescription & Tasks
+        </button>
+
+        <div class="doctor-panel doctor-panel-drawer" id="doctorPanelDrawer" aria-hidden="true">
             <div class="doctor-panel-header">
                 <h3>Doctor's Consultation Panel</h3>
                 <div class="panel-actions">
                     <input type="hidden" name="daily_tasks_json" id="dailyTasksJson" value="[]">
                     <button id="saveAllData" class="btn-base btn-primary">
                         <i class="fas fa-save"></i> Save All
+                    </button>
+                    <button id="closeDoctorPanel" class="doctor-panel-close" type="button" aria-label="Close panel">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
@@ -330,40 +364,47 @@
         </div>
     </div>
 
+    <script src="https://meet.jit.si/external_api.js"></script>
     <script>
         // Fully Functional Consultation Room
         class ConsultationRoom {
             constructor() {
                 // State
-                this.localStream = null;
-                this.remoteStream = null;
-                this.isVideoOn = false;  // Start disabled
-                this.isAudioOn = false;  // Start disabled
+                this.jitsiApi = null;
+                this.isVideoOn = true;
+                this.isAudioOn = false;
                 this.isScreenSharing = false;
                 this.isConnected = false;
+                this.hasJoinedMeeting = false;
+                this.consultationStarted = {{ consultation_started|yesno:"true,false" }};
                 
                 // Room info
-                this.roomId = '{{ appointment.meeting_id }}';
+                this.roomId = '{{ jitsi_room_name|escapejs }}';
+                this.jitsiDomain = '{{ jitsi_domain|default:"meet.jit.si"|escapejs }}';
                 this.statusUrl = `/consultation/{{ appointment.id }}/status/`;
+                this.startUrl = `/consultation/{{ appointment.id }}/start/`;
                 this.userId = '{{ request.user.id }}';
-                this.userName = '{{ request.user.get_full_name|default:request.user.username }}';
+                this.userName = '{{ request.user.get_full_name|default:request.user.username|escapejs }}';
                 this.userRole = '{{ participant_role|default:request.user.role }}';
                 
                 // Timer
                 this.startTime = Date.now();
                 this.timerInterval = null;
                 this.statusInterval = null;
+                this.waitingPollInterval = null;
                 
                 // Initialize
                 this.initializeElements();
                 this.initializeEventListeners();
-                this.initializeWebRTC();
+                this.initializeRoomFlow();
             }
             
             initializeElements() {
-                // Video elements
-                this.localVideo = document.getElementById('localVideo');
-                this.remoteVideo = document.getElementById('remoteVideo');
+                this.jitsiContainer = document.getElementById('jitsiMeetingFrame');
+                this.waitingRoom = document.getElementById('patientWaitingRoom');
+                this.meetingArea = document.getElementById('meetingArea');
+                this.doctorStartRoom = document.getElementById('doctorStartRoom');
+                this.startConsultationBtn = document.getElementById('startConsultationBtn');
                 
                 // Control buttons
                 this.toggleVideoBtn = document.getElementById('toggleVideo');
@@ -441,6 +482,11 @@
                     console.log('End call button listener added');
                 } else {
                     console.error('End call button not found');
+                }
+
+                if (this.startConsultationBtn) {
+                    this.startConsultationBtn.addEventListener('click', () => this.startConsultation());
+                    console.log('Start consultation button listener added');
                 }
                 
                 // Chat controls
@@ -538,35 +584,209 @@
                     console.log('Timer stopped');
                 }
             }
-            
-            async initializeWebRTC() {
+
+            initializeRoomFlow() {
+                if (this.userRole === 'patient' && !this.consultationStarted) {
+                    this.showPatientWaitingRoom();
+                    this.checkConsultationStatus();
+                    this.waitingPollInterval = setInterval(() => this.checkConsultationStatus(), 4000);
+                    return;
+                }
+
+                if (this.userRole === 'doctor' && !this.consultationStarted) {
+                    this.showDoctorStartRoom();
+                    return;
+                }
+
+                this.initializeJitsi();
+            }
+
+            showPatientWaitingRoom() {
+                if (this.waitingRoom) this.waitingRoom.style.display = 'flex';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                this.updateConnectionStatus('Waiting for doctor');
+                this.addSystemMessage('Waiting for the doctor to start the consultation.');
+            }
+
+            showDoctorStartRoom() {
+                if (this.waitingRoom) this.waitingRoom.style.display = 'none';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'flex';
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                this.updateConnectionStatus('Ready to start');
+            }
+
+            showMeetingArea() {
+                if (this.waitingRoom) this.waitingRoom.style.display = 'none';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
+                if (this.meetingArea) this.meetingArea.style.display = 'flex';
+            }
+
+            async checkConsultationStatus() {
+                if (this.hasJoinedMeeting || this.jitsiApi) return;
+
                 try {
-                    // Start with fallback video (camera/mic disabled by default)
-                    this.createFallbackVideo();
-                    
-                    // Set initial connection status - current user is connected, remote user is not
-                    this.setConnectionStatus(true); // Current user is connected
-                    this.setRemoteUserConnected(false); // Remote user not connected initially
+                    const response = await fetch(this.statusUrl, {
+                        headers: {
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        }
+                    });
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (!data.success) return;
+
+                    if (data.started === true || data.doctor_joined === true) {
+                        this.consultationStarted = true;
+                        this.initializeJitsi();
+                    }
+                } catch (error) {
+                    console.error('Failed to check consultation status:', error);
+                }
+            }
+
+            async startConsultation() {
+                if (this.hasJoinedMeeting || this.jitsiApi) return;
+
+                const button = this.startConsultationBtn;
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+                }
+
+                try {
+                    const response = await fetch(this.startUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({})
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || data.message || 'Unable to start consultation');
+                    }
+
+                    this.consultationStarted = true;
+                    this.addSystemMessage('Consultation started. Opening video room...');
+                    this.initializeJitsi();
+                } catch (error) {
+                    console.error('Failed to start consultation:', error);
+                    this.addSystemMessage('Failed to start consultation: ' + error.message);
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = '<i class="fas fa-play"></i> Start Consultation';
+                    }
+                }
+            }
+            
+            initializeJitsi() {
+                try {
+                    if (this.hasJoinedMeeting || this.jitsiApi) {
+                        return;
+                    }
+                    if (!this.jitsiContainer) {
+                        throw new Error('Jitsi meeting container was not found');
+                    }
+                    if (!window.JitsiMeetExternalAPI) {
+                        throw new Error('Jitsi Meet API failed to load');
+                    }
+
+                    const options = {
+                        roomName: this.roomId,
+                        parentNode: this.jitsiContainer,
+                        width: '100%',
+                        height: '100%',
+                        userInfo: {
+                            displayName: this.userName
+                        },
+                        configOverwrite: {
+                            prejoinPageEnabled: false,
+                            startWithAudioMuted: false,
+                            startWithVideoMuted: false,
+                            disableDeepLinking: true
+                        },
+                        interfaceConfigOverwrite: {
+                            SHOW_JITSI_WATERMARK: false,
+                            SHOW_WATERMARK_FOR_GUESTS: false,
+                            MOBILE_APP_PROMO: false
+                        }
+                    };
+
+                    this.hasJoinedMeeting = true;
+                    if (this.waitingPollInterval) {
+                        clearInterval(this.waitingPollInterval);
+                        this.waitingPollInterval = null;
+                    }
+                    if (this.statusInterval) {
+                        clearInterval(this.statusInterval);
+                        this.statusInterval = null;
+                    }
+                    this.showMeetingArea();
+                    this.jitsiApi = new JitsiMeetExternalAPI(this.jitsiDomain, options);
+                    this.bindJitsiEvents();
+                    this.updateMicButton();
+                    this.updateVideoButton();
+                    this.updateScreenButton();
+
+                    this.setConnectionStatus(true);
+                    this.setRemoteUserConnected(false);
                     this.updateConnectionStatus('Connected');
-                    this.addSystemMessage('You have joined the consultation room. Waiting for other participant...');
-                    
-                    // Start timer
+                    this.addSystemMessage('You have joined the consultation room. Waiting for the other participant...');
                     this.startTimer();
-                    
-                    // Update participant status immediately
+
                     setTimeout(() => {
                         this.updateParticipantStatus();
                         this.refreshParticipantStatus();
                     }, 500);
                     this.statusInterval = setInterval(() => this.refreshParticipantStatus(), 10000);
-                    
-                    // Don't simulate remote connection - wait for real connection
-                    
                 } catch (error) {
                     console.error('Error initializing consultation room:', error);
                     this.updateConnectionStatus('Failed to connect');
-                    this.addSystemMessage('Failed to initialize consultation room.');
+                    this.addSystemMessage('Failed to initialize Jitsi consultation room. Please refresh and try again.');
                 }
+            }
+
+            bindJitsiEvents() {
+                if (!this.jitsiApi) return;
+
+                this.jitsiApi.addEventListener('videoConferenceJoined', () => {
+                    this.setConnectionStatus(true);
+                    this.updateSelfSpeakingIndicator(false);
+                    this.addSystemMessage('Jitsi video consultation is ready.');
+                });
+
+                this.jitsiApi.addEventListener('participantJoined', () => {
+                    this.setRemoteUserConnected(true);
+                    this.updateConnectionStatus('In progress');
+                    this.addSystemMessage('The other participant joined the consultation.');
+                });
+
+                this.jitsiApi.addEventListener('participantLeft', () => {
+                    this.setRemoteUserConnected(false);
+                    this.addSystemMessage('The other participant left the consultation.');
+                });
+
+                this.jitsiApi.addEventListener('audioMuteStatusChanged', ({ muted }) => {
+                    this.isAudioOn = !muted;
+                    this.updateMicButton();
+                    this.updateSelfSpeakingIndicator(!muted);
+                });
+
+                this.jitsiApi.addEventListener('videoMuteStatusChanged', ({ muted }) => {
+                    this.isVideoOn = !muted;
+                    this.updateVideoButton();
+                });
+
+                this.jitsiApi.addEventListener('screenSharingStatusChanged', ({ on }) => {
+                    this.isScreenSharing = Boolean(on);
+                    this.updateScreenButton();
+                });
+
+                this.jitsiApi.addEventListener('readyToClose', () => {
+                    this.cleanup();
+                });
             }
 
             async refreshParticipantStatus() {
@@ -592,386 +812,81 @@
                 }
             }
             
-            createFallbackVideo() {
-                // Create a fallback video for the local user
-                const canvas = document.createElement('canvas');
-                canvas.width = 1280;
-                canvas.height = 720;
-                const ctx = canvas.getContext('2d');
-                
-                // Create animated placeholder
-                let frame = 0;
-                const animate = () => {
-                    ctx.fillStyle = '#1a1a2e';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Add animated text
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '24px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Camera/Microphone Not Available', canvas.width/2, canvas.height/2 - 20);
-                    ctx.font = '18px Arial';
-                    ctx.fillText('Please check your browser permissions', canvas.width/2, canvas.height/2 + 20);
-                    
-                    // Add user info
-                    ctx.fillStyle = '#4CAF50';
-                    ctx.beginPath();
-                    ctx.arc(canvas.width - 50, 50, 20, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    frame++;
-                    if (this.localVideo) {
-                        requestAnimationFrame(animate);
-                    }
-                };
-                
-                animate();
-                
-                // Create a MediaStream from canvas
-                const stream = canvas.captureStream(30);
-                this.localVideo.srcObject = stream;
-            }
-            
-            simulateRemoteConnection() {
-                // Create a simulated remote video stream
-                this.setRemoteUserConnected(true);
-                this.addSystemMessage('Remote participant connected successfully!');
-                this.isConnected = true;
-                
-                // Create a placeholder video for remote participant
-                const canvas = document.createElement('canvas');
-                canvas.width = 1280;
-                canvas.height = 720;
-                const ctx = canvas.getContext('2d');
-                
-                // Create animated placeholder
-                let frame = 0;
-                const animate = () => {
-                    // Background
-                    ctx.fillStyle = '#2c3e50';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Add animated text
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '24px Inter';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Remote Participant', canvas.width/2, canvas.height/2 - 20);
-                    ctx.font = '16px Inter';
-                    ctx.fillText('Consultation in progress', canvas.width/2, canvas.height/2 + 20);
-                    
-                    frame++;
-                    if (this.isConnected) {
-                        requestAnimationFrame(animate);
-                    }
-                };
-                
-                animate();
-                
-                // Create a MediaStream from canvas
-                const stream = canvas.captureStream(30);
-                this.remoteVideo.srcObject = stream;
-            }
-            
-            async toggleVideo() {
-                console.log('Toggling video...');
-                try {
-                    if (!this.isVideoOn) {
-                        console.log('Enabling video...');
-                        // Enable video
-                        if (!this.localStream) {
-                            // Get media stream if not exists
-                            this.localStream = await navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    width: { ideal: 1280 },
-                                    height: { ideal: 720 }
-                                },
-                                audio: this.isAudioOn ? {
-                                    echoCancellation: true,
-                                    noiseSuppression: true,
-                                    autoGainControl: true
-                                } : false
-                            });
-                        } else {
-                            // Add video track to existing stream
-                            const videoStream = await navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    width: { ideal: 1280 },
-                                    height: { ideal: 720 }
-                                }
-                            });
-                            const videoTrack = videoStream.getVideoTracks()[0];
-                            this.localStream.addTrack(videoTrack);
-                        }
-                        
-                        // Display video
-                        if (this.localVideo) {
-                            this.localVideo.srcObject = this.localStream;
-                        }
-                        this.isVideoOn = true;
-                        
-                        if (this.toggleVideoBtn) {
-                            this.toggleVideoBtn.classList.add('active');
-                            const icon = this.toggleVideoBtn.querySelector('i');
-                            if (icon) {
-                                icon.className = 'fas fa-video';
-                            }
-                        }
-                        
-                        this.addSystemMessage('Camera enabled');
-                        console.log('Video enabled successfully');
-                        
-                    } else {
-                        console.log('Disabling video...');
-                        // Disable video
-                        if (this.localStream) {
-                            const videoTracks = this.localStream.getVideoTracks();
-                            videoTracks.forEach(track => {
-                                track.stop();
-                                this.localStream.removeTrack(track);
-                            });
-                        }
-                        
-                        this.isVideoOn = false;
-                        
-                        if (this.toggleVideoBtn) {
-                            this.toggleVideoBtn.classList.remove('active');
-                            const icon = this.toggleVideoBtn.querySelector('i');
-                            if (icon) {
-                                icon.className = 'fas fa-video-slash';
-                            }
-                        }
-                        
-                        // Show fallback video
-                        this.createFallbackVideo();
-                        
-                        this.addSystemMessage('Camera disabled');
-                        console.log('Video disabled successfully');
-                    }
-                } catch (error) {
-                    console.error('Error toggling video:', error);
-                    this.addSystemMessage('Failed to toggle camera. Please check permissions.');
-                }
-            }
-            
-            async toggleAudio() {
-                console.log('Toggling audio...');
-                try {
-                    if (!this.isAudioOn) {
-                        console.log('Enabling audio...');
-                        // Enable audio
-                        if (!this.localStream) {
-                            // Get media stream if not exists
-                            this.localStream = await navigator.mediaDevices.getUserMedia({
-                                video: this.isVideoOn ? {
-                                    width: { ideal: 1280 },
-                                    height: { ideal: 720 }
-                                } : false,
-                                audio: {
-                                    echoCancellation: true,
-                                    noiseSuppression: true,
-                                    autoGainControl: true
-                                }
-                            });
-                        } else {
-                            // Add audio track to existing stream
-                            const audioStream = await navigator.mediaDevices.getUserMedia({
-                                audio: {
-                                    echoCancellation: true,
-                                    noiseSuppression: true,
-                                    autoGainControl: true
-                                }
-                            });
-                            const audioTrack = audioStream.getAudioTracks()[0];
-                            this.localStream.addTrack(audioTrack);
-                        }
-                        
-                        // Update video if needed
-                        if (this.isVideoOn && this.localVideo) {
-                            this.localVideo.srcObject = this.localStream;
-                        }
-                        
-                        this.isAudioOn = true;
-                        
-                        if (this.toggleMicBtn) {
-                            this.toggleMicBtn.classList.add('active');
-                            const icon = this.toggleMicBtn.querySelector('i');
-                            if (icon) {
-                                icon.className = 'fas fa-microphone';
-                            }
-                        }
-                        
-                        this.updateSelfSpeakingIndicator(true);
-                        this.addSystemMessage('Microphone enabled');
-                        console.log('Audio enabled successfully');
-                        
-                    } else {
-                        console.log('Disabling audio...');
-                        // Disable audio
-                        if (this.localStream) {
-                            const audioTracks = this.localStream.getAudioTracks();
-                            audioTracks.forEach(track => {
-                                track.stop();
-                                this.localStream.removeTrack(track);
-                            });
-                        }
-                        
-                        this.isAudioOn = false;
-                        
-                        if (this.toggleMicBtn) {
-                            this.toggleMicBtn.classList.remove('active');
-                            const icon = this.toggleMicBtn.querySelector('i');
-                            if (icon) {
-                                icon.className = 'fas fa-microphone-slash';
-                            }
-                        }
-                        
-                        this.updateSelfSpeakingIndicator(false);
-                        this.addSystemMessage('Microphone disabled');
-                        console.log('Audio disabled successfully');
-                    }
-                } catch (error) {
-                    console.error('Error toggling audio:', error);
-                    this.addSystemMessage('Failed to toggle microphone. Please check permissions.');
-                }
-            }
-            
             updateSelfSpeakingIndicator(isSpeaking) {
                 const selfSpeaking = document.getElementById('selfSpeaking');
+                const selfMicIcon = document.getElementById('selfMicIcon');
                 if (selfSpeaking) {
-                    if (isSpeaking) {
-                        selfSpeaking.classList.add('active');
-                        document.getElementById('selfMicIcon').className = 'fas fa-microphone';
-                    } else {
-                        selfSpeaking.classList.remove('active');
-                        document.getElementById('selfMicIcon').className = 'fas fa-microphone-slash';
-                    }
+                    selfSpeaking.classList.toggle('active', Boolean(isSpeaking));
+                }
+                if (selfMicIcon) {
+                    selfMicIcon.className = isSpeaking ? 'fas fa-microphone' : 'fas fa-microphone-slash';
                 }
             }
-            
+
             updateRemoteSpeakingIndicator(isSpeaking) {
                 const remoteSpeaking = document.getElementById('remoteSpeaking');
+                const remoteMicIcon = document.getElementById('remoteMicIcon');
                 if (remoteSpeaking) {
-                    if (isSpeaking) {
-                        remoteSpeaking.classList.add('active');
-                        document.getElementById('remoteMicIcon').className = 'fas fa-microphone';
-                    } else {
-                        remoteSpeaking.classList.remove('active');
-                        document.getElementById('remoteMicIcon').className = 'fas fa-microphone-slash';
-                    }
+                    remoteSpeaking.classList.toggle('active', Boolean(isSpeaking));
+                }
+                if (remoteMicIcon) {
+                    remoteMicIcon.className = isSpeaking ? 'fas fa-microphone' : 'fas fa-microphone-slash';
                 }
             }
-            
-            async toggleScreen() {
+
+            toggleVideo() {
+                if (!this.jitsiApi) return;
+                this.jitsiApi.executeCommand('toggleVideo');
+            }
+
+            toggleAudio() {
+                if (!this.jitsiApi) return;
+                this.jitsiApi.executeCommand('toggleAudio');
+            }
+
+            toggleScreen() {
+                if (!this.jitsiApi) return;
                 try {
-                    if (!this.isScreenSharing) {
-                        // Start screen sharing
-                        const screenStream = await navigator.mediaDevices.getDisplayMedia({
-                            video: true,
-                            audio: true
-                        });
-                        
-                        // Store original video track if exists
-                        this.originalVideoTrack = null;
-                        if (this.localStream && this.localStream.getVideoTracks().length > 0) {
-                            this.originalVideoTrack = this.localStream.getVideoTracks()[0];
-                            this.localStream.removeTrack(this.originalVideoTrack);
-                        }
-                        
-                        // Add screen share track
-                        const screenTrack = screenStream.getVideoTracks()[0];
-                        
-                        // Create or update stream
-                        if (!this.localStream) {
-                            this.localStream = new MediaStream();
-                            // Add audio if microphone is enabled
-                            if (this.isAudioOn) {
-                                try {
-                                    const audioStream = await navigator.mediaDevices.getUserMedia({
-                                        audio: {
-                                            echoCancellation: true,
-                                            noiseSuppression: true,
-                                            autoGainControl: true
-                                        }
-                                    });
-                                    const audioTrack = audioStream.getAudioTracks()[0];
-                                    this.localStream.addTrack(audioTrack);
-                                } catch (audioError) {
-                                    console.log('Audio not available for screen share');
-                                }
-                            }
-                        }
-                        
-                        this.localStream.addTrack(screenTrack);
-                        
-                        // Update video display
-                        if (this.localVideo) {
-                            this.localVideo.srcObject = this.localStream;
-                        }
-                        
-                        // Handle screen share end
-                        screenTrack.onended = () => {
-                            this.stopScreenSharing();
-                        };
-                        
-                        this.isScreenSharing = true;
-                        this.toggleScreenBtn.classList.add('active');
-                        this.addSystemMessage('Screen sharing started');
-                        
-                    } else {
-                        this.stopScreenSharing();
-                    }
+                    this.jitsiApi.executeCommand('toggleShareScreen');
                 } catch (error) {
-                    console.error('Error sharing screen:', error);
-                    this.addSystemMessage('Screen sharing failed. Please check permissions.');
+                    console.warn('Jitsi screen share command failed:', error);
+                    this.addSystemMessage('Use the Jitsi toolbar if screen sharing does not start.');
                 }
             }
-            
-            async stopScreenSharing() {
-                // Remove screen share track
-                if (this.localStream) {
-                    const videoTracks = this.localStream.getVideoTracks();
-                    videoTracks.forEach(track => {
-                        if (track.label.includes('screen') || track.kind === 'video') {
-                            track.stop();
-                            this.localStream.removeTrack(track);
-                        }
-                    });
+
+            updateVideoButton() {
+                if (!this.toggleVideoBtn) return;
+                const icon = this.toggleVideoBtn.querySelector('i');
+                this.toggleVideoBtn.classList.toggle('active', this.isVideoOn);
+                if (icon) {
+                    icon.className = this.isVideoOn ? 'fas fa-video' : 'fas fa-video-slash';
                 }
-                
-                // Restore original video track if video was enabled
-                if (this.isVideoOn && this.originalVideoTrack) {
-                    try {
-                        // Get fresh camera track
-                        const cameraStream = await navigator.mediaDevices.getUserMedia({
-                            video: {
-                                width: { ideal: 1280 },
-                                height: { ideal: 720 }
-                            }
-                        });
-                        const cameraTrack = cameraStream.getVideoTracks()[0];
-                        this.localStream.addTrack(cameraTrack);
-                        
-                        // Update video display
-                        if (this.localVideo) {
-                            this.localVideo.srcObject = this.localStream;
-                        }
-                    } catch (error) {
-                        console.log('Camera not available after screen share');
-                        this.createFallbackVideo();
-                    }
-                } else if (!this.isVideoOn) {
-                    // Show fallback if video is disabled
-                    this.createFallbackVideo();
+            }
+
+            updateMicButton() {
+                if (!this.toggleMicBtn) return;
+                const icon = this.toggleMicBtn.querySelector('i');
+                this.toggleMicBtn.classList.toggle('active', this.isAudioOn);
+                if (icon) {
+                    icon.className = this.isAudioOn ? 'fas fa-microphone' : 'fas fa-microphone-slash';
                 }
-                
-                this.isScreenSharing = false;
-                this.toggleScreenBtn.classList.remove('active');
-                this.addSystemMessage('Screen sharing stopped');
+            }
+
+            updateScreenButton() {
+                if (!this.toggleScreenBtn) return;
+                this.toggleScreenBtn.classList.toggle('active', this.isScreenSharing);
             }
             
             toggleRaiseHand() {
                 console.log('Toggling raise hand...');
                 const isRaised = this.raiseHandBtn.classList.contains('active');
+                if (this.jitsiApi) {
+                    try {
+                        this.jitsiApi.executeCommand('toggleRaiseHand');
+                    } catch (error) {
+                        console.warn('Jitsi raise hand command failed:', error);
+                    }
+                }
                 
                 if (isRaised) {
                     console.log('Lowering hand...');
@@ -1232,6 +1147,14 @@
             async endCall() {
                 console.log('Ending call...');
 
+                if (this.jitsiApi) {
+                    try {
+                        this.jitsiApi.executeCommand('hangup');
+                    } catch (error) {
+                        console.warn('Unable to hang up Jitsi call before redirect:', error);
+                    }
+                }
+
                 if (this.userRole === 'doctor') {
                     try {
                         await this.saveAllDoctorData();
@@ -1312,6 +1235,7 @@
             
             initializeDoctorPanel() {
                 console.log('Initializing doctor panel...');
+                this.initializeDoctorDrawer();
                 
                 // Wait for DOM to be ready
                 setTimeout(() => {
@@ -1383,6 +1307,36 @@
                     
                     console.log('Doctor panel initialized successfully');
                 }, 100); // Small delay to ensure DOM is ready
+            }
+
+            initializeDoctorDrawer() {
+                const toggle = document.getElementById('doctorPanelToggle');
+                const drawer = document.getElementById('doctorPanelDrawer');
+                const close = document.getElementById('closeDoctorPanel');
+                if (!drawer) return;
+
+                const openDrawer = () => {
+                    drawer.classList.add('open');
+                    drawer.setAttribute('aria-hidden', 'false');
+                };
+                const closeDrawer = () => {
+                    drawer.classList.remove('open');
+                    drawer.setAttribute('aria-hidden', 'true');
+                };
+
+                toggle?.addEventListener('click', () => {
+                    if (drawer.classList.contains('open')) {
+                        closeDrawer();
+                    } else {
+                        openDrawer();
+                    }
+                });
+                close?.addEventListener('click', closeDrawer);
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        closeDrawer();
+                    }
+                });
             }
             
             loadTaskTemplates(category) {
@@ -1618,6 +1572,15 @@
             
             cleanup() {
                 console.log('Cleaning up consultation room...');
+
+                if (this.jitsiApi) {
+                    try {
+                        this.jitsiApi.dispose();
+                    } catch (error) {
+                        console.warn('Jitsi cleanup failed:', error);
+                    }
+                    this.jitsiApi = null;
+                }
                 
                 // Stop media streams
                 if (this.localStream) {
@@ -1640,6 +1603,10 @@
                 if (this.statusInterval) {
                     clearInterval(this.statusInterval);
                     this.statusInterval = null;
+                }
+                if (this.waitingPollInterval) {
+                    clearInterval(this.waitingPollInterval);
+                    this.waitingPollInterval = null;
                 }
                 
                 console.log('Cleanup completed');
