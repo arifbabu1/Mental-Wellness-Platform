@@ -157,6 +157,8 @@ urlpatterns = [
     
     path('consultation/<int:appointment_id>/complete/', views.complete_consultation, name='complete_consultation'),
     path('consultation/<int:appointment_id>/start/', views.start_consultation, name='start_consultation'),
+    path('consultation/<int:appointment_id>/register-join/', views.register_consultation_join, name='register_consultation_join'),
+    path('consultation/<int:appointment_id>/participant-left/', views.participant_left_consultation, name='participant_left_consultation'),
     path('consultation/<int:appointment_id>/leave/', views.leave_consultation, name='leave_consultation'),
     path('consultation/<int:appointment_id>/status/', views.consultation_status, name='consultation_status'),
 

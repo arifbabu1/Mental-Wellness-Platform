@@ -54,9 +54,42 @@
             </div>
             {% endif %}
 
+            <div id="rejoinScreen" class="consultation-waiting-room consultation-state-screen" style="display: none;">
+                <div class="waiting-room-card">
+                    <div class="waiting-room-icon"><i class="fas fa-rotate-right"></i></div>
+                    <h1>You left the meeting.</h1>
+                    <p id="rejoinMessage">You can rejoin the consultation if you still have attempts remaining.</p>
+                    <div class="waiting-room-status">Remaining rejoin attempts: <span id="remainingAttempts">{{ remaining_join_attempts }}</span></div>
+                    <button id="rejoinConsultationBtn" class="btn-base btn-primary start-consultation-btn" type="button">
+                        <i class="fas fa-video"></i>
+                        Rejoin Consultation
+                    </button>
+                </div>
+            </div>
+
+            <div id="expiredScreen" class="consultation-waiting-room consultation-state-screen" style="display: none;">
+                <div class="waiting-room-card">
+                    <div class="waiting-room-icon"><i class="fas fa-clock"></i></div>
+                    <h1>Consultation Window Expired</h1>
+                    <p>This consultation was available for 30 minutes from the scheduled start time.</p>
+                </div>
+            </div>
+
+            <div id="completedScreen" class="consultation-waiting-room consultation-state-screen" style="display: none;">
+                <div class="waiting-room-card">
+                    <div class="waiting-room-icon"><i class="fas fa-circle-check"></i></div>
+                    <h1>Consultation Completed</h1>
+                    <p id="completedMessage">This consultation has been completed.</p>
+                </div>
+            </div>
+
             <!-- Video Section -->
             <div id="meetingArea" class="meeting-area" {% if show_patient_waiting or show_doctor_start %}style="display: none;"{% endif %}>
             <div class="video-section">
+                <div id="doctorDisconnectedOverlay" class="doctor-disconnected-overlay" style="display: none;">
+                    <i class="fas fa-wifi"></i>
+                    <span>Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.</span>
+                </div>
                 <div class="main-video-wrapper">
                     <div class="main-video-container">
                         <div id="jitsiMeetingFrame" class="jitsi-meeting-frame"></div>
@@ -90,6 +123,11 @@
 
                     <!-- Right Controls -->
                     <div class="controls-right">
+                        {% if participant_role == 'doctor' %}
+                        <button id="completeConsultationBtn" class="control-btn complete-call-btn" title="Complete Consultation">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        {% endif %}
                         <button id="chatToggle" class="control-btn" title="Chat">
                             <i class="fas fa-comment"></i>
                         </button>
@@ -376,6 +414,8 @@
                 this.isScreenSharing = false;
                 this.isConnected = false;
                 this.hasJoinedMeeting = false;
+                this.isJoining = false;
+                this.remainingAttempts = parseInt('{{ remaining_join_attempts|default:3 }}', 10);
                 this.consultationStarted = {{ consultation_started|yesno:"true,false" }};
                 
                 // Room info
@@ -383,6 +423,8 @@
                 this.jitsiDomain = '{{ jitsi_domain|default:"meet.jit.si"|escapejs }}';
                 this.statusUrl = `/consultation/{{ appointment.id }}/status/`;
                 this.startUrl = `/consultation/{{ appointment.id }}/start/`;
+                this.registerJoinUrl = `/consultation/{{ appointment.id }}/register-join/`;
+                this.participantLeftUrl = `/consultation/{{ appointment.id }}/participant-left/`;
                 this.userId = '{{ request.user.id }}';
                 this.userName = '{{ request.user.get_full_name|default:request.user.username|escapejs }}';
                 this.userRole = '{{ participant_role|default:request.user.role }}';
@@ -404,7 +446,15 @@
                 this.waitingRoom = document.getElementById('patientWaitingRoom');
                 this.meetingArea = document.getElementById('meetingArea');
                 this.doctorStartRoom = document.getElementById('doctorStartRoom');
+                this.rejoinScreen = document.getElementById('rejoinScreen');
+                this.expiredScreen = document.getElementById('expiredScreen');
+                this.completedScreen = document.getElementById('completedScreen');
+                this.completedMessage = document.getElementById('completedMessage');
+                this.rejoinMessage = document.getElementById('rejoinMessage');
+                this.remainingAttemptsEl = document.getElementById('remainingAttempts');
+                this.doctorDisconnectedOverlay = document.getElementById('doctorDisconnectedOverlay');
                 this.startConsultationBtn = document.getElementById('startConsultationBtn');
+                this.rejoinConsultationBtn = document.getElementById('rejoinConsultationBtn');
                 
                 // Control buttons
                 this.toggleVideoBtn = document.getElementById('toggleVideo');
@@ -414,6 +464,7 @@
                 this.endCallBtn = document.getElementById('endCall');
                 this.chatToggleBtn = document.getElementById('chatToggle');
                 this.participantsToggleBtn = document.getElementById('participantsToggle');
+                this.completeConsultationBtn = document.getElementById('completeConsultationBtn');
                 
                 // Panels
                 this.chatPanel = document.getElementById('chatPanel');
@@ -487,6 +538,14 @@
                 if (this.startConsultationBtn) {
                     this.startConsultationBtn.addEventListener('click', () => this.startConsultation());
                     console.log('Start consultation button listener added');
+                }
+
+                if (this.rejoinConsultationBtn) {
+                    this.rejoinConsultationBtn.addEventListener('click', () => this.initializeJitsi());
+                }
+
+                if (this.completeConsultationBtn) {
+                    this.completeConsultationBtn.addEventListener('click', () => this.completeConsultation());
                 }
                 
                 // Chat controls
@@ -602,6 +661,7 @@
             }
 
             showPatientWaitingRoom() {
+                this.hideStateScreens();
                 if (this.waitingRoom) this.waitingRoom.style.display = 'flex';
                 if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
                 if (this.meetingArea) this.meetingArea.style.display = 'none';
@@ -610,6 +670,7 @@
             }
 
             showDoctorStartRoom() {
+                this.hideStateScreens();
                 if (this.waitingRoom) this.waitingRoom.style.display = 'none';
                 if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'flex';
                 if (this.meetingArea) this.meetingArea.style.display = 'none';
@@ -617,9 +678,82 @@
             }
 
             showMeetingArea() {
+                this.hideStateScreens();
                 if (this.waitingRoom) this.waitingRoom.style.display = 'none';
                 if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
                 if (this.meetingArea) this.meetingArea.style.display = 'flex';
+            }
+
+            showDoctorDisconnectedOverlay(message) {
+                if (!this.doctorDisconnectedOverlay) return;
+                const text = this.doctorDisconnectedOverlay.querySelector('span');
+                if (text) {
+                    text.textContent = message || 'Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.';
+                }
+                this.doctorDisconnectedOverlay.style.display = 'flex';
+            }
+
+            hideDoctorDisconnectedOverlay() {
+                if (this.doctorDisconnectedOverlay) {
+                    this.doctorDisconnectedOverlay.style.display = 'none';
+                }
+            }
+
+            hideStateScreens() {
+                [this.rejoinScreen, this.expiredScreen, this.completedScreen].forEach(screen => {
+                    if (screen) screen.style.display = 'none';
+                });
+            }
+
+            showExpiredScreen(message) {
+                this.disposeJitsi();
+                if (this.waitingPollInterval) clearInterval(this.waitingPollInterval);
+                if (this.statusInterval) clearInterval(this.statusInterval);
+                if (this.waitingRoom) this.waitingRoom.style.display = 'none';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                if (this.expiredScreen) this.expiredScreen.style.display = 'flex';
+                this.addSystemMessage(message || 'Consultation window has expired.');
+            }
+
+            showCompletedScreen(message) {
+                this.disposeJitsi();
+                if (this.waitingPollInterval) clearInterval(this.waitingPollInterval);
+                if (this.statusInterval) clearInterval(this.statusInterval);
+                if (this.waitingRoom) this.waitingRoom.style.display = 'none';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                if (this.completedMessage) this.completedMessage.textContent = message || 'This consultation has been completed.';
+                if (this.completedScreen) this.completedScreen.style.display = 'flex';
+                this.addSystemMessage(message || 'Consultation completed.');
+            }
+
+            showJoinLimitReached(message) {
+                this.disposeJitsi();
+                if (this.rejoinMessage) this.rejoinMessage.textContent = message || 'You have reached the maximum rejoin limit.';
+                if (this.rejoinConsultationBtn) this.rejoinConsultationBtn.style.display = 'none';
+                if (this.remainingAttemptsEl) this.remainingAttemptsEl.textContent = '0';
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                if (this.rejoinScreen) this.rejoinScreen.style.display = 'flex';
+            }
+
+            showRejoinScreen(message) {
+                this.disposeJitsi();
+                if (this.meetingArea) this.meetingArea.style.display = 'none';
+                if (this.waitingRoom) this.waitingRoom.style.display = 'none';
+                if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
+                if (this.remainingAttemptsEl) this.remainingAttemptsEl.textContent = this.remainingAttempts;
+                if (this.rejoinMessage) {
+                    this.rejoinMessage.textContent = message || (
+                        this.userRole === 'doctor'
+                            ? 'Please rejoin within 3 minutes, otherwise the consultation will be completed automatically.'
+                            : 'You can rejoin the consultation if you still have attempts remaining.'
+                    );
+                }
+                if (this.rejoinConsultationBtn) {
+                    this.rejoinConsultationBtn.style.display = this.remainingAttempts > 0 ? 'inline-flex' : 'none';
+                }
+                if (this.rejoinScreen) this.rejoinScreen.style.display = 'flex';
             }
 
             async checkConsultationStatus() {
@@ -634,6 +768,21 @@
                     if (!response.ok) return;
                     const data = await response.json();
                     if (!data.success) return;
+
+                    if (data.expired) {
+                        this.showExpiredScreen(data.message);
+                        return;
+                    }
+                    if (data.completed) {
+                        this.showCompletedScreen(data.message);
+                        return;
+                    }
+                    if (data.doctor_left && this.userRole === 'patient') {
+                        this.showDoctorDisconnectedOverlay(data.message);
+                        this.addSystemMessage(data.message || 'Doctor disconnected. Please wait for the doctor to rejoin.');
+                    } else if (!data.doctor_left) {
+                        this.hideDoctorDisconnectedOverlay();
+                    }
 
                     if (data.started === true || data.doctor_joined === true) {
                         this.consultationStarted = true;
@@ -681,16 +830,47 @@
                 }
             }
             
-            initializeJitsi() {
+            async registerJoinAttempt() {
+                const response = await fetch(this.registerJoinUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success || !data.allowed) {
+                    if (data.expired) this.showExpiredScreen(data.message);
+                    else if (data.completed) this.showCompletedScreen(data.message);
+                    else this.showJoinLimitReached(data.message);
+                    return false;
+                }
+
+                this.remainingAttempts = data.remaining_attempts;
+                if (this.remainingAttemptsEl) this.remainingAttemptsEl.textContent = this.remainingAttempts;
+                if (data.jitsi_room_name) this.roomId = data.jitsi_room_name;
+                return true;
+            }
+
+            async initializeJitsi() {
                 try {
-                    if (this.hasJoinedMeeting || this.jitsiApi) {
+                    if (this.hasJoinedMeeting || this.jitsiApi || this.isJoining) {
                         return;
                     }
+                    this.isJoining = true;
                     if (!this.jitsiContainer) {
                         throw new Error('Jitsi meeting container was not found');
                     }
                     if (!window.JitsiMeetExternalAPI) {
                         throw new Error('Jitsi Meet API failed to load');
+                    }
+
+                    const canJoin = await this.registerJoinAttempt();
+                    if (!canJoin) {
+                        this.isJoining = false;
+                        return;
                     }
 
                     const options = {
@@ -703,6 +883,10 @@
                         },
                         configOverwrite: {
                             prejoinPageEnabled: false,
+                            prejoinConfig: {
+                                enabled: false
+                            },
+                            requireDisplayName: false,
                             startWithAudioMuted: false,
                             startWithVideoMuted: false,
                             disableDeepLinking: true
@@ -740,8 +924,10 @@
                         this.updateParticipantStatus();
                         this.refreshParticipantStatus();
                     }, 500);
-                    this.statusInterval = setInterval(() => this.refreshParticipantStatus(), 10000);
+                    this.statusInterval = setInterval(() => this.refreshParticipantStatus(), 5000);
+                    this.isJoining = false;
                 } catch (error) {
+                    this.isJoining = false;
                     console.error('Error initializing consultation room:', error);
                     this.updateConnectionStatus('Failed to connect');
                     this.addSystemMessage('Failed to initialize Jitsi consultation room. Please refresh and try again.');
@@ -784,8 +970,8 @@
                     this.updateScreenButton();
                 });
 
-                this.jitsiApi.addEventListener('readyToClose', () => {
-                    this.cleanup();
+                this.jitsiApi.addEventListener('readyToClose', async () => {
+                    await this.handleParticipantLeft();
                 });
             }
 
@@ -799,6 +985,21 @@
                     if (!response.ok) return;
                     const data = await response.json();
                     if (!data.success) return;
+
+                    if (data.completed) {
+                        this.showCompletedScreen(data.message);
+                        return;
+                    }
+                    if (data.expired) {
+                        this.showExpiredScreen(data.message);
+                        return;
+                    }
+                    if (data.doctor_left && this.userRole === 'patient') {
+                        this.showDoctorDisconnectedOverlay(data.message);
+                        this.addSystemMessage(data.message || 'Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.');
+                    } else if (!data.doctor_left) {
+                        this.hideDoctorDisconnectedOverlay();
+                    }
 
                     const remoteJoined = this.userRole === 'doctor' ? data.patient_joined : data.doctor_joined;
                     this.setRemoteUserConnected(Boolean(remoteJoined));
@@ -1155,20 +1356,42 @@
                     }
                 }
 
-                if (this.userRole === 'doctor') {
-                    try {
-                        await this.saveAllDoctorData();
-                    } catch (error) {
-                        console.error('Auto-save before ending call failed:', error);
-                    }
+                await this.handleParticipantLeft();
+                this.hideEndCallModal();
+            }
+
+            async handleParticipantLeft() {
+                try {
+                    await fetch(this.participantLeftUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ role: this.userRole })
+                    });
+                } catch (error) {
+                    console.error('Participant-left request failed:', error);
                 }
 
-                const finishUrl = this.userRole === 'doctor'
-                    ? `/consultation/{{ appointment.id }}/complete/`
-                    : `/consultation/{{ appointment.id }}/leave/`;
+                this.hasJoinedMeeting = false;
+                this.isJoining = false;
+                this.showRejoinScreen();
+                if (!this.statusInterval) {
+                    this.statusInterval = setInterval(() => this.refreshParticipantStatus(), 5000);
+                }
+            }
+
+            async completeConsultation() {
+                if (this.userRole !== 'doctor' && this.userRole !== 'admin') return;
+                try {
+                    await this.saveAllDoctorData();
+                } catch (error) {
+                    console.error('Auto-save before completion failed:', error);
+                }
 
                 try {
-                    await fetch(finishUrl, {
+                    const response = await fetch(`/consultation/{{ appointment.id }}/complete/`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1176,20 +1399,15 @@
                         },
                         body: JSON.stringify({})
                     });
+                    const data = await response.json();
+                    if (!response.ok || data.success === false) {
+                        throw new Error(data.error || 'Unable to complete consultation');
+                    }
+                    this.showCompletedScreen('Consultation completed successfully.');
                 } catch (error) {
-                    console.error('Complete consultation request failed:', error);
+                    console.error('Complete consultation failed:', error);
+                    this.addSystemMessage('Failed to complete consultation: ' + error.message);
                 }
-                
-                // Stop media streams
-                this.cleanup();
-                
-                // Hide modal
-                this.hideEndCallModal();
-                
-                // Redirect based on user role
-                const redirectUrl = this.userRole === 'doctor' ? '/doctor/dashboard/' : '/patient/dashboard/';
-                console.log('Redirecting to:', redirectUrl);
-                window.location.href = redirectUrl;
             }
             
             updateConnectionStatus(status) {
@@ -1572,34 +1790,9 @@
             
             cleanup() {
                 console.log('Cleaning up consultation room...');
-
-                if (this.jitsiApi) {
-                    try {
-                        this.jitsiApi.dispose();
-                    } catch (error) {
-                        console.warn('Jitsi cleanup failed:', error);
-                    }
-                    this.jitsiApi = null;
-                }
-                
-                // Stop media streams
-                if (this.localStream) {
-                    this.localStream.getTracks().forEach(track => track.stop());
-                    console.log('Local stream stopped');
-                }
-                if (this.remoteStream) {
-                    this.remoteStream.getTracks().forEach(track => track.stop());
-                    console.log('Remote stream stopped');
-                }
-                
-                // Stop timer
+                this.disposeJitsi();
                 this.stopTimer();
                 
-                // Clear intervals
-                if (this.timerInterval) {
-                    clearInterval(this.timerInterval);
-                    console.log('Timer interval cleared');
-                }
                 if (this.statusInterval) {
                     clearInterval(this.statusInterval);
                     this.statusInterval = null;
@@ -1610,6 +1803,19 @@
                 }
                 
                 console.log('Cleanup completed');
+            }
+
+            disposeJitsi() {
+                if (this.jitsiApi) {
+                    try {
+                        this.jitsiApi.dispose();
+                    } catch (error) {
+                        console.warn('Jitsi cleanup failed:', error);
+                    }
+                    this.jitsiApi = null;
+                }
+                this.hasJoinedMeeting = false;
+                this.stopTimer();
             }
         }
         

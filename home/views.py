@@ -88,6 +88,9 @@ def _safe_request_body(request):
 
 CONSULTATION_JOIN_STATUSES = {'scheduled', 'confirmed', 'waiting', 'in_progress'}
 CONSULTATION_TERMINAL_STATUSES = {'completed', 'cancelled', 'incomplete', 'expired'}
+CONSULTATION_MAX_JOIN_ATTEMPTS = 3
+CONSULTATION_START_WINDOW_MINUTES = 30
+DOCTOR_REJOIN_GRACE_MINUTES = 3
 
 
 def _is_legacy_meeting_id(meeting_id):
@@ -133,9 +136,81 @@ def _consultation_window(appointment):
     scheduled_at = timezone.localtime(appointment.appointment_date)
     return {
         'scheduled_at': scheduled_at,
-        'opens_at': scheduled_at - timedelta(minutes=20),
-        'expires_at': scheduled_at + timedelta(hours=2),
+        'opens_at': scheduled_at,
+        'expires_at': scheduled_at + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES),
     }
+
+
+def get_appointment_start_datetime(appointment):
+    return timezone.localtime(appointment.appointment_date)
+
+
+def is_consultation_start_window_open(appointment, now=None):
+    now = now or timezone.localtime()
+    start = get_appointment_start_datetime(appointment)
+    end = start + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES)
+    return start <= now <= end
+
+
+def _consultation_has_started(consultation):
+    return bool(
+        consultation
+        and (
+            consultation.started_at
+            or consultation.doctor_joined_at
+            or consultation.status == 'in_progress'
+        )
+    )
+
+
+def _complete_consultation(consultation, completed_at=None):
+    completed_at = completed_at or timezone.now()
+    consultation.end_time = consultation.end_time or completed_at
+    consultation.completed_at = consultation.completed_at or completed_at
+    consultation.status = 'completed'
+    consultation.last_activity_at = completed_at
+    consultation.auto_complete_after_doctor_left = False
+    consultation.save(update_fields=[
+        'end_time',
+        'completed_at',
+        'status',
+        'last_activity_at',
+        'auto_complete_after_doctor_left',
+    ])
+    appointment = consultation.appointment
+    appointment.status = 'completed'
+    appointment.save(update_fields=['status', 'updated_at'])
+
+
+def _expire_unstarted_consultation_if_needed(appointment, consultation=None, now=None):
+    now = now or timezone.localtime()
+    if consultation and _consultation_has_started(consultation):
+        return False
+    if appointment.status in CONSULTATION_TERMINAL_STATUSES or appointment.status == 'pending_payment':
+        return False
+    if now <= get_appointment_start_datetime(appointment) + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES):
+        return False
+
+    consultation = consultation or _get_or_create_consultation_for_appointment(appointment)
+    consultation.status = 'expired'
+    consultation.expired_at = consultation.expired_at or timezone.now()
+    consultation.last_activity_at = timezone.now()
+    consultation.save(update_fields=['status', 'expired_at', 'last_activity_at'])
+    appointment.status = 'expired'
+    appointment.save(update_fields=['status', 'updated_at'])
+    return True
+
+
+def _auto_complete_after_doctor_left_if_needed(consultation, now=None):
+    if not consultation or consultation.status == 'completed':
+        return False
+    if not consultation.auto_complete_after_doctor_left or not consultation.doctor_left_at:
+        return False
+    now = now or timezone.now()
+    if now <= consultation.doctor_left_at + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES):
+        return False
+    _complete_consultation(consultation, completed_at=now)
+    return True
 
 
 def _get_or_create_consultation_for_appointment(appointment):
@@ -253,8 +328,15 @@ def _expire_consultation_if_needed(appointment, now=None):
 
 def _appointment_access_state(appointment, now=None):
     now = now or timezone.localtime()
-    _expire_consultation_if_needed(appointment, now)
+    try:
+        consultation = appointment.consultation
+    except Consultation.DoesNotExist:
+        consultation = None
+    _auto_complete_after_doctor_left_if_needed(consultation)
+    _expire_unstarted_consultation_if_needed(appointment, consultation, now)
+    appointment.refresh_from_db(fields=['status'])
     window = _consultation_window(appointment)
+    has_started = _consultation_has_started(consultation)
 
     can_join = False
     message = ''
@@ -268,12 +350,12 @@ def _appointment_access_state(appointment, now=None):
         message = 'Consultation room has expired.'
         state = 'expired'
     elif now < window['opens_at']:
-        message = 'Consultation room will open 20 minutes before scheduled time.'
+        message = 'Consultation is not available yet.'
         state = 'scheduled'
-    elif now > window['expires_at']:
-        message = 'Consultation room has expired.'
+    elif now > window['expires_at'] and not has_started:
+        message = 'Consultation window has expired.'
         state = 'expired'
-    elif appointment.status in CONSULTATION_JOIN_STATUSES:
+    elif appointment.status in CONSULTATION_JOIN_STATUSES or has_started:
         can_join = True
         message = 'Consultation room is open.'
         state = appointment.status if appointment.status in {'waiting', 'in_progress'} else 'open'
@@ -4410,13 +4492,8 @@ def consultation_room(request, appointment_id):
             return redirect(_consultation_redirect_name(request.user))
 
         consultation = _get_or_create_consultation_for_appointment(appointment)
-        if participant_role == 'patient':
-            _mark_participant_joined(consultation, request.user)
-        consultation_started = bool(
-            consultation.started_at
-            or consultation.doctor_joined_at
-            or consultation.status == 'in_progress'
-        )
+        _auto_complete_after_doctor_left_if_needed(consultation)
+        consultation_started = _consultation_has_started(consultation)
 
         doctor = appointment.doctor
         patient = appointment.patient
@@ -4443,6 +4520,12 @@ def consultation_room(request, appointment_id):
             'consultation_started': consultation_started,
             'show_patient_waiting': participant_role == 'patient' and not consultation_started,
             'show_doctor_start': participant_role == 'doctor' and not consultation_started,
+            'remaining_join_attempts': max(
+                0,
+                CONSULTATION_MAX_JOIN_ATTEMPTS - (
+                    consultation.doctor_join_count if participant_role == 'doctor' else consultation.patient_join_count
+                )
+            ),
             'websocket_available': False,
             'realtime_notice': 'Live status uses safe polling on this deployment. WebSocket signaling is not required for this page to load.',
         }
@@ -4540,7 +4623,8 @@ def complete_consultation(request, appointment_id):
 
     # Check permissions
 
-    if request.user.role != 'doctor' or appointment.doctor.user_id != request.user.id:
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if participant_role not in {'doctor', 'admin'}:
 
         return JsonResponse({'success': False, 'error': 'Only the assigned doctor can complete this consultation'}, status=403)
 
@@ -4550,18 +4634,8 @@ def complete_consultation(request, appointment_id):
 
         try:
 
-            appointment.status = 'completed'
-
-            appointment.save(update_fields=['status', 'updated_at'])
-
             consultation = _get_or_create_consultation_for_appointment(appointment)
-
-            consultation.end_time = timezone.now()
-            consultation.completed_at = consultation.completed_at or consultation.end_time
-            consultation.status = 'completed'
-            consultation.last_activity_at = timezone.now()
-
-            consultation.save(update_fields=['end_time', 'completed_at', 'status', 'last_activity_at'])
+            _complete_consultation(consultation)
 
             
 
@@ -4581,18 +4655,23 @@ def complete_consultation(request, appointment_id):
 @login_required
 def start_consultation(request, appointment_id):
     appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
-    if request.user.role != 'doctor' or appointment.doctor.user_id != request.user.id:
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if participant_role not in {'doctor', 'admin'}:
         return JsonResponse({'success': False, 'error': 'Only the assigned doctor can start this consultation'}, status=403)
 
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
 
-    access = _appointment_access_state(appointment)
-    if not access['can_join']:
-        return JsonResponse({'success': False, 'error': access['message']}, status=403)
-
     try:
         consultation = _get_or_create_consultation_for_appointment(appointment)
+        _auto_complete_after_doctor_left_if_needed(consultation)
+        if consultation.status == 'completed':
+            return JsonResponse({'success': False, 'error': 'This consultation has already been completed.'}, status=403)
+        if consultation.status == 'expired' or _expire_unstarted_consultation_if_needed(appointment, consultation):
+            return JsonResponse({'success': False, 'error': 'Consultation start window has expired.'}, status=403)
+        if not _consultation_has_started(consultation) and not is_consultation_start_window_open(appointment):
+            return JsonResponse({'success': False, 'error': 'Consultation start window has expired.'}, status=403)
+
         now = timezone.now()
         consultation.doctor_joined_at = consultation.doctor_joined_at or now
         consultation.started_at = consultation.started_at or now
@@ -4614,12 +4693,129 @@ def start_consultation(request, appointment_id):
             'success': True,
             'started': True,
             'doctor_joined': True,
+            'jitsi_room_name': consultation.room_name,
             'consultation_status': consultation.status,
             'room_name': consultation.room_name,
             'meeting_id': appointment.meeting_id,
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+def register_consultation_join(request, appointment_id):
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if participant_role not in {'patient', 'doctor', 'admin'}:
+        return JsonResponse({'success': False, 'allowed': False, 'message': 'Unauthorized'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'allowed': False, 'message': 'Method not allowed'}, status=405)
+
+    consultation = _get_or_create_consultation_for_appointment(appointment)
+    _auto_complete_after_doctor_left_if_needed(consultation)
+    consultation.refresh_from_db()
+
+    if consultation.status == 'completed':
+        return JsonResponse({'success': False, 'allowed': False, 'completed': True, 'message': 'This consultation has been completed.'}, status=403)
+    if consultation.status == 'expired' or _expire_unstarted_consultation_if_needed(appointment, consultation):
+        return JsonResponse({'success': False, 'allowed': False, 'expired': True, 'message': 'Consultation window has expired.'}, status=403)
+    if not _consultation_has_started(consultation):
+        return JsonResponse({'success': False, 'allowed': False, 'message': 'The doctor has not started this consultation yet.'}, status=403)
+
+    role = 'doctor' if participant_role == 'admin' else participant_role
+    count_field = 'doctor_join_count' if role == 'doctor' else 'patient_join_count'
+    last_joined_field = 'doctor_last_joined_at' if role == 'doctor' else 'patient_last_joined_at'
+    joined_field = 'doctor_joined_at' if role == 'doctor' else 'patient_joined_at'
+    current_count = getattr(consultation, count_field, 0)
+
+    if role == 'doctor' and consultation.doctor_left_at:
+        now = timezone.now()
+        if now > consultation.doctor_left_at + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES):
+            _complete_consultation(consultation, completed_at=now)
+            return JsonResponse({
+                'success': False,
+                'allowed': False,
+                'completed': True,
+                'message': 'This consultation has been completed because the doctor did not rejoin within 3 minutes.',
+            }, status=403)
+        consultation.doctor_left_at = None
+        consultation.auto_complete_after_doctor_left = False
+
+    if current_count >= CONSULTATION_MAX_JOIN_ATTEMPTS:
+        return JsonResponse({
+            'success': False,
+            'allowed': False,
+            'remaining_attempts': 0,
+            'message': 'You have reached the maximum rejoin limit.',
+        }, status=403)
+
+    now = timezone.now()
+    setattr(consultation, count_field, current_count + 1)
+    setattr(consultation, last_joined_field, now)
+    if not getattr(consultation, joined_field):
+        setattr(consultation, joined_field, now)
+    consultation.status = 'in_progress'
+    consultation.last_activity_at = now
+
+    update_fields = [
+        count_field,
+        last_joined_field,
+        joined_field,
+        'status',
+        'last_activity_at',
+    ]
+    if role == 'doctor':
+        update_fields.extend(['doctor_left_at', 'auto_complete_after_doctor_left'])
+    consultation.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    appointment.status = 'in_progress'
+    appointment.save(update_fields=['status', 'updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'allowed': True,
+        'remaining_attempts': CONSULTATION_MAX_JOIN_ATTEMPTS - (current_count + 1),
+        'jitsi_room_name': consultation.room_name,
+    })
+
+
+@login_required
+def participant_left_consultation(request, appointment_id):
+    appointment = get_object_or_404(Appointment.objects.select_related('patient', 'doctor', 'doctor__user'), id=appointment_id)
+    participant_role = _consultation_participant_role(request.user, appointment)
+    if participant_role not in {'patient', 'doctor', 'admin'}:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    consultation = _get_or_create_consultation_for_appointment(appointment)
+    if consultation.status == 'completed':
+        return JsonResponse({'success': True, 'completed': True, 'message': 'Consultation already completed.'})
+
+    now = timezone.now()
+    role = participant_role
+    try:
+        data = json.loads(request.body or '{}')
+        role = data.get('role') or role
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+
+    if role == 'doctor' or participant_role == 'admin':
+        consultation.doctor_left_at = now
+        consultation.auto_complete_after_doctor_left = True
+        consultation.last_activity_at = now
+        consultation.save(update_fields=['doctor_left_at', 'auto_complete_after_doctor_left', 'last_activity_at'])
+        return JsonResponse({
+            'success': True,
+            'doctor_left': True,
+            'doctor_rejoin_deadline_seconds': DOCTOR_REJOIN_GRACE_MINUTES * 60,
+            'message': 'Doctor left the consultation. Waiting for doctor to rejoin.',
+        })
+
+    consultation.last_activity_at = now
+    consultation.save(update_fields=['last_activity_at'])
+    return JsonResponse({'success': True, 'message': 'Participant left consultation.'})
 
 
 @login_required
@@ -4653,25 +4849,42 @@ def consultation_status(request, appointment_id):
         consultation = appointment.consultation
     except Consultation.DoesNotExist:
         consultation = None
+    if consultation:
+        _auto_complete_after_doctor_left_if_needed(consultation)
+        consultation.refresh_from_db()
+        appointment.refresh_from_db(fields=['status'])
 
-    started = bool(
-        consultation
-        and (
-            consultation.started_at
-            or consultation.doctor_joined_at
-            or consultation.status == 'in_progress'
-        )
-    )
+    started = _consultation_has_started(consultation)
+    expired = bool((consultation and consultation.status == 'expired') or access['state'] == 'expired')
+    completed = bool(consultation and consultation.status == 'completed')
+    doctor_left = bool(consultation and consultation.auto_complete_after_doctor_left and consultation.doctor_left_at and not completed)
+    deadline_seconds = 0
+    if doctor_left:
+        deadline_at = consultation.doctor_left_at + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES)
+        deadline_seconds = max(0, int((deadline_at - timezone.now()).total_seconds()))
+    message = access['message']
+    if completed:
+        message = 'Consultation has been completed.'
+    elif expired:
+        message = 'Consultation window has expired.'
+    elif doctor_left:
+        message = 'Doctor left the consultation. Waiting for doctor to rejoin.'
+    elif started:
+        message = 'Doctor has joined'
 
     return JsonResponse({
         'success': True,
         'appointment_status': appointment.status,
         'consultation_status': consultation.status if consultation else 'scheduled',
         'started': started,
-        'doctor_joined': bool(consultation and consultation.doctor_joined_at),
+        'expired': expired,
+        'completed': completed,
+        'doctor_left': doctor_left,
+        'doctor_rejoin_deadline_seconds': deadline_seconds,
+        'doctor_joined': bool(consultation and consultation.doctor_joined_at and not doctor_left),
         'patient_joined': bool(consultation and consultation.patient_joined_at),
         'can_join': access['can_join'],
-        'message': access['message'],
+        'message': message,
         'room_name': consultation.room_name if consultation else appointment.meeting_id,
         'meeting_id': appointment.meeting_id,
     })

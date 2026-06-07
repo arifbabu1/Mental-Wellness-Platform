@@ -1081,7 +1081,7 @@ class ConsultationRoomFlowTests(TestCase):
             license_number='ROOM-DOC-2',
         )
 
-    def make_appointment(self, offset_minutes=10, status='confirmed', meeting_id='room-flow'):
+    def make_appointment(self, offset_minutes=0, status='confirmed', meeting_id='room-flow'):
         return Appointment.objects.create(
             patient=self.patient,
             doctor=self.doctor,
@@ -1103,8 +1103,8 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertNotContains(patient_response, 'Join Now')
         consultation = Consultation.objects.get(appointment=appointment)
         self.assertEqual(consultation.room_name, 'shared-room-1')
-        self.assertIsNotNone(consultation.patient_joined_at)
-        self.assertEqual(Appointment.objects.get(id=appointment.id).status, 'waiting')
+        self.assertIsNone(consultation.patient_joined_at)
+        self.assertEqual(Appointment.objects.get(id=appointment.id).status, 'confirmed')
 
         self.client.logout()
         self.client.login(username='room_doctor', password='pass1234')
@@ -1116,8 +1116,8 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertEqual(consultation.room_name, 'shared-room-1')
         self.assertIsNone(consultation.doctor_joined_at)
         self.assertIsNone(consultation.started_at)
-        self.assertEqual(consultation.status, 'waiting')
-        self.assertEqual(appointment.status, 'waiting')
+        self.assertEqual(consultation.status, 'scheduled')
+        self.assertEqual(appointment.status, 'confirmed')
 
         start_response = self.client.post(reverse('start_consultation', args=[appointment.id]))
         self.assertEqual(start_response.status_code, 200)
@@ -1128,6 +1128,12 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertIsNotNone(consultation.started_at)
         self.assertEqual(consultation.status, 'in_progress')
         self.assertEqual(appointment.status, 'in_progress')
+
+        join_response = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+        self.assertEqual(join_response.status_code, 200)
+        self.assertTrue(join_response.json()['allowed'])
+        consultation.refresh_from_db()
+        self.assertEqual(consultation.doctor_join_count, 1)
 
     def test_unauthorized_patient_and_doctor_are_blocked(self):
         appointment = self.make_appointment(meeting_id='secure-room')
@@ -1176,7 +1182,7 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         appointment.refresh_from_db()
         consultation = Consultation.objects.get(appointment=appointment)
-        self.assertEqual(appointment.status, 'incomplete')
+        self.assertEqual(appointment.status, 'expired')
         self.assertEqual(consultation.status, 'expired')
         self.assertIsNotNone(consultation.expired_at)
 
@@ -1246,3 +1252,41 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertIsNotNone(consultation.started_at)
         self.assertEqual(consultation.status, 'in_progress')
         self.assertEqual(appointment.status, 'in_progress')
+
+    def test_join_attempt_limit_blocks_fourth_join(self):
+        appointment = self.make_appointment(meeting_id='limit-room')
+        self.client.login(username='room_doctor', password='pass1234')
+        self.client.post(reverse('start_consultation', args=[appointment.id]))
+
+        for expected_remaining in [2, 1, 0]:
+            response = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['remaining_attempts'], expected_remaining)
+
+        blocked = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+        self.assertEqual(blocked.status_code, 403)
+        self.assertFalse(blocked.json()['allowed'])
+
+    def test_doctor_left_auto_completes_after_grace_period(self):
+        appointment = self.make_appointment(meeting_id='doctor-left-room')
+        self.client.login(username='room_doctor', password='pass1234')
+        self.client.post(reverse('start_consultation', args=[appointment.id]))
+        self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+        left_response = self.client.post(
+            reverse('participant_left_consultation', args=[appointment.id]),
+            data=json.dumps({'role': 'doctor'}),
+            content_type='application/json',
+        )
+        self.assertEqual(left_response.status_code, 200)
+        consultation = Consultation.objects.get(appointment=appointment)
+        consultation.doctor_left_at = timezone.now() - timedelta(minutes=4)
+        consultation.save(update_fields=['doctor_left_at'])
+
+        status_response = self.client.get(reverse('consultation_status', args=[appointment.id]))
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertTrue(status_response.json()['completed'])
+        appointment.refresh_from_db()
+        consultation.refresh_from_db()
+        self.assertEqual(appointment.status, 'completed')
+        self.assertEqual(consultation.status, 'completed')
