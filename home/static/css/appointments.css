@@ -120,6 +120,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: var(--spacing-lg);
+    min-width: 0;
 }
 
 /* Appointment Cards */
@@ -132,6 +133,7 @@
     transition: var(--transition-normal);
     position: relative;
     overflow: hidden;
+    min-width: 0;
 }
 
 .appointment-card.today {
@@ -202,6 +204,11 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.doctor-info {
+    min-width: 0;
 }
 
 .doctor-info h3 {
@@ -209,12 +216,14 @@
     font-weight: 600;
     color: var(--text-dark);
     margin-bottom: var(--spacing-xs);
+    overflow-wrap: anywhere;
 }
 
 .doctor-specialty {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     margin: 0 0 var(--spacing-sm) 0 0;
+    overflow-wrap: anywhere;
 }
 
 .doctor-details {
@@ -234,6 +243,9 @@
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
     border: 1px solid var(--border-color);
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .detail-badge i {
@@ -303,6 +315,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .status-pending_payment {
@@ -345,10 +358,12 @@
 
 .detail-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) 0;
     border-bottom: 1px solid var(--border-color);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .detail-icon {
@@ -377,6 +392,7 @@
     display: flex;
     gap: var(--spacing-sm);
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 .btn-base {
@@ -393,6 +409,9 @@
     gap: var(--spacing-xs);
     text-decoration: none;
     border: 1px solid transparent;
+    min-width: 0;
+    text-align: center;
+    white-space: normal;
 }
 
 .btn-primary {
@@ -611,7 +630,9 @@
 /* Responsive Design */
 @media (max-width: 768px) {
     .appointments-container {
-        padding: var(--spacing-lg) var(--spacing-sm);
+        width: 100%;
+        padding: var(--spacing-lg) var(--spacing-md);
+        overflow-x: hidden;
     }
     
     .appointments-header h1 {
@@ -620,6 +641,12 @@
     
     .appointments-grid {
         grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .appointment-card {
+        width: 100%;
+        max-width: 100%;
     }
     
     .appointment-header {
@@ -630,10 +657,12 @@
     
     .appointment-actions {
         justify-content: stretch;
+        display: grid;
+        grid-template-columns: 1fr;
     }
     
     .btn-base {
-        flex: 1;
+        width: 100%;
         justify-content: center;
     }
     
@@ -648,11 +677,20 @@
 
 @media (max-width: 480px) {
     .appointments-section {
-        padding: var(--spacing-lg);
+        padding: var(--spacing-md);
     }
     
     .appointment-card {
         padding: var(--spacing-md);
+    }
+
+    .appointment-doctor {
+        align-items: flex-start;
+    }
+
+    .appointment-status {
+        max-width: 100%;
+        white-space: normal;
     }
     
     .doctor-avatar {
@@ -682,6 +720,7 @@
     align-items: center;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-sm);
+    min-width: 0;
 }
 
 .time-section {
@@ -689,6 +728,7 @@
     align-items: center;
     gap: var(--spacing-sm);
     flex: 1;
+    min-width: 0;
 }
 
 .time-section .detail-icon {
@@ -704,6 +744,7 @@
 .countdown-section {
     flex: 1;
     text-align: right;
+    min-width: 0;
 }
 
 .countdown-section .countdown-display {
@@ -714,6 +755,24 @@
     font-weight: 600;
     border: 1px solid;
     margin: 0;
+    white-space: normal;
+}
+
+@media (max-width: 480px) {
+    .detail-item-time-countdown {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-xs);
+    }
+
+    .countdown-section {
+        text-align: left;
+    }
+
+    .meeting-link-btn {
+        width: 100%;
+        padding: 12px 16px;
+    }
 }
 
 /* Remove old countdown-item styles */

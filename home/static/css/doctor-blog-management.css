@@ -228,6 +228,15 @@
     gap: 10px;
 }
 
+.inline-delete-form {
+    display: inline;
+    margin: 0;
+}
+
+.inline-delete-form button {
+    font: inherit;
+}
+
 .btn-action {
     padding: 8px 16px;
     border-radius: 8px;

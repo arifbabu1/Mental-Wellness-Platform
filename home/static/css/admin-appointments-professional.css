@@ -1,0 +1,78 @@
+/* Professional admin appointments styling */
+
+.appointments-container {
+    background: #f8fafc;
+}
+
+.appointments-header,
+.stat-card,
+.summary-card,
+.detail-panel,
+.filters-bar,
+.table-shell {
+    border-radius: 12px;
+}
+
+.appointments-header,
+.summary-card,
+.filters-bar,
+.detail-panel {
+    background: #ffffff;
+    border: 1px solid rgba(37, 99, 235, 0.08);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+}
+
+.appointments-header h1,
+.appointments-header .subtitle {
+    color: #0f172a;
+}
+
+.appointments-grid,
+.summary-grid {
+    gap: 16px;
+}
+
+.appointments-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.appointments-table th,
+.appointments-table td {
+    padding: 12px 14px;
+    vertical-align: top;
+}
+
+.appointments-table th {
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .appointments-container {
+        padding: 1rem;
+    }
+
+    .appointments-table,
+    .appointments-table thead,
+    .appointments-table tbody,
+    .appointments-table th,
+    .appointments-table td,
+    .appointments-table tr {
+        display: block;
+        width: 100%;
+    }
+
+    .appointments-table thead {
+        display: none;
+    }
+
+    .appointments-table tr {
+        margin-bottom: 12px;
+        border: 1px solid rgba(37, 99, 235, 0.08);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    }
+}

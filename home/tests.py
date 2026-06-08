@@ -1,7 +1,9 @@
 from io import StringIO
 import json
+import re
 from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.core import mail
 from django.core.management import call_command
@@ -20,6 +22,7 @@ from .models import (
     Appointment,
     AssessmentQuestion,
     BookedSlot,
+    ClinicalAssessment,
     Consultation,
     DailyTask,
     DailyTaskReminderLog,
@@ -29,6 +32,8 @@ from .models import (
     Payment,
     PaymentReceiverAccount,
     Prescription,
+    EmergencyLog,
+    Notification,
     SystemEmailConfig,
     TaskCompletion,
     User,
@@ -178,16 +183,62 @@ class AuthenticationUpgradeTests(TestCase):
 
         self.assertRedirects(response, reverse('patient_dashboard'), fetch_redirect_response=False)
 
-    def test_login_and_register_include_google_option(self):
+    def test_manual_login_accepts_email_identifier(self):
+        response = self.client.post(
+            reverse('login'),
+            {'username': 'auth_patient@example.com', 'password': 'pass1234'},
+        )
+
+        self.assertRedirects(response, reverse('patient_dashboard'), fetch_redirect_response=False)
+
+    @override_settings(GOOGLE_CLIENT_ID='', GOOGLE_CLIENT_SECRET='')
+    def test_login_and_register_hide_google_when_not_configured(self):
+        login_response = self.client.get(reverse('login'))
+        register_response = self.client.get(reverse('register'))
+
+        self.assertNotContains(login_response, 'Continue with Google')
+        self.assertNotContains(register_response, 'Continue with Google')
+
+    @override_settings(GOOGLE_CLIENT_ID='configured-client', GOOGLE_CLIENT_SECRET='configured-secret')
+    def test_login_and_register_include_google_option_when_configured(self):
         login_response = self.client.get(reverse('login'))
         register_response = self.client.get(reverse('register'))
 
         self.assertContains(login_response, 'Continue with Google')
         self.assertContains(register_response, 'Continue with Google')
-        self.assertContains(login_response, 'href="/accounts/google/login/?process=login"')
-        self.assertContains(register_response, 'href="/accounts/google/login/?process=signup"')
-        self.assertNotContains(login_response, 'google-login-btn disabled')
-        self.assertNotContains(register_response, 'google-login-btn disabled')
+        self.assertContains(login_response, 'method="post" action="/auth/google/login/"')
+        self.assertContains(register_response, 'method="post" action="/auth/google/login/"')
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_password_reset_uses_signed_email_token(self):
+        response = self.client.post(reverse('forgot_password_verify'), {'email': self.patient.email})
+
+        self.assertRedirects(response, reverse('login'), fetch_redirect_response=False)
+        self.assertEqual(len(mail.outbox), 1)
+        match = re.search(r'/forgot-password/reset/([^/]+)/([^/]+)/', mail.outbox[0].body)
+        self.assertIsNotNone(match)
+
+        reset_path = match.group(0)
+        get_response = self.client.get(reset_path)
+        self.assertEqual(get_response.status_code, 200)
+
+        post_response = self.client.post(
+            reset_path,
+            {'new_password': 'NewStrongPass123!', 'confirm_password': 'NewStrongPass123!'},
+        )
+
+        self.assertRedirects(post_response, reverse('login'), fetch_redirect_response=False)
+        self.patient.refresh_from_db()
+        self.assertTrue(self.patient.check_password('NewStrongPass123!'))
+
+    def test_password_reset_rejects_old_phone_identity_payload(self):
+        response = self.client.post(
+            reverse('forgot_password_verify'),
+            {'first_name': 'Auth', 'phone': '01711111111'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please enter your account email address.')
 
     def test_google_login_url_is_allauth_view(self):
         match = resolve('/accounts/google/login/')
@@ -258,6 +309,66 @@ class AuthenticationUpgradeTests(TestCase):
 
         with self.assertRaises(ImmediateHttpResponse):
             MentalWellnessSocialAccountAdapter().pre_social_login(request, sociallogin)
+
+
+class ClinicalAssessmentSafetyTests(TestCase):
+    def setUp(self):
+        self.patient = User.objects.create_user(
+            username='clinical_patient',
+            email='clinical_patient@example.com',
+            password='pass1234',
+            role='patient',
+        )
+        self.admin = User.objects.create_user(
+            username='clinical_admin',
+            email='clinical_admin@example.com',
+            password='pass1234',
+            role='admin',
+            is_staff=True,
+        )
+
+    def assessment_payload(self, phq_value='1', gad_value='1', phq9_q9='0'):
+        payload = {'session_duration': '120'}
+        for index in range(1, 10):
+            payload[f'phq9_{index}'] = phq_value
+        payload['phq9_9'] = phq9_q9
+        for index in range(1, 8):
+            payload[f'gad7_{index}'] = gad_value
+        return payload
+
+    def test_clinical_assessment_requires_every_answer(self):
+        self.client.login(username='clinical_patient', password='pass1234')
+        payload = self.assessment_payload()
+        payload.pop('gad7_7')
+
+        response = self.client.post(reverse('submit_clinical_assessment'), payload)
+
+        self.assertRedirects(response, reverse('clinical_assessment'), fetch_redirect_response=False)
+        self.assertFalse(ClinicalAssessment.objects.exists())
+
+    def test_clinical_assessment_supports_comorbid_depression_anxiety(self):
+        self.client.login(username='clinical_patient', password='pass1234')
+        payload = self.assessment_payload(phq_value='2', gad_value='2', phq9_q9='0')
+
+        response = self.client.post(reverse('submit_clinical_assessment'), payload)
+
+        self.assertEqual(response.status_code, 200)
+        assessment = ClinicalAssessment.objects.get(patient=self.patient)
+        self.assertEqual(assessment.primary_condition, 'Depression & Anxiety')
+        self.assertFalse(assessment.emergency_risk)
+
+    def test_high_self_harm_answer_logs_emergency_flag_and_notifies_admin(self):
+        self.client.login(username='clinical_patient', password='pass1234')
+        payload = self.assessment_payload(phq_value='1', gad_value='1', phq9_q9='3')
+
+        response = self.client.post(reverse('submit_clinical_assessment'), payload)
+
+        self.assertRedirects(response, reverse('emergency_support'), fetch_redirect_response=False)
+        assessment = ClinicalAssessment.objects.get(patient=self.patient)
+        self.assertTrue(assessment.emergency_risk)
+        self.assertEqual(assessment.suicide_risk_level, 'high')
+        self.assertTrue(EmergencyLog.objects.filter(user=self.patient, risk_level='critical').exists())
+        self.assertTrue(Notification.objects.filter(user=self.admin, notification_type='system').exists())
 
 
 class BookingPaymentFlowTests(TestCase):
@@ -658,6 +769,9 @@ class AdminSettingsConfigTests(TestCase):
 
 class DailyTaskFeatureTests(TestCase):
     def setUp(self):
+        self.completion_window = patch('home.task_services.is_within_completion_window', return_value=True)
+        self.completion_window.start()
+        self.addCleanup(self.completion_window.stop)
         self.patient = User.objects.create_user(
             username='task_patient',
             password='pass1234',
@@ -717,7 +831,7 @@ class DailyTaskFeatureTests(TestCase):
             tasks_data=self.task_payloads(*titles),
         )
 
-    def test_new_consultation_replaces_old_active_tasks(self):
+    def test_new_consultation_replaces_previous_active_tasks(self):
         first_consultation = self.make_consultation()
         self.replace_tasks(first_consultation, '10th breathing', '10th journal', '10th walk')
 
@@ -745,19 +859,20 @@ class DailyTaskFeatureTests(TestCase):
             ],
         )
 
-    def test_consultation_with_no_tasks_deactivates_previous_active_tasks(self):
-        self.replace_tasks(self.make_consultation(), 'morning breathing', 'evening journal')
+    def test_same_consultation_with_no_tasks_deactivates_context_tasks(self):
+        consultation = self.make_consultation()
+        self.replace_tasks(consultation, 'morning breathing', 'evening journal')
 
         result = replace_active_daily_tasks(
             patient=self.patient,
             doctor=self.doctor,
-            consultation=self.make_consultation(),
+            consultation=consultation,
             tasks_data=[],
         )
 
         self.assertEqual(result['deactivated_count'], 2)
         self.assertEqual(result['created_count'], 0)
-        self.assertFalse(DailyTask.objects.filter(patient=self.patient, is_active=True).exists())
+        self.assertFalse(DailyTask.objects.filter(consultation=consultation, is_active=True).exists())
 
     def test_replacement_creates_today_valid_active_tasks(self):
         today = timezone.localdate()
@@ -898,6 +1013,7 @@ class DailyTaskFeatureTests(TestCase):
         self.assertEqual(dashboard_response.context['completed_tasks'], 0)
         self.assertEqual(dashboard_response.context['completed_count'], 0)
         self.assertContains(dashboard_response, '0/2 Completed')
+        self.assertNotContains(dashboard_response, 'old dashboard task')
         self.assertContains(dashboard_response, 'Sleep Schedule')
         self.assertContains(dashboard_response, 'Take Medication')
 
@@ -938,6 +1054,40 @@ class DailyTaskFeatureTests(TestCase):
         self.assertEqual(
             list(DailyTask.objects.filter(patient=self.patient, is_active=True).order_by('title').values_list('title', flat=True)),
             ['Form Sleep Schedule', 'Form Take Medication'],
+        )
+
+    def test_repeated_consultation_save_does_not_duplicate_tasks(self):
+        consultation = self.make_consultation()
+        self.client.login(username='task_doctor', password='pass1234')
+        payload = {
+            'appointmentId': consultation.appointment_id,
+            'patientId': self.patient.id,
+            'daily_tasks': [
+                {'title': 'Duplicate Safe Sleep', 'description': 'Sleep routine', 'category': 'mental', 'duration_days': 2},
+                {'title': 'Duplicate Safe Breathing', 'description': 'Breathing practice', 'category': 'mental', 'duration_days': 2},
+            ],
+        }
+
+        first_response = self.client.post(
+            reverse('save_consultation_data'),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+        second_response = self.client.post(
+            reverse('save_consultation_data'),
+            data=json.dumps(payload),
+            content_type='application/json',
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(
+            DailyTask.objects.filter(patient=self.patient, consultation=consultation, is_active=True).count(),
+            2,
+        )
+        self.assertEqual(
+            DailyTask.objects.filter(patient=self.patient, consultation=consultation).values('title').distinct().count(),
+            2,
         )
 
     def test_consultation_room_renders_save_all_task_serializer(self):
@@ -1004,6 +1154,19 @@ class DailyTaskFeatureTests(TestCase):
         self.client.login(username='task_patient', password='pass1234')
         inactive_response = self.client.post(reverse('complete_daily_task', args=[task.id]))
         self.assertFalse(inactive_response.json()['success'])
+
+    def test_task_completion_outside_time_window_is_rejected(self):
+        self.replace_tasks(self.make_consultation(), 'windowed task')
+        task = DailyTask.objects.get(title='windowed task')
+        self.client.login(username='task_patient', password='pass1234')
+
+        with patch('home.task_services.is_within_completion_window', return_value=False):
+            response = self.client.post(reverse('complete_daily_task', args=[task.id]))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['success'])
+        self.assertIn('5:00 AM to 7:00 PM', response.json()['error'])
+        self.assertFalse(TaskCompletion.objects.filter(daily_task=task, is_completed=True).exists())
 
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_incomplete_task_reminder_email_sends_once_with_task_list(self):
@@ -1081,11 +1244,11 @@ class ConsultationRoomFlowTests(TestCase):
             license_number='ROOM-DOC-2',
         )
 
-    def make_appointment(self, offset_minutes=0, status='confirmed', meeting_id='room-flow'):
+    def make_appointment(self, offset_minutes=0, status='confirmed', meeting_id='room-flow', appointment_date=None):
         return Appointment.objects.create(
             patient=self.patient,
             doctor=self.doctor,
-            appointment_date=timezone.now() + timedelta(minutes=offset_minutes),
+            appointment_date=appointment_date or timezone.now() + timedelta(minutes=offset_minutes),
             status=status,
             consultation_fee=800,
             meeting_id=meeting_id,
@@ -1098,32 +1261,28 @@ class ConsultationRoomFlowTests(TestCase):
         self.client.login(username='room_patient', password='pass1234')
         patient_response = self.client.get(reverse('consultation_room', args=[appointment.id]))
         self.assertEqual(patient_response.status_code, 200)
-        self.assertContains(patient_response, 'patientWaitingRoom')
-        self.assertContains(patient_response, 'Checking consultation status')
-        self.assertNotContains(patient_response, 'Join Now')
+        self.assertContains(patient_response, 'Waiting for consultation to start')
         consultation = Consultation.objects.get(appointment=appointment)
         self.assertEqual(consultation.room_name, 'shared-room-1')
         self.assertIsNone(consultation.patient_joined_at)
-        self.assertEqual(Appointment.objects.get(id=appointment.id).status, 'confirmed')
+        self.assertIsNone(consultation.doctor_joined_at)
+        self.assertEqual(Appointment.objects.get(id=appointment.id).status, 'waiting')
+
+        patient_join = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+        self.assertEqual(patient_join.status_code, 200)
+        consultation.refresh_from_db()
+        self.assertIsNotNone(consultation.patient_joined_at)
+        self.assertIsNone(consultation.doctor_joined_at)
 
         self.client.logout()
         self.client.login(username='room_doctor', password='pass1234')
         doctor_response = self.client.get(reverse('consultation_room', args=[appointment.id]))
         self.assertEqual(doctor_response.status_code, 200)
-        self.assertContains(doctor_response, 'startConsultationBtn')
+        doctor_join = self.client.post(reverse('start_consultation', args=[appointment.id]))
+        self.assertEqual(doctor_join.status_code, 200)
         consultation.refresh_from_db()
         appointment.refresh_from_db()
         self.assertEqual(consultation.room_name, 'shared-room-1')
-        self.assertIsNone(consultation.doctor_joined_at)
-        self.assertIsNone(consultation.started_at)
-        self.assertEqual(consultation.status, 'scheduled')
-        self.assertEqual(appointment.status, 'confirmed')
-
-        start_response = self.client.post(reverse('start_consultation', args=[appointment.id]))
-        self.assertEqual(start_response.status_code, 200)
-        self.assertTrue(start_response.json()['started'])
-        consultation.refresh_from_db()
-        appointment.refresh_from_db()
         self.assertIsNotNone(consultation.doctor_joined_at)
         self.assertIsNotNone(consultation.started_at)
         self.assertEqual(consultation.status, 'in_progress')
@@ -1132,6 +1291,7 @@ class ConsultationRoomFlowTests(TestCase):
         join_response = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
         self.assertEqual(join_response.status_code, 200)
         self.assertTrue(join_response.json()['allowed'])
+        self.assertTrue(join_response.json()['video_ready'])
         consultation.refresh_from_db()
         self.assertEqual(consultation.doctor_join_count, 1)
 
@@ -1147,18 +1307,58 @@ class ConsultationRoomFlowTests(TestCase):
         doctor_response = self.client.get(reverse('consultation_room', args=[appointment.id]))
         self.assertEqual(doctor_response.status_code, 403)
 
-    def test_room_opens_twenty_minutes_before_appointment(self):
-        appointment = self.make_appointment(offset_minutes=45, meeting_id='future-room')
+    def test_doctor_message_requires_existing_patient_relationship(self):
+        self.client.login(username='room_doctor', password='pass1234')
+        unrelated_response = self.client.post(
+            reverse('send_message'),
+            data=json.dumps({'patient_id': self.other_patient.id, 'message': 'Hello'}),
+            content_type='application/json',
+        )
+        self.assertEqual(unrelated_response.status_code, 403)
+
+        self.make_appointment(meeting_id='message-room')
+        related_response = self.client.post(
+            reverse('send_message'),
+            data=json.dumps({'patient_id': self.patient.id, 'message': 'Please check your task list.'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(related_response.status_code, 200)
+        self.assertTrue(Notification.objects.filter(user=self.patient, notification_type='message').exists())
+
+    def test_room_blocks_fifteen_minutes_before_appointment(self):
+        appointment = self.make_appointment(offset_minutes=15, meeting_id='future-room')
         self.client.login(username='room_patient', password='pass1234')
 
         response = self.client.get(reverse('consultation_room', args=[appointment.id]))
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 423)
+        self.assertContains(response, 'Available 10 minutes before appointment.', status_code=423)
         self.assertFalse(Consultation.objects.filter(appointment=appointment).exists())
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, 'confirmed')
 
-    def test_doctor_pages_show_consultation_link_for_active_appointments(self):
+    def test_room_opens_five_minutes_before_as_waiting_room(self):
+        appointment = self.make_appointment(offset_minutes=5, meeting_id='waiting-room')
+        self.client.login(username='room_patient', password='pass1234')
+
+        response = self.client.get(reverse('consultation_room', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Waiting for consultation to start')
+        consultation = Consultation.objects.get(appointment=appointment)
+        appointment.refresh_from_db()
+        self.assertIsNone(consultation.patient_joined_at)
+
+        join_response = self.client.post(reverse('register_consultation_join', args=[appointment.id]))
+        self.assertEqual(join_response.status_code, 200)
+        consultation.refresh_from_db()
+        self.assertIsNotNone(consultation.patient_joined_at)
+        self.assertIsNone(consultation.started_at)
+        self.assertEqual(consultation.status, 'waiting')
+        self.assertEqual(appointment.status, 'waiting')
+
+    def test_doctor_pages_disable_link_before_room_opens(self):
         appointment = self.make_appointment(offset_minutes=45, meeting_id='doctor-link-room')
         consultation_url = reverse('consultation_room', args=[appointment.id])
         self.client.login(username='room_doctor', password='pass1234')
@@ -1168,18 +1368,102 @@ class ConsultationRoomFlowTests(TestCase):
 
         self.assertEqual(dashboard_response.status_code, 200)
         self.assertEqual(appointments_response.status_code, 200)
-        self.assertContains(dashboard_response, consultation_url)
-        self.assertContains(dashboard_response, 'Consultation Link')
-        self.assertContains(appointments_response, consultation_url)
-        self.assertContains(appointments_response, 'Consultation Link')
+        self.assertNotContains(dashboard_response, consultation_url)
+        self.assertContains(dashboard_response, 'Available 10 minutes before appointment.')
+        self.assertContains(appointments_response, 'Available 10 minutes before appointment.')
 
-    def test_expired_room_marks_incomplete_and_expired(self):
-        appointment = self.make_appointment(offset_minutes=-130, meeting_id='expired-room')
+    def test_doctor_pages_enable_waiting_room_link_after_room_opens(self):
+        appointment = self.make_appointment(offset_minutes=5, meeting_id='doctor-waiting-link')
+        consultation_url = reverse('consultation_room', args=[appointment.id])
+        self.client.login(username='room_doctor', password='pass1234')
+
+        dashboard_response = self.client.get(reverse('doctor_dashboard'))
+        appointments_response = self.client.get(reverse('doctor_appointments'))
+
+        self.assertContains(dashboard_response, consultation_url)
+        self.assertContains(dashboard_response, 'Enter Waiting Room')
+        self.assertContains(appointments_response, consultation_url)
+        self.assertContains(appointments_response, 'Enter Waiting Room')
+
+    def test_at_scheduled_time_patient_waits_and_is_not_completed(self):
+        appointment = self.make_appointment(meeting_id='exact-time-room')
         self.client.login(username='room_patient', password='pass1234')
 
         response = self.client.get(reverse('consultation_room', args=[appointment.id]))
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        consultation = Consultation.objects.get(appointment=appointment)
+        self.assertEqual(appointment.status, 'waiting')
+        self.assertEqual(consultation.status, 'waiting')
+        self.assertIsNone(consultation.completed_at)
+
+    def test_doctor_can_start_at_scheduled_time_without_patient(self):
+        appointment = self.make_appointment(meeting_id='doctor-start-room')
+        self.client.login(username='room_doctor', password='pass1234')
+        self.assertContains(self.client.get(reverse('consultation_room', args=[appointment.id])), 'startConsultationBtn')
+
+        response = self.client.post(reverse('start_consultation', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['started'])
+        appointment.refresh_from_db()
+        consultation = Consultation.objects.get(appointment=appointment)
+        self.assertEqual(appointment.status, 'in_progress')
+        self.assertEqual(consultation.status, 'in_progress')
+        self.assertIsNotNone(consultation.started_at)
+
+    def test_doctor_cannot_start_before_scheduled_time(self):
+        appointment = self.make_appointment(offset_minutes=5, meeting_id='early-doctor-room')
+        self.client.login(username='room_doctor', password='pass1234')
+        self.client.get(reverse('consultation_room', args=[appointment.id]))
+
+        response = self.client.post(reverse('start_consultation', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('scheduled appointment time', response.json()['error'])
+        appointment.refresh_from_db()
+        consultation = Consultation.objects.get(appointment=appointment)
+        self.assertEqual(appointment.status, 'waiting')
+        self.assertIsNone(consultation.started_at)
+
+    def test_doctor_leaving_waiting_room_before_start_does_not_complete(self):
+        appointment = self.make_appointment(offset_minutes=5, meeting_id='early-leave-room')
+        self.client.login(username='room_doctor', password='pass1234')
+        self.client.get(reverse('consultation_room', args=[appointment.id]))
+        self.client.post(reverse('participant_left_consultation', args=[appointment.id]))
+        consultation = Consultation.objects.get(appointment=appointment)
+        consultation.doctor_left_at = timezone.now() - timedelta(minutes=4)
+        consultation.save(update_fields=['doctor_left_at'])
+
+        response = self.client.get(reverse('consultation_status', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['completed'])
+        appointment.refresh_from_db()
+        consultation.refresh_from_db()
+        self.assertEqual(appointment.status, 'waiting')
+        self.assertEqual(consultation.status, 'waiting')
+        self.assertFalse(consultation.auto_complete_after_doctor_left)
+
+    def test_twenty_minutes_after_appointment_time_is_still_valid(self):
+        appointment = self.make_appointment(offset_minutes=-20, meeting_id='twenty-minute-valid-room')
+        self.client.login(username='room_patient', password='pass1234')
+
+        response = self.client.get(reverse('consultation_room', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertNotIn(appointment.status, {'completed', 'expired', 'incomplete'})
+
+    def test_expired_room_marks_expired_after_thirty_one_minutes(self):
+        appointment = self.make_appointment(offset_minutes=-31, meeting_id='expired-room')
+        self.client.login(username='room_patient', password='pass1234')
+
+        response = self.client.get(reverse('consultation_room', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 423)
+        self.assertContains(response, 'Meeting expired', status_code=423)
         appointment.refresh_from_db()
         consultation = Consultation.objects.get(appointment=appointment)
         self.assertEqual(appointment.status, 'expired')
@@ -1203,6 +1487,30 @@ class ConsultationRoomFlowTests(TestCase):
         self.assertEqual(appointment.status, 'completed')
         self.assertEqual(consultation.status, 'completed')
         self.assertIsNotNone(consultation.completed_at)
+
+    def test_status_time_window_does_not_complete_without_doctor_action(self):
+        appointment = self.make_appointment(meeting_id='not-auto-complete-room')
+        self.client.login(username='room_patient', password='pass1234')
+        self.client.get(reverse('consultation_room', args=[appointment.id]))
+
+        status_response = self.client.get(reverse('consultation_status', args=[appointment.id]))
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertFalse(status_response.json()['completed'])
+        appointment.refresh_from_db()
+        consultation = Consultation.objects.get(appointment=appointment)
+        self.assertNotEqual(appointment.status, 'completed')
+        self.assertNotEqual(consultation.status, 'completed')
+
+    def test_patient_mark_completed_endpoint_does_not_complete_video_consultation(self):
+        appointment = self.make_appointment(meeting_id='patient-complete-blocked-room')
+        self.client.login(username='room_patient', password='pass1234')
+
+        response = self.client.post(reverse('mark_appointment_completed', args=[appointment.id]))
+
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, 'confirmed')
 
     def test_save_notes_creates_stable_consultation_room(self):
         appointment = self.make_appointment(meeting_id='notes-room')
@@ -1286,7 +1594,9 @@ class ConsultationRoomFlowTests(TestCase):
 
         self.assertEqual(status_response.status_code, 200)
         self.assertTrue(status_response.json()['completed'])
+        self.assertFalse(status_response.json()['doctor_left'])
         appointment.refresh_from_db()
         consultation.refresh_from_db()
         self.assertEqual(appointment.status, 'completed')
         self.assertEqual(consultation.status, 'completed')
+        self.assertIsNotNone(consultation.completed_at)

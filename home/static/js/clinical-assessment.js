@@ -234,8 +234,6 @@ function startSessionTimer() {
         const minutes = Math.floor(duration / 60);
         const seconds = duration % 60;
         
-        // You could display this to the user if desired
-        console.log(`Session duration: ${minutes}:${seconds.toString().padStart(2, '0')}`);
     }, 10000);
 }
 

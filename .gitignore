@@ -59,6 +59,16 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 staticfiles/
+media/uploads/
+media/private/
+media/generated/
+media/tmp/
+media/temp/
+media/cache/
+media/prescriptions/tmp/
+*.sqlite3
+*.sqlite3-journal
+logs/
 
 # Flask stuff:
 instance/
@@ -98,6 +108,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -133,11 +145,17 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+.git/
 
 # Project-specific
 *_broken.html
 *_backup.html
 *_backup.*
+*.bak
+*.backup
+backup/
+backups/
+all/
 test_*.py
 create_sample_*.py
 deploy_*.py

@@ -360,12 +360,14 @@
     font-size: var(--font-size-xl);
     font-weight: 600;
     margin-bottom: var(--spacing-xs);
+    overflow-wrap: anywhere;
 }
 
 .doctor-specialty {
     font-size: var(--font-size-sm);
     opacity: 0.9;
     margin-bottom: var(--spacing-sm);
+    overflow-wrap: anywhere;
 }
 
 .doctor-body {
@@ -380,16 +382,27 @@
 
 .detail-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--spacing-sm);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
+    min-width: 0;
 }
 
 .detail-item i {
     color: var(--primary-color);
     width: 20px;
     text-align: center;
+    flex: 0 0 20px;
+    margin-top: 2px;
+}
+
+.detail-item span,
+.badge,
+.fee-label,
+.fee-amount {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .doctor-badges {
@@ -592,6 +605,12 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    main.container {
+        width: 100%;
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
+    }
+
     .doctors-header h1 {
         font-size: var(--font-size-3xl);
     }
@@ -613,15 +632,35 @@
     .doctors-grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-lg);
+        justify-items: center;
+    }
+
+    .doctor-card {
+        width: 100%;
+        max-width: 360px;
     }
 
     .doctor-profile {
-        flex-direction: column;
-        text-align: center;
+        align-items: center;
+        gap: var(--spacing-md);
+    }
+
+    .doctor-basic-info {
+        min-width: 0;
+    }
+
+    .consultation-fee {
+        align-items: flex-start;
+        gap: var(--spacing-md);
     }
 
     .doctor-actions {
         flex-direction: column;
+    }
+
+    .doctor-actions .btn-book {
+        max-width: none;
+        width: 100%;
     }
 
     .help-actions {
@@ -649,8 +688,8 @@
     }
 
     .doctor-card {
-        margin: 0 -var(--spacing-md);
-        border-radius: 0;
+        margin: 0 auto;
+        border-radius: var(--border-radius-lg);
     }
 
     .doctor-header,
@@ -663,5 +702,14 @@
         width: 60px;
         height: 60px;
         font-size: 28px;
+    }
+
+    .doctor-profile {
+        flex-direction: row;
+        text-align: left;
+    }
+
+    .consultation-fee {
+        flex-direction: column;
     }
 }

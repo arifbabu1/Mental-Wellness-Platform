@@ -3,16 +3,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 
 from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
 
 from django.contrib.auth.decorators import login_required
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.utils.encoding import force_bytes, force_str
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from django.http import Http404, HttpResponseForbidden, JsonResponse
-from django.http.request import RawPostDataException
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
@@ -76,20 +80,51 @@ def _load_consultation_save_payload(request):
         daily_tasks = [daily_tasks]
     if not isinstance(daily_tasks, list):
         daily_tasks = []
-    return payload, daily_tasks_raw, daily_tasks
+    return payload, daily_tasks
 
 
-def _safe_request_body(request):
+def _google_oauth_enabled():
+    return bool(getattr(settings, 'GOOGLE_CLIENT_ID', '') and getattr(settings, 'GOOGLE_CLIENT_SECRET', ''))
+
+
+def _auth_template_context():
+    return {'google_oauth_enabled': _google_oauth_enabled()}
+
+
+def _resolve_login_username(identifier):
+    identifier = (identifier or '').strip()
+    if not identifier:
+        return ''
+    if '@' in identifier:
+        user = User.objects.filter(email__iexact=identifier).order_by('id').first()
+        if user:
+            return user.username
+    return identifier
+
+
+def _build_password_reset_link(request, user):
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    path = reverse('forgot_password_reset', kwargs={'uidb64': uidb64, 'token': token})
+    return request.build_absolute_uri(path), uidb64, token
+
+
+def _get_user_from_reset_token(uidb64, token):
     try:
-        return request.body
-    except RawPostDataException:
-        return b'<already read by request.POST>'
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return None
+    if not default_token_generator.check_token(user, token):
+        return None
+    return user
 
 
 CONSULTATION_JOIN_STATUSES = {'scheduled', 'confirmed', 'waiting', 'in_progress'}
 CONSULTATION_TERMINAL_STATUSES = {'completed', 'cancelled', 'incomplete', 'expired'}
 CONSULTATION_MAX_JOIN_ATTEMPTS = 3
-CONSULTATION_START_WINDOW_MINUTES = 30
+CONSULTATION_ROOM_OPEN_MINUTES = 10
+CONSULTATION_EXPIRES_AFTER_MINUTES = 30
 DOCTOR_REJOIN_GRACE_MINUTES = 3
 
 
@@ -99,6 +134,33 @@ def _is_legacy_meeting_id(meeting_id):
 
 def _build_jitsi_room_name(appointment_id):
     return f"mentalwellness-appointment-{appointment_id}-{uuid.uuid4().hex}"
+
+
+def _appointment_datetime(value, tz=None):
+    tz = tz or timezone.get_current_timezone()
+    if not value:
+        return timezone.localtime(timezone.now(), tz)
+    if timezone.is_naive(value):
+        return timezone.make_aware(value, tz)
+    return timezone.localtime(value, tz)
+
+
+def get_consultation_window(appointment, now=None):
+    tz = timezone.get_current_timezone()
+    scheduled_at = _appointment_datetime(appointment.appointment_date, tz)
+    now = _appointment_datetime(now or timezone.now(), tz)
+    opens_at = scheduled_at - timedelta(minutes=CONSULTATION_ROOM_OPEN_MINUTES)
+    expires_at = scheduled_at + timedelta(minutes=CONSULTATION_EXPIRES_AFTER_MINUTES)
+    return {
+        'now': now,
+        'scheduled_at': scheduled_at,
+        'opens_at': opens_at,
+        'expires_at': expires_at,
+        'before_open': now < opens_at,
+        'waiting_window': opens_at <= now < scheduled_at,
+        'live_window': scheduled_at <= now <= expires_at,
+        'expired_window': now > expires_at,
+    }
 
 
 def _ensure_jitsi_meeting_details(appointment, request=None, force_new=False, save=True):
@@ -133,23 +195,16 @@ def _ensure_jitsi_meeting_details(appointment, request=None, force_new=False, sa
 
 
 def _consultation_window(appointment):
-    scheduled_at = timezone.localtime(appointment.appointment_date)
-    return {
-        'scheduled_at': scheduled_at,
-        'opens_at': scheduled_at,
-        'expires_at': scheduled_at + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES),
-    }
+    return get_consultation_window(appointment)
 
 
 def get_appointment_start_datetime(appointment):
-    return timezone.localtime(appointment.appointment_date)
+    return get_consultation_window(appointment)['scheduled_at']
 
 
 def is_consultation_start_window_open(appointment, now=None):
-    now = now or timezone.localtime()
-    start = get_appointment_start_datetime(appointment)
-    end = start + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES)
-    return start <= now <= end
+    window = get_consultation_window(appointment, now=now)
+    return window['live_window']
 
 
 def _consultation_has_started(consultation):
@@ -157,7 +212,6 @@ def _consultation_has_started(consultation):
         consultation
         and (
             consultation.started_at
-            or consultation.doctor_joined_at
             or consultation.status == 'in_progress'
         )
     )
@@ -182,20 +236,23 @@ def _complete_consultation(consultation, completed_at=None):
     appointment.save(update_fields=['status', 'updated_at'])
 
 
-def _expire_unstarted_consultation_if_needed(appointment, consultation=None, now=None):
-    now = now or timezone.localtime()
-    if consultation and _consultation_has_started(consultation):
+def _expire_consultation_if_needed(appointment, consultation=None, now=None):
+    window = get_consultation_window(appointment, now=now)
+    if not window['expired_window']:
         return False
     if appointment.status in CONSULTATION_TERMINAL_STATUSES or appointment.status == 'pending_payment':
         return False
-    if now <= get_appointment_start_datetime(appointment) + timedelta(minutes=CONSULTATION_START_WINDOW_MINUTES):
-        return False
 
     consultation = consultation or _get_or_create_consultation_for_appointment(appointment)
-    consultation.status = 'expired'
-    consultation.expired_at = consultation.expired_at or timezone.now()
-    consultation.last_activity_at = timezone.now()
-    consultation.save(update_fields=['status', 'expired_at', 'last_activity_at'])
+    if consultation and (consultation.started_at or consultation.status == 'in_progress'):
+        return False
+    current_time = window['now']
+    if consultation and consultation.status not in {'completed', 'cancelled'}:
+        consultation.status = 'expired'
+        consultation.expired_at = consultation.expired_at or current_time
+        consultation.last_activity_at = current_time
+        consultation.save(update_fields=['status', 'expired_at', 'last_activity_at'])
+
     appointment.status = 'expired'
     appointment.save(update_fields=['status', 'updated_at'])
     return True
@@ -206,11 +263,47 @@ def _auto_complete_after_doctor_left_if_needed(consultation, now=None):
         return False
     if not consultation.auto_complete_after_doctor_left or not consultation.doctor_left_at:
         return False
-    now = now or timezone.now()
-    if now <= consultation.doctor_left_at + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES):
+
+    now = _appointment_datetime(now or timezone.now())
+    deadline = _appointment_datetime(consultation.doctor_left_at) + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES)
+    if now <= deadline:
         return False
+
     _complete_consultation(consultation, completed_at=now)
     return True
+
+
+def _sync_consultation_live_state(appointment, consultation, now=None):
+    window = get_consultation_window(appointment, now=now)
+    if not consultation or consultation.status in CONSULTATION_TERMINAL_STATUSES:
+        return consultation
+    if window['expired_window'] or appointment.status in {'completed', 'expired', 'incomplete', 'cancelled'}:
+        return consultation
+
+    current_time = window['now']
+    has_presence = bool(consultation.doctor_joined_at or consultation.patient_joined_at or consultation.started_at)
+    both_joined = bool(consultation.doctor_joined_at and consultation.patient_joined_at)
+    if consultation.started_at or (window['live_window'] and both_joined):
+        consultation.status = 'in_progress'
+        if not consultation.started_at:
+            consultation.started_at = current_time
+        if not consultation.start_time:
+            consultation.start_time = current_time
+        consultation.last_activity_at = current_time
+        consultation.save(update_fields=['status', 'started_at', 'start_time', 'last_activity_at'])
+        if appointment.status != 'completed':
+            appointment.status = 'in_progress'
+            appointment.save(update_fields=['status', 'updated_at'])
+        return consultation
+
+    if has_presence or window['waiting_window'] or window['live_window']:
+        consultation.status = 'waiting'
+        consultation.last_activity_at = current_time
+        consultation.save(update_fields=['status', 'last_activity_at'])
+        if appointment.status not in {'completed', 'expired', 'incomplete', 'cancelled'}:
+            appointment.status = 'waiting'
+            appointment.save(update_fields=['status', 'updated_at'])
+    return consultation
 
 
 def _get_or_create_consultation_for_appointment(appointment):
@@ -305,69 +398,79 @@ def _consultation_redirect_name(user):
     return 'patient_appointments'
 
 
-def _expire_consultation_if_needed(appointment, now=None):
-    now = now or timezone.localtime()
-    window = _consultation_window(appointment)
-    if now <= window['expires_at'] or appointment.status in CONSULTATION_TERMINAL_STATUSES or appointment.status == 'pending_payment':
-        return None
-
-    try:
-        consultation = appointment.consultation
-    except Consultation.DoesNotExist:
-        consultation = _get_or_create_consultation_for_appointment(appointment)
-    if consultation:
-        consultation.status = 'expired'
-        consultation.expired_at = consultation.expired_at or timezone.now()
-        consultation.last_activity_at = timezone.now()
-        consultation.save(update_fields=['status', 'expired_at', 'last_activity_at'])
-
-    appointment.status = 'incomplete'
-    appointment.save(update_fields=['status', 'updated_at'])
-    return consultation
-
-
 def _appointment_access_state(appointment, now=None):
-    now = now or timezone.localtime()
+    window = get_consultation_window(appointment, now=now)
     try:
         consultation = appointment.consultation
     except Consultation.DoesNotExist:
         consultation = None
-    _auto_complete_after_doctor_left_if_needed(consultation)
-    _expire_unstarted_consultation_if_needed(appointment, consultation, now)
+    consultation_started = bool(consultation and _consultation_has_started(consultation))
+    if consultation:
+        _auto_complete_after_doctor_left_if_needed(consultation, now=window['now'])
+    if not consultation_started:
+        _expire_consultation_if_needed(appointment, consultation, window['now'])
+    if consultation:
+        consultation.refresh_from_db()
     appointment.refresh_from_db(fields=['status'])
-    window = _consultation_window(appointment)
-    has_started = _consultation_has_started(consultation)
+    consultation_status = consultation.status if consultation else None
 
     can_join = False
-    message = ''
-    state = appointment.status
+    can_start_video = False
+    state = 'before_open'
+    message = f'Available {CONSULTATION_ROOM_OPEN_MINUTES} minutes before appointment.'
+    join_label = 'Available 10 minutes before appointment.'
+    room_visible = appointment.status not in {'pending_payment', 'cancelled'}
 
     if appointment.status == 'pending_payment':
         message = 'Payment is required before joining this consultation.'
-    elif appointment.status in {'completed', 'cancelled'}:
-        message = f'Consultation is {appointment.get_status_display().lower()}.'
-    elif appointment.status in {'incomplete', 'expired'}:
-        message = 'Consultation room has expired.'
+        join_label = 'Payment pending'
+    elif appointment.status in {'completed'} or consultation_status == 'completed':
+        state = 'completed'
+        message = 'Consultation has been completed.'
+        join_label = 'Completed'
+    elif appointment.status in {'expired', 'incomplete'} or consultation_status in {'expired', 'incomplete'}:
         state = 'expired'
-    elif now < window['opens_at']:
-        message = 'Consultation is not available yet.'
-        state = 'scheduled'
-    elif now > window['expires_at'] and not has_started:
-        message = 'Consultation window has expired.'
-        state = 'expired'
-    elif appointment.status in CONSULTATION_JOIN_STATUSES or has_started:
+        message = 'Meeting expired.'
+        join_label = 'Meeting expired'
+    elif consultation_started or consultation_status == 'in_progress':
+        state = 'live'
         can_join = True
-        message = 'Consultation room is open.'
-        state = appointment.status if appointment.status in {'waiting', 'in_progress'} else 'open'
+        message = 'Consultation is in progress.'
+        join_label = 'Join Meeting'
+        room_visible = True
+    elif window['waiting_window']:
+        state = 'waiting'
+        can_join = True
+        message = 'Waiting for consultation to start.'
+        join_label = 'Enter Waiting Room'
+        room_visible = True
+    elif window['live_window']:
+        room_visible = True
+        can_join = True
+        can_start_video = True
+        state = 'waiting'
+        message = 'Waiting for consultation to start.'
+        join_label = 'Join Meeting'
     else:
-        message = 'Consultation room is not available.'
+        state = 'before_open'
 
     return {
         'can_join': can_join,
+        'can_start_video': can_start_video,
         'state': state,
         'message': message,
         'opens_at': window['opens_at'],
         'expires_at': window['expires_at'],
+        'scheduled_at': window['scheduled_at'],
+        'join_label': join_label,
+        'room_visible': room_visible,
+        'room_state': state,
+        'video_ready': bool(
+            consultation
+            and _consultation_has_started(consultation)
+            and consultation.status not in CONSULTATION_TERMINAL_STATUSES
+        ),
+        'now': window['now'],
     }
 
 
@@ -376,49 +479,62 @@ def _annotate_consultation_access(appointments):
     for appointment in annotated:
         access = _appointment_access_state(appointment)
         appointment.can_join_consultation = access['can_join']
-        appointment.has_consultation_room = appointment.status in CONSULTATION_JOIN_STATUSES
+        appointment.can_start_consultation = access['can_start_video']
+        appointment.has_consultation_room = access['room_visible']
         appointment.consultation_access_state = access['state']
         appointment.consultation_access_message = access['message']
+        appointment.consultation_join_label = access['join_label']
         appointment.consultation_opens_at = access['opens_at']
         appointment.consultation_expires_at = access['expires_at']
+        appointment.consultation_scheduled_at = access['scheduled_at']
     return annotated
 
 
-def _mark_participant_joined(consultation, user):
-    now = timezone.now()
+def _mark_participant_joined(consultation, user, now=None):
+    now = now or timezone.now()
     update_fields = ['last_activity_at']
     consultation.last_activity_at = now
 
-    if user.role == 'doctor' and not consultation.doctor_joined_at:
-        consultation.doctor_joined_at = now
-        update_fields.append('doctor_joined_at')
-    elif user.role == 'patient' and not consultation.patient_joined_at:
-        consultation.patient_joined_at = now
-        update_fields.append('patient_joined_at')
+    if getattr(user, 'role', None) == 'doctor' or _is_platform_admin(user):
+        if not consultation.doctor_joined_at:
+            consultation.doctor_joined_at = now
+            update_fields.append('doctor_joined_at')
+        consultation.doctor_last_joined_at = now
+        update_fields.append('doctor_last_joined_at')
+    elif getattr(user, 'role', None) == 'patient':
+        if not consultation.patient_joined_at:
+            consultation.patient_joined_at = now
+            update_fields.append('patient_joined_at')
+        consultation.patient_last_joined_at = now
+        update_fields.append('patient_last_joined_at')
 
-    both_joined = consultation.doctor_joined_at and consultation.patient_joined_at
-    if both_joined:
-        consultation.status = 'in_progress'
-        if not consultation.started_at:
-            consultation.started_at = now
-            update_fields.append('started_at')
-        consultation.appointment.status = 'in_progress'
-    else:
-        consultation.status = 'waiting'
-        consultation.appointment.status = 'waiting'
-
-    update_fields.append('status')
     consultation.save(update_fields=list(dict.fromkeys(update_fields)))
-    consultation.appointment.save(update_fields=['status', 'updated_at'])
 
 
-def _google_oauth_enabled():
-    return bool(getattr(settings, 'GOOGLE_CLIENT_ID', '') and getattr(settings, 'GOOGLE_CLIENT_SECRET', ''))
+def _count_consultation_join_attempt(consultation, role, now=None):
+    now = now or timezone.now()
+    role = 'doctor' if role == 'admin' else role
+    count_field = 'doctor_join_count' if role == 'doctor' else 'patient_join_count'
+    last_joined_field = 'doctor_last_joined_at' if role == 'doctor' else 'patient_last_joined_at'
+    joined_field = 'doctor_joined_at' if role == 'doctor' else 'patient_joined_at'
+    current_count = getattr(consultation, count_field, 0)
 
+    if current_count >= CONSULTATION_MAX_JOIN_ATTEMPTS:
+        return False, current_count, 0
 
-def _auth_template_context():
-    return {'google_oauth_enabled': _google_oauth_enabled()}
+    setattr(consultation, count_field, current_count + 1)
+    setattr(consultation, last_joined_field, now)
+    if not getattr(consultation, joined_field):
+        setattr(consultation, joined_field, now)
+    consultation.last_activity_at = now
 
+    update_fields = [count_field, last_joined_field, joined_field, 'last_activity_at']
+    if role == 'doctor':
+        consultation.doctor_left_at = None
+        consultation.auto_complete_after_doctor_left = False
+        update_fields.extend(['doctor_left_at', 'auto_complete_after_doctor_left'])
+    consultation.save(update_fields=list(dict.fromkeys(update_fields)))
+    return True, current_count + 1, CONSULTATION_MAX_JOIN_ATTEMPTS - (current_count + 1)
 
 def _role_redirect_name(user):
     if not getattr(user, 'role', None):
@@ -685,6 +801,26 @@ def emergency(request):
     return render(request, 'home/emergency.html')
 
 
+def _emergency_rate_limit_key(request):
+    session_key = request.session.session_key or ''
+    ip_address = (request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', '')).strip()
+    return f'emergency_chat:{session_key}:{ip_address}'
+
+
+def _emergency_rate_limit_exceeded(request, limit=12, window_seconds=60):
+    key = _emergency_rate_limit_key(request)
+    state = cache.get(key)
+    now = timezone.now().timestamp()
+    if not state or now >= state.get('reset_at', 0):
+        cache.set(key, {'count': 1, 'reset_at': now + window_seconds}, timeout=window_seconds)
+        return False
+    if state.get('count', 0) >= limit:
+        return True
+    state['count'] = state.get('count', 0) + 1
+    cache.set(key, state, timeout=window_seconds)
+    return False
+
+
 @require_POST
 def emergency_chat(request):
     """Offline RAG/Ollama chatbot endpoint for the emergency page."""
@@ -695,6 +831,12 @@ def emergency_chat(request):
 
     message = (payload.get('message') or '').strip()
     session_id = (payload.get('session_id') or '').strip()
+    if not message:
+        return JsonResponse({'error': 'Message cannot be empty.'}, status=400)
+    if len(message) > 1000:
+        return JsonResponse({'error': 'Message is too long.'}, status=400)
+    if _emergency_rate_limit_exceeded(request):
+        return JsonResponse({'error': 'Too many requests. Please slow down and try again shortly.'}, status=429)
     user = request.user if request.user.is_authenticated else None
     if not request.session.session_key:
         request.session.save()
@@ -899,52 +1041,64 @@ def contact(request):
 
 
 def register(request):
-
-    """User registration page"""
+    """User registration page."""
 
     if request.method == 'POST':
+        username = (request.POST.get('username') or '').strip()
+        email = (request.POST.get('email') or '').strip().lower()
+        phone = (request.POST.get('phone') or '').strip()
+        password = request.POST.get('password1') or ''
+        confirm_password = request.POST.get('password2') or ''
+        role = 'patient'
 
-        # Get form data
-
-        username = request.POST.get('username')
-
-        email = request.POST.get('email')
-
-        phone = request.POST.get('phone')
-
-        password = request.POST.get('password1')
-
-        confirm_password = request.POST.get('password2')
-
-        role = 'patient'  # All public registrations are patients
-
-        
-
-        # New fields
-
-        first_name = request.POST.get('first_name', '')
-
-        last_name = request.POST.get('last_name', '')
-
-        age = request.POST.get('age', '')
-
-        gender = request.POST.get('gender', '')
-
-        previous_treatment = request.POST.get('previous_mental_health_treatment', '')
-
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        age_raw = (request.POST.get('age') or '').strip()
+        gender = (request.POST.get('gender') or '').strip()
+        previous_treatment = request.POST.get('previous_mental_health_treatment', '').strip()
         concerns = request.POST.getlist('concerns')
+        medications = request.POST.get('medications', '').strip()
 
-        medications = request.POST.get('medications', '')
-
-        
-
-        # Validation
-
-        if password != confirm_password:
-
-            messages.error(request, 'Passwords do not match')
-
+        if not username:
+            messages.error(request, 'Username is required.')
             return render(request, 'auth/register.html', _auth_template_context())
+        if not email:
+            messages.error(request, 'Email address is required.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, 'Please enter a valid email address.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if not phone or not BANGLADESH_MOBILE_RE.match(_digits_only(phone)):
+            messages.error(request, 'Please enter a valid Bangladesh mobile number, for example 01XXXXXXXXX.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if not password or not confirm_password:
+            messages.error(request, 'Please fill in both password fields.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if password != confirm_password:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, 'Username already exists.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if User.objects.filter(email__iexact=email).exists():
+            messages.error(request, 'Email already exists.')
+            return render(request, 'auth/register.html', _auth_template_context())
+        if gender and gender not in dict(User.GENDER_CHOICES):
+            messages.error(request, 'Please choose a valid gender option.')
+            return render(request, 'auth/register.html', _auth_template_context())
+
+        user_age = None
+        if age_raw:
+            try:
+                user_age = int(age_raw)
+            except (TypeError, ValueError):
+                messages.error(request, 'Please enter a valid age.')
+                return render(request, 'auth/register.html', _auth_template_context())
+            if user_age < 13 or user_age > 120:
+                messages.error(request, 'Age must be between 13 and 120.')
+                return render(request, 'auth/register.html', _auth_template_context())
 
         password_probe = User(
             username=username,
@@ -953,101 +1107,30 @@ def register(request):
             last_name=last_name,
         )
         if not _add_password_validation_errors(request, password, password_probe):
-
             return render(request, 'auth/register.html', _auth_template_context())
-
-        
-
-        if User.objects.filter(username=username).exists():
-
-            messages.error(request, 'Username already exists')
-
-            return render(request, 'auth/register.html', _auth_template_context())
-
-        
-
-        if User.objects.filter(email=email).exists():
-
-            messages.error(request, 'Email already exists')
-
-            return render(request, 'auth/register.html', _auth_template_context())
-
-        
-
-        # if User.objects.filter(phone=phone).exists():
-
-        #     messages.error(request, 'Phone number already exists')
-
-        #     return render(request, 'auth/register.html')
-
-        
-
-        # Create user
-
-        user_age = None
-        if age:
-            try:
-                user_age = int(age)
-            except (TypeError, ValueError):
-                user_age = None
 
         user = User.objects.create_user(
-
             username=username,
-
             email=email,
-
             phone=phone,
-
             password=password,
-
             role=role,
-
             first_name=first_name,
-
             last_name=last_name,
-
             age=user_age,
-
-            gender=gender or None
-
+            gender=gender or None,
         )
 
-        
-
-        # Store additional patient information in session for later use
-
-        if role == 'patient':
-
-            request.session['patient_info'] = {
-
-                'age': age,
-
-                'gender': gender,
-
-                'previous_treatment': previous_treatment,
-
-                'concerns': concerns,
-
-                'medications': medications
-
-            }
-
-        
-
-        # If doctor, create doctor profile
-
-        if role == 'doctor':
-
-            return redirect('complete_doctor_profile', user_id=user.id)
-
-        
+        request.session['patient_info'] = {
+            'age': age_raw,
+            'gender': gender,
+            'previous_treatment': previous_treatment,
+            'concerns': concerns,
+            'medications': medications,
+        }
 
         messages.success(request, 'Registration successful! Please login.')
-
         return redirect('login')
-
-    
 
     return render(request, 'auth/register.html', _auth_template_context())
 
@@ -1060,14 +1143,12 @@ def login_view(request):
     """User login page"""
 
     if request.method == 'POST':
-
-        username = request.POST.get('username')
-
+        username = request.POST.get('username', '').strip()
         password = request.POST.get('password')
-
-        
-
-        user = authenticate(request, username=username, password=password)
+        login_username = _resolve_login_username(username)
+        user = authenticate(request, username=login_username, password=password)
+        if user is None and login_username != username:
+            user = authenticate(request, username=username, password=password)
 
         if user is not None:
 
@@ -1155,183 +1236,65 @@ def logout_view(request):
 
 
 
-def forgot_password(request):
+def password_reset_request_view(request):
+    return render(request, 'auth/forgot_password.html', _auth_template_context())
 
-    """Step 1: Show form to enter first name and mobile number"""
 
-    return render(request, 'auth/forgot_password.html')
-
-
-
-
-
-def forgot_password_verify(request):
-
-    """Step 2: Verify first name and mobile number, then allow password reset"""
-
-    if request.method == 'POST':
-
-        first_name = request.POST.get('first_name', '').strip()
-
-        phone = request.POST.get('phone', '').strip()
-
-
-
-        if not first_name or not phone:
-
-            messages.error(request, 'Please enter both first name and mobile number.')
-
-            return render(request, 'auth/forgot_password.html')
-
-
-
-        # Normalize phone number to handle different formats
-
-        normalized_phone = phone
-
-        
-
-        # Remove any spaces, dashes, or parentheses
-
-        normalized_phone = normalized_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-
-        
-
-        # If phone starts with +880, keep it as is
-
-        # If phone starts with 01, add +880 prefix
-
-        if normalized_phone.startswith('+880'):
-
-            normalized_phone = normalized_phone
-
-        elif normalized_phone.startswith('01'):
-
-            normalized_phone = '+880' + normalized_phone
-
-        # If phone starts with 880 (without +), add +
-
-        elif normalized_phone.startswith('880') and len(normalized_phone) >= 11:
-
-            normalized_phone = '+' + normalized_phone
-
-
-
-        try:
-
-            # Try with normalized phone first
-
-            user = User.objects.get(first_name__iexact=first_name, phone=normalized_phone)
-
-            # Store verified user id in session
-
-            request.session['reset_user_id'] = user.id
-
-            return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
-        except User.DoesNotExist:
-
-            # If normalized phone doesn't work, try the original input
-
-            try:
-
-                user = User.objects.get(first_name__iexact=first_name, phone=phone)
-
-                request.session['reset_user_id'] = user.id
-
-                return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
-            except User.DoesNotExist:
-
-                messages.error(request, 'No account found with that first name and mobile number combination.')
-
-                return render(request, 'auth/forgot_password.html')
-
-
-
-    return redirect('forgot_password')
-
-
-
-
-
-def forgot_password_reset(request):
-
-    """Step 3: Set new password after identity verification"""
-
-    reset_user_id = request.session.get('reset_user_id')
-
-
-
-    if not reset_user_id:
-
-        messages.error(request, 'Please verify your identity first.')
-
+def password_reset_send_view(request):
+    if request.method != 'POST':
         return redirect('forgot_password')
 
+    email = request.POST.get('email', '').strip().lower()
+    if not email:
+        messages.error(request, 'Please enter your account email address.')
+        return render(request, 'auth/forgot_password.html', _auth_template_context())
+
+    user = User.objects.filter(email__iexact=email, is_active=True).order_by('id').first()
+    if not user:
+        messages.error(request, 'No account found with that email address.')
+        return render(request, 'auth/forgot_password.html', _auth_template_context())
+
+    reset_link, uidb64, token = _build_password_reset_link(request, user)
+    subject = 'Reset your Mental Wellness Platform password'
+    message = (
+        f'Hello {user.get_full_name() or user.username},\n\n'
+        'We received a request to reset your password on Mental Wellness Platform.\n'
+        f'Use the secure link below to set a new password:\n{reset_link}\n\n'
+        'If you did not request this reset, you can ignore this email.\n\n'
+        'Mental Wellness Platform'
+    )
+    send_configured_mail(subject, message, [user.email], fail_silently=False)
+    request.session['password_reset_request'] = {'uidb64': uidb64, 'token': token}
+    messages.success(request, 'Password reset instructions have been sent to your email address.')
+    return redirect('login')
 
 
-    try:
-
-        user = User.objects.get(id=reset_user_id)
-
-    except User.DoesNotExist:
-
-        messages.error(request, 'User not found. Please try again.')
-
+def password_reset_confirm_view(request, uidb64=None, token=None):
+    user = _get_user_from_reset_token(uidb64, token) if uidb64 and token else None
+    if not user:
+        messages.error(request, 'This password reset link is invalid or has expired.')
         return redirect('forgot_password')
 
-
-
+    context = {'reset_user': user, 'uidb64': uidb64, 'token': token}
     if request.method == 'POST':
-
         new_password = request.POST.get('new_password', '').strip()
-
         confirm_password = request.POST.get('confirm_password', '').strip()
 
-
-
         if not new_password or not confirm_password:
-
             messages.error(request, 'Please fill in both password fields.')
-
-            return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
-
-
+            return render(request, 'auth/forgot_password_reset.html', context)
         if new_password != confirm_password:
-
             messages.error(request, 'Passwords do not match.')
-
-            return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
+            return render(request, 'auth/forgot_password_reset.html', context)
         if not _add_password_validation_errors(request, new_password, user):
-
-            return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
-
+            return render(request, 'auth/forgot_password_reset.html', context)
 
         user.set_password(new_password)
-
-        user.save()
-
-        # Clear session
-
-        if 'reset_user_id' in request.session:
-
-            del request.session['reset_user_id']
-
-
-
+        user.save(update_fields=['password'])
         messages.success(request, 'Password reset successful! You can now log in with your new password.')
-
         return redirect('login')
 
-
-
-    return render(request, 'auth/forgot_password_reset.html', {'reset_user': user})
-
-
+    return render(request, 'auth/forgot_password_reset.html', context)
 
 
 
@@ -1511,48 +1474,6 @@ def patient_dashboard(request):
 
 @login_required
 
-def test_patient_data(request):
-
-    """Test endpoint to check patient data"""
-
-    if request.user.role != 'patient':
-
-        return JsonResponse({'error': 'Not a patient'}, status=403)
-
-    
-
-    from datetime import date
-
-    
-
-    # Get all data for this patient
-
-    prescriptions = Prescription.objects.filter(patient=request.user).values('id', 'prescription_text', 'created_at', 'medications')
-
-    tasks = DailyTask.objects.filter(patient=request.user, is_active=True).values('id', 'title', 'description', 'created_at', 'start_date', 'end_date')
-
-    
-
-    return JsonResponse({
-
-        'success': True,
-
-        'prescriptions': list(prescriptions),
-
-        'tasks': list(tasks),
-
-        'prescriptions_count': prescriptions.count(),
-
-        'tasks_count': tasks.count()
-
-    })
-
-
-
-
-
-@login_required
-
 def send_message(request):
 
     """API endpoint for sending messages to patients"""
@@ -1583,53 +1504,22 @@ def send_message(request):
 
             return JsonResponse({'error': 'Patient ID and message are required'}, status=400)
 
-        
-
-        # Get patient
+        try:
+            doctor_profile = request.user.doctor_profile
+        except Doctor.DoesNotExist:
+            return JsonResponse({'error': 'Doctor profile is missing.'}, status=403)
 
         patient = get_object_or_404(User, id=patient_id, role='patient')
+        if not Appointment.objects.filter(patient=patient, doctor=doctor_profile).exists():
+            return JsonResponse({'error': 'You can only message patients with an existing appointment.'}, status=403)
 
-        
-
-        # In a real implementation, you would:
-
-        # 1. Save the message to a Message model
-
-        # 2. Send notification to patient
-
-        # 3. Create notification record
-
-        
-
-        # For now, we'll just simulate success
-
-        # You could create a Notification model entry here
-
-        
-
-        # Create notification for patient
-
-        try:
-
-            from .models import Notification
-
-            Notification.objects.create(
-
-                user=patient,
-
-                title='New message from Dr. ' + request.user.get_full_name(),
-
-                message=message_text,
-
-                notification_type='message'
-
-            )
-
-        except:
-
-            pass  # Notification model might not exist or have different fields
-
-        
+        Notification.objects.create(
+            user=patient,
+            title='New message from Dr. ' + (request.user.get_full_name() or request.user.username),
+            message=message_text,
+            notification_type='message',
+            is_actionable=False,
+        )
 
         return JsonResponse({'success': True, 'message': 'Message sent successfully'})
 
@@ -1883,7 +1773,7 @@ def admin_dashboard(request):
 
     }
 
-    return render(request, 'admin/dashboard.html', context)
+    return render(request, 'admin/admin_dashboard.html', context)
 
 
 
@@ -2819,7 +2709,7 @@ def generate_personalized_recommendations(stress_level, category_scores):
 
                 'Contact mental health professional immediately',
 
-                'Call emergency hotline: 16101',
+                'Call Bangladesh emergency services: 999',
 
                 'Reach out to trusted family or friends',
 
@@ -3365,7 +3255,7 @@ def _create_booking_payment(appointment, payment_method, payment_details=None, s
     _set_payment_commission(payment)
     payment.save()
     if getattr(settings, 'PAYMENT_TEST_MODE', True):
-        logger.info("TESTING MODE: generated payment OTP for payment %s is %s", payment.id, payment.otp_code)
+        logger.info("TESTING MODE: generated payment OTP for payment %s", payment.id)
     return payment
 
 
@@ -3392,7 +3282,7 @@ def _refresh_payment_for_retry(payment, payment_details):
         'admin_commission', 'doctor_earning', 'updated_at',
     ])
     if getattr(settings, 'PAYMENT_TEST_MODE', True):
-        logger.info("TESTING MODE: refreshed payment OTP for payment %s is %s", payment.id, payment.otp_code)
+        logger.info("TESTING MODE: refreshed payment OTP for payment %s", payment.id)
     return payment
 
 
@@ -3873,7 +3763,6 @@ def verify_booking_payment(request, payment_id):
         'payment_receiver': payment_receiver,
         'payment_test_mode': getattr(settings, 'PAYMENT_TEST_MODE', True),
         'payment_test_otp': getattr(settings, 'PAYMENT_TEST_OTP', '123456'),
-        'generated_test_otp': payment.otp_code if getattr(settings, 'PAYMENT_TEST_MODE', True) else '',
         'payment_method_label': _payment_method_label(payment.payment_method),
         'wallet_method': wallet_method,
     }
@@ -4153,47 +4042,29 @@ def mark_appointment_completed(request, appointment_id):
 
     
 
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
 
-        try:
-
-            appointment = Appointment.objects.get(id=appointment_id, patient=request.user)
-
-            if appointment.status in ['scheduled', 'confirmed']:
-
-                appointment.status = 'completed'
-
-                appointment.save()
-
-                
-
-                return JsonResponse({
-
-                    'success': True,
-
-                    'message': 'Appointment marked as completed successfully!'
-
-                })
-
-            else:
-
-                return JsonResponse({
-
-                    'success': False,
-
-                    'error': 'Appointment cannot be marked as completed'
-
-                })
-
-                
-
-        except Appointment.DoesNotExist:
-
-            return JsonResponse({'success': False, 'error': 'Appointment not found'})
-
-    
-
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+    try:
+        appointment = Appointment.objects.get(id=appointment_id, patient=request.user)
+        if appointment.consultation_type == 'video':
+            return JsonResponse({
+                'success': False,
+                'error': 'Video consultations can only be completed by the assigned doctor.'
+            }, status=403)
+        if appointment.status in ['scheduled', 'confirmed']:
+            appointment.status = 'completed'
+            appointment.save(update_fields=['status', 'updated_at'])
+            return JsonResponse({
+                'success': True,
+                'message': 'Appointment marked as completed successfully!'
+            })
+        return JsonResponse({
+            'success': False,
+            'error': 'Appointment cannot be marked as completed'
+        }, status=400)
+    except Appointment.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Appointment not found'}, status=404)
 
 
 
@@ -4208,6 +4079,10 @@ def delete_appointment(request, appointment_id):
     if request.user.role != 'patient':
 
         return redirect('home')
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('patient_appointments')
 
     
 
@@ -4488,12 +4363,28 @@ def consultation_room(request, appointment_id):
 
         access = _appointment_access_state(appointment)
         if not access['can_join'] and participant_role != 'admin':
-            messages.error(request, access['message'])
-            return redirect(_consultation_redirect_name(request.user))
+            return render(
+                request,
+                'consultation/room_unavailable.html',
+                {
+                    'appointment': appointment,
+                    'appointment_id': appointment_id,
+                    'unavailable_title': access['join_label'],
+                    'unavailable_message': access['message'],
+                    'available_at': access['opens_at'],
+                    'scheduled_at': access['scheduled_at'],
+                    'expires_at': access['expires_at'],
+                    'return_url_name': _consultation_redirect_name(request.user),
+                },
+                status=423,
+            )
 
         consultation = _get_or_create_consultation_for_appointment(appointment)
-        _auto_complete_after_doctor_left_if_needed(consultation)
+        _sync_consultation_live_state(appointment, consultation, now=access['now'])
+        consultation.refresh_from_db()
+        appointment.refresh_from_db(fields=['status'])
         consultation_started = _consultation_has_started(consultation)
+        access = _appointment_access_state(appointment)
 
         doctor = appointment.doctor
         patient = appointment.patient
@@ -4518,8 +4409,14 @@ def consultation_room(request, appointment_id):
             'doctor_image_url': doctor_image_url,
             'patient_image_url': getattr(patient, 'profile_picture_url', '') or '',
             'consultation_started': consultation_started,
-            'show_patient_waiting': participant_role == 'patient' and not consultation_started,
-            'show_doctor_start': participant_role == 'doctor' and not consultation_started,
+            'show_waiting_room': not consultation_started and not (participant_role == 'doctor' and access['can_start_video']),
+            'show_doctor_start': participant_role == 'doctor' and access['can_start_video'] and not consultation_started,
+            'waiting_room_title': 'Waiting for consultation to start.',
+            'waiting_room_message': (
+                'Your consultation room is ready. You will enter the video call automatically as soon as your doctor starts the session.'
+                if participant_role == 'patient'
+                else 'You are in the waiting room. The video session can start at the scheduled appointment time.'
+            ),
             'remaining_join_attempts': max(
                 0,
                 CONSULTATION_MAX_JOIN_ATTEMPTS - (
@@ -4664,34 +4561,34 @@ def start_consultation(request, appointment_id):
 
     try:
         consultation = _get_or_create_consultation_for_appointment(appointment)
-        _auto_complete_after_doctor_left_if_needed(consultation)
+        access = _appointment_access_state(appointment)
         if consultation.status == 'completed':
             return JsonResponse({'success': False, 'error': 'This consultation has already been completed.'}, status=403)
-        if consultation.status == 'expired' or _expire_unstarted_consultation_if_needed(appointment, consultation):
-            return JsonResponse({'success': False, 'error': 'Consultation start window has expired.'}, status=403)
-        if not _consultation_has_started(consultation) and not is_consultation_start_window_open(appointment):
-            return JsonResponse({'success': False, 'error': 'Consultation start window has expired.'}, status=403)
+        if consultation.status == 'expired' or access['state'] == 'expired':
+            return JsonResponse({'success': False, 'error': 'Consultation window has expired.'}, status=403)
+        if not access['can_join']:
+            return JsonResponse({'success': False, 'error': access['message']}, status=403)
+        if not access['can_start_video']:
+            return JsonResponse(
+                {'success': False, 'error': 'Consultation can be started at the scheduled appointment time.'},
+                status=403,
+            )
 
-        now = timezone.now()
-        consultation.doctor_joined_at = consultation.doctor_joined_at or now
+        now = access['now']
+        _mark_participant_joined(consultation, request.user, now=now)
+        consultation.refresh_from_db()
         consultation.started_at = consultation.started_at or now
         consultation.start_time = consultation.start_time or now
-        consultation.status = 'in_progress'
         consultation.last_activity_at = now
-        consultation.save(update_fields=[
-            'doctor_joined_at',
-            'started_at',
-            'start_time',
-            'status',
-            'last_activity_at',
-        ])
-
-        appointment.status = 'in_progress'
-        appointment.save(update_fields=['status', 'updated_at'])
+        consultation.save(update_fields=['started_at', 'start_time', 'last_activity_at'])
+        _sync_consultation_live_state(appointment, consultation, now=now)
+        consultation.refresh_from_db()
+        appointment.refresh_from_db(fields=['status'])
 
         return JsonResponse({
             'success': True,
             'started': True,
+            'video_ready': True,
             'doctor_joined': True,
             'jitsi_room_name': consultation.room_name,
             'consultation_status': consultation.status,
@@ -4713,36 +4610,21 @@ def register_consultation_join(request, appointment_id):
         return JsonResponse({'success': False, 'allowed': False, 'message': 'Method not allowed'}, status=405)
 
     consultation = _get_or_create_consultation_for_appointment(appointment)
-    _auto_complete_after_doctor_left_if_needed(consultation)
+    access = _appointment_access_state(appointment)
     consultation.refresh_from_db()
 
     if consultation.status == 'completed':
         return JsonResponse({'success': False, 'allowed': False, 'completed': True, 'message': 'This consultation has been completed.'}, status=403)
-    if consultation.status == 'expired' or _expire_unstarted_consultation_if_needed(appointment, consultation):
+    if consultation.status == 'expired' or access['state'] == 'expired':
         return JsonResponse({'success': False, 'allowed': False, 'expired': True, 'message': 'Consultation window has expired.'}, status=403)
-    if not _consultation_has_started(consultation):
-        return JsonResponse({'success': False, 'allowed': False, 'message': 'The doctor has not started this consultation yet.'}, status=403)
-
-    role = 'doctor' if participant_role == 'admin' else participant_role
-    count_field = 'doctor_join_count' if role == 'doctor' else 'patient_join_count'
-    last_joined_field = 'doctor_last_joined_at' if role == 'doctor' else 'patient_last_joined_at'
-    joined_field = 'doctor_joined_at' if role == 'doctor' else 'patient_joined_at'
-    current_count = getattr(consultation, count_field, 0)
-
-    if role == 'doctor' and consultation.doctor_left_at:
-        now = timezone.now()
-        if now > consultation.doctor_left_at + timedelta(minutes=DOCTOR_REJOIN_GRACE_MINUTES):
-            _complete_consultation(consultation, completed_at=now)
-            return JsonResponse({
-                'success': False,
-                'allowed': False,
-                'completed': True,
-                'message': 'This consultation has been completed because the doctor did not rejoin within 3 minutes.',
-            }, status=403)
-        consultation.doctor_left_at = None
-        consultation.auto_complete_after_doctor_left = False
-
-    if current_count >= CONSULTATION_MAX_JOIN_ATTEMPTS:
+    if not access['can_join']:
+        return JsonResponse({'success': False, 'allowed': False, 'message': access['message']}, status=403)
+    allowed, joined_count, remaining_attempts = _count_consultation_join_attempt(
+        consultation,
+        participant_role,
+        now=access['now'],
+    )
+    if not allowed:
         return JsonResponse({
             'success': False,
             'allowed': False,
@@ -4750,33 +4632,30 @@ def register_consultation_join(request, appointment_id):
             'message': 'You have reached the maximum rejoin limit.',
         }, status=403)
 
-    now = timezone.now()
-    setattr(consultation, count_field, current_count + 1)
-    setattr(consultation, last_joined_field, now)
-    if not getattr(consultation, joined_field):
-        setattr(consultation, joined_field, now)
-    consultation.status = 'in_progress'
-    consultation.last_activity_at = now
+    if not _consultation_has_started(consultation):
+        _sync_consultation_live_state(appointment, consultation, now=access['now'])
+        consultation.refresh_from_db()
+        return JsonResponse({
+            'success': True,
+            'allowed': True,
+            'waiting': True,
+            'remaining_attempts': remaining_attempts,
+            'video_ready': False,
+            'jitsi_room_name': consultation.room_name,
+            'consultation_status': consultation.status,
+            'message': 'Waiting for consultation to start.',
+        })
 
-    update_fields = [
-        count_field,
-        last_joined_field,
-        joined_field,
-        'status',
-        'last_activity_at',
-    ]
-    if role == 'doctor':
-        update_fields.extend(['doctor_left_at', 'auto_complete_after_doctor_left'])
-    consultation.save(update_fields=list(dict.fromkeys(update_fields)))
-
-    appointment.status = 'in_progress'
-    appointment.save(update_fields=['status', 'updated_at'])
+    _sync_consultation_live_state(appointment, consultation, now=access['now'])
+    consultation.refresh_from_db()
 
     return JsonResponse({
         'success': True,
         'allowed': True,
-        'remaining_attempts': CONSULTATION_MAX_JOIN_ATTEMPTS - (current_count + 1),
+        'remaining_attempts': remaining_attempts,
+        'video_ready': _consultation_has_started(consultation),
         'jitsi_room_name': consultation.room_name,
+        'consultation_status': consultation.status,
     })
 
 
@@ -4794,16 +4673,11 @@ def participant_left_consultation(request, appointment_id):
         return JsonResponse({'success': True, 'completed': True, 'message': 'Consultation already completed.'})
 
     now = timezone.now()
-    role = participant_role
-    try:
-        data = json.loads(request.body or '{}')
-        role = data.get('role') or role
-    except (TypeError, ValueError, json.JSONDecodeError):
-        pass
 
-    if role == 'doctor' or participant_role == 'admin':
+    if participant_role in {'doctor', 'admin'}:
+        access = _appointment_access_state(appointment, now=now)
         consultation.doctor_left_at = now
-        consultation.auto_complete_after_doctor_left = True
+        consultation.auto_complete_after_doctor_left = bool(access['now'] >= access['scheduled_at'] or consultation.started_at)
         consultation.last_activity_at = now
         consultation.save(update_fields=['doctor_left_at', 'auto_complete_after_doctor_left', 'last_activity_at'])
         return JsonResponse({
@@ -4850,9 +4724,10 @@ def consultation_status(request, appointment_id):
     except Consultation.DoesNotExist:
         consultation = None
     if consultation:
-        _auto_complete_after_doctor_left_if_needed(consultation)
+        _sync_consultation_live_state(appointment, consultation, now=access['now'])
         consultation.refresh_from_db()
         appointment.refresh_from_db(fields=['status'])
+        access = _appointment_access_state(appointment)
 
     started = _consultation_has_started(consultation)
     expired = bool((consultation and consultation.status == 'expired') or access['state'] == 'expired')
@@ -4870,13 +4745,17 @@ def consultation_status(request, appointment_id):
     elif doctor_left:
         message = 'Doctor left the consultation. Waiting for doctor to rejoin.'
     elif started:
-        message = 'Doctor has joined'
+        message = 'Consultation is in progress.'
 
     return JsonResponse({
         'success': True,
         'appointment_status': appointment.status,
         'consultation_status': consultation.status if consultation else 'scheduled',
         'started': started,
+        'video_ready': started,
+        'room_state': access['state'],
+        'can_start_video': access['can_start_video'],
+        'join_label': access['join_label'],
         'expired': expired,
         'completed': completed,
         'doctor_left': doctor_left,
@@ -4913,12 +4792,9 @@ def save_consultation_data(request):
 
     try:
 
-        data, daily_tasks_raw, daily_tasks = _load_consultation_save_payload(request)
+        data, daily_tasks = _load_consultation_save_payload(request)
 
-        logger.debug("POST DATA: %s", request.POST)
-        logger.debug("BODY: %s", _safe_request_body(request))
-        logger.debug("DAILY TASKS RAW: %s", daily_tasks_raw)
-        logger.debug("PARSED DAILY TASKS: %s", daily_tasks)
+        logger.debug("Consultation save payload received with %s task(s)", len(daily_tasks))
 
         appointment_id = data.get('appointmentId') or data.get('appointment_id')
 
@@ -4939,22 +4815,6 @@ def save_consultation_data(request):
         if patient_id and str(appointment.patient_id) != str(patient_id):
             return JsonResponse({'error': 'Patient is not assigned to this appointment'}, status=403)
 
-        consultation = _get_or_create_consultation_for_appointment(appointment)
-        logger.debug("PATIENT: %s", appointment.patient)
-        logger.debug("CONSULTATION: %s", consultation)
-
-        
-
-        # Save consultation notes
-
-        notes_data = data.get('notes', {})
-
-        consultation.notes = json.dumps(notes_data)
-
-        consultation.save()
-
-        
-
         try:
             doctor_profile = request.user.doctor_profile
         except Doctor.DoesNotExist:
@@ -4967,6 +4827,13 @@ def save_consultation_data(request):
 
         if appointment.doctor_id != doctor_profile.id:
             return JsonResponse({'error': 'Doctor is not assigned to this appointment'}, status=403)
+
+        consultation = _get_or_create_consultation_for_appointment(appointment)
+
+        notes_data = data.get('notes', {})
+        consultation.notes = json.dumps(notes_data)
+        consultation.last_activity_at = timezone.now()
+        consultation.save(update_fields=['notes', 'last_activity_at'])
 
         prescription_data = _parse_json_value(data.get('prescription') or data.get('prescription_json'), {})
         tasks_data = daily_tasks
@@ -5345,6 +5212,12 @@ def complete_daily_task(request, task_id):
 
             return JsonResponse({'success': False, 'error': 'Task not found'})
 
+        except ValidationError as e:
+
+            message = e.messages[0] if getattr(e, 'messages', None) else 'Daily tasks can only be completed from 5:00 AM to 7:00 PM.'
+
+            return JsonResponse({'success': False, 'error': message}, status=400)
+
         except Exception as e:
 
             logger.warning("Task completion failed: %s", e)
@@ -5398,14 +5271,9 @@ def save_prescription_and_tasks(request, consultation_id):
 
             
 
-            data, daily_tasks_raw, daily_tasks = _load_consultation_save_payload(request)
+            data, daily_tasks = _load_consultation_save_payload(request)
 
-            logger.debug("POST DATA: %s", request.POST)
-            logger.debug("BODY: %s", _safe_request_body(request))
-            logger.debug("DAILY TASKS RAW: %s", daily_tasks_raw)
-            logger.debug("PARSED DAILY TASKS: %s", daily_tasks)
-            logger.debug("PATIENT: %s", appointment.patient)
-            logger.debug("CONSULTATION: %s", consultation)
+            logger.debug("Prescription/task save payload received for consultation_id=%s with %s task(s)", consultation_id, len(daily_tasks))
 
             prescription_data = _parse_json_value(data.get('prescription') or data.get('prescription_json'), {})
 
@@ -5493,7 +5361,7 @@ def save_prescription_and_tasks(request, consultation_id):
 
     
 
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+    return JsonResponse({'success': False, 'error': 'Invalid request'}, status=405)
 
 
 
@@ -5552,6 +5420,9 @@ def clear_all_patient_tasks(request):
     if request.user.role != 'patient':
 
         return JsonResponse({'success': False, 'error': 'Only patients can use this'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
 
     
 
@@ -5797,7 +5668,7 @@ def mark_notification_read(request, notification_id):
 
             notification.is_read = True
 
-            notification.save()
+            notification.save(update_fields=['is_read'])
 
             
 
@@ -5809,7 +5680,7 @@ def mark_notification_read(request, notification_id):
 
     
 
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+    return JsonResponse({'success': False, 'error': 'Invalid request'}, status=405)
 
 
 
@@ -6333,6 +6204,10 @@ def doctor_delete_blog(request, blog_id):
 
         return redirect('home')
 
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('doctor_blog_management')
+
     
 
     try:
@@ -6780,6 +6655,10 @@ def doctor_delete_schedule(request, schedule_id):
         messages.error(request, 'Only doctors can manage schedules.')
 
         return redirect('home')
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('doctor_schedule')
 
     
 

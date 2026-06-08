@@ -289,11 +289,12 @@
                                     </span>
                                     <span class="duration">({{ slot.slot_duration }} min slots)</span>
                                 </div>
-                                <a href="{% url 'doctor_delete_schedule' slot.id %}" 
-                                   class="btn-delete" 
-                                   onclick="return confirm('Are you sure you want to remove this schedule?')">
-                                    <i class="fas fa-trash"></i>
-                                </a>
+                                <form method="post" action="{% url 'doctor_delete_schedule' slot.id %}" class="inline-delete-form" onsubmit="return confirm('Are you sure you want to remove this schedule?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-delete" aria-label="Remove schedule">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </div>
                             {% endfor %}
                         </div>

@@ -102,10 +102,12 @@
                                 <a href="{% url 'doctor_edit_blog' blog.id %}" class="btn-action btn-edit">
                                     <i class="fas fa-edit"></i> Edit
                                 </a>
-                                <a href="{% url 'doctor_delete_blog' blog.id %}" class="btn-action btn-delete" 
-                                   onclick="return confirmDelete('{{ blog.title|escapejs }}')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </a>
+                                <form method="post" action="{% url 'doctor_delete_blog' blog.id %}" class="inline-delete-form" onsubmit="return confirmDelete('{{ blog.title|escapejs }}')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-action btn-delete">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>

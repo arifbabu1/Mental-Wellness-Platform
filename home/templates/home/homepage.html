@@ -25,7 +25,7 @@
         <span class="emergency-message">
           Your life matters. If dark thoughts are overwhelming you, let us guide
           you to the light. Call our hotline at
-          <strong>16101</strong>
+          <strong>999</strong>
         </span>
         <a href="{% url 'emergency' %}" class="btn-base" aria-label="Get emergency help">Get Support</a>
       </div>
@@ -213,7 +213,7 @@
               <h2 id="contact-heading">Get in Touch</h2>
               <p>We're here to support you on your mental wellness journey. Reach out to us anytime.</p>
               <ul class="contact-details">
-                <li>📞 Emergency Hotline: <a href="tel:16101">16101</a></li>
+                <li>📞 Emergency Hotline: <a href="tel:999">999</a></li>
                 <li>📧 Email: <a href="mailto:support@mentalwellness.com">support@mentalwellness.com</a></li>
                 <li>📍 Location: Dhaka, Bangladesh</li>
                 <li>🕐 Available: 24/7 Emergency Support</li>
@@ -265,11 +265,11 @@
     <!-- Emergency Call Function -->
     <script>
       function makeEmergencyCall() {
-        const phoneNumber = '16101';
+        const phoneNumber = '999';
         
         if (confirm(`Call emergency hotline ${phoneNumber}? This service is available 24/7.`)) {
           window.location.href = `tel:${phoneNumber}`;
-          console.log('Emergency call initiated:', phoneNumber);
+          // Intentionally quiet in production.
         }
       }
     </script>

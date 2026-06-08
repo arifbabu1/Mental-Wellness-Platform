@@ -48,6 +48,7 @@ urlpatterns = [
     path('register/', views.register, name='register'),
 
     path('login/', views.login_view, name='login'),
+    path('auth/google/login/', views.google_oauth_login, name='google_oauth_login'),
 
     path('accounts/login/', views.login_view, name='account_login_alias'),  # Compatibility alias
 
@@ -59,9 +60,9 @@ urlpatterns = [
 
     path('Quit/', views.logout_view, name='quit'),
 
-    path('forgot-password/', views.forgot_password, name='forgot_password'),
-    path('forgot-password/verify/', views.forgot_password_verify, name='forgot_password_verify'),
-    path('forgot-password/reset/', views.forgot_password_reset, name='forgot_password_reset'),
+    path('forgot-password/', views.password_reset_request_view, name='forgot_password'),
+    path('forgot-password/verify/', views.password_reset_send_view, name='forgot_password_verify'),
+    path('forgot-password/reset/<str:uidb64>/<str:token>/', views.password_reset_confirm_view, name='forgot_password_reset'),
 
     
 
@@ -83,23 +84,9 @@ urlpatterns = [
 
     
 
-    # Dashboards
+    # Patient dashboard
 
     path('patient/dashboard/', views.patient_dashboard, name='patient_dashboard'),
-
-    path('doctor/dashboard/', views.doctor_dashboard, name='doctor_dashboard'),
-
-    path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
-
-    
-
-    # Admin Management Pages
-
-    path('admin/users/', views.admin_users, name='admin_users'),
-
-    path('admin/appointments/', views.admin_appointments, name='admin_appointments'),
-
-    path('admin/assessments/', views.admin_assessments, name='admin_assessments'),
 
     
     # Assessment
@@ -141,8 +128,6 @@ urlpatterns = [
 
     path('patient/booking-success/<int:appointment_id>/', views.booking_success, name='booking_success'),
 
-    path('doctor/appointments/', views.doctor_appointments, name='doctor_appointments'),
-
     
 
     # Consultation
@@ -153,16 +138,12 @@ urlpatterns = [
     
     path('save-consultation-data/', views.save_consultation_data, name='save_consultation_data'),
     
-    path('test-patient-data/', views.test_patient_data, name='test_patient_data'),
-    
     path('consultation/<int:appointment_id>/complete/', views.complete_consultation, name='complete_consultation'),
     path('consultation/<int:appointment_id>/start/', views.start_consultation, name='start_consultation'),
     path('consultation/<int:appointment_id>/register-join/', views.register_consultation_join, name='register_consultation_join'),
     path('consultation/<int:appointment_id>/participant-left/', views.participant_left_consultation, name='participant_left_consultation'),
     path('consultation/<int:appointment_id>/leave/', views.leave_consultation, name='leave_consultation'),
     path('consultation/<int:appointment_id>/status/', views.consultation_status, name='consultation_status'),
-
-    path('consultation/<int:appointment_id>/save-prescription-and-tasks/', views.save_prescription_and_tasks, name='save_prescription_and_tasks'),
 
     
 

@@ -30,7 +30,6 @@ svg {
 .action-grid,
 .category-grid,
 .features-grid,
-.quick-actions,
 .quick-actions-grid,
 .dashboard-cards-row,
 .stats-cards,
@@ -67,7 +66,6 @@ svg {
     .action-grid,
     .category-grid,
     .features-grid,
-    .quick-actions,
     .quick-actions-grid,
     .dashboard-cards-row,
     .stats-cards,
@@ -80,11 +78,11 @@ svg {
     .assessment-grid,
     .recommendations-grid,
     .specialties-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     body {
         font-size: 14px;
         line-height: 1.45;
@@ -308,7 +306,6 @@ svg {
     .action-grid,
     .category-grid,
     .features-grid,
-    .quick-actions,
     .quick-actions-grid,
     .dashboard-cards-row,
     .appointments-grid,
@@ -321,7 +318,7 @@ svg {
     .specialties-grid,
     .contact-grid,
     .resource-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 12px !important;
         margin-bottom: 16px !important;
     }
@@ -331,7 +328,7 @@ svg {
     .summary-grid,
     .metrics-grid,
     .doctor-metrics {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 10px !important;
         margin-bottom: 16px !important;
     }
@@ -479,6 +476,40 @@ svg {
     }
 }
 
+@media (min-width: 768px) and (max-width: 1023px) {
+    .dashboard-grid,
+    .card-grid,
+    .service-grid,
+    .stats-grid,
+    .action-grid,
+    .category-grid,
+    .features-grid,
+    .quick-actions-grid,
+    .dashboard-cards-row,
+    .appointments-grid,
+    .doctors-grid,
+    .blog-grid,
+    .blogs-grid,
+    .tasks-grid,
+    .assessment-grid,
+    .recommendations-grid,
+    .specialties-grid,
+    .contact-grid,
+    .resource-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+    }
+
+    .stats-cards,
+    .doctor-stats,
+    .summary-grid,
+    .metrics-grid,
+    .doctor-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+}
+
 @media (max-width: 480px) {
     .container,
     .page-container,
@@ -573,7 +604,6 @@ svg {
     .action-grid,
     .category-grid,
     .features-grid,
-    .quick-actions,
     .quick-actions-grid,
     .dashboard-cards-row,
     .appointments-grid,
@@ -586,7 +616,7 @@ svg {
     .specialties-grid,
     .contact-grid,
     .resource-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 10px !important;
     }
 
@@ -595,7 +625,7 @@ svg {
     .summary-grid,
     .metrics-grid,
     .doctor-metrics {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 8px !important;
     }
 
@@ -692,7 +722,6 @@ svg {
     .action-grid,
     .category-grid,
     .features-grid,
-    .quick-actions,
     .quick-actions-grid,
     .dashboard-cards-row,
     .appointments-grid,
@@ -754,5 +783,127 @@ svg {
     .dashboard-card h3,
     .doctor-card h3 {
         font-size: 13px !important;
+    }
+}
+
+/* Page-specific mobile fixes that must win after compact global rules. */
+@media (max-width: 767px) {
+    .doctors-grid,
+    .appointments-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        grid-template-columns: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        gap: 12px !important;
+    }
+
+    .doctor-card {
+        width: 100% !important;
+        max-width: 360px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        box-sizing: border-box !important;
+    }
+
+    .appointment-card {
+        width: 100% !important;
+        max-width: 360px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        box-sizing: border-box !important;
+    }
+
+    .doctors-header h1,
+    .appointments-header h1 {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        text-align: center !important;
+    }
+
+    .doctor-card .doctor-profile,
+    .appointment-card .appointment-doctor {
+        min-width: 0 !important;
+    }
+
+    .doctor-card .doctor-basic-info,
+    .appointment-card .doctor-info {
+        min-width: 0 !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .appointment-card .appointment-actions {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .appointment-card .appointment-actions .btn-base,
+    .appointment-card .appointment-actions .btn-outline,
+    .appointment-card .appointment-actions .btn-primary,
+    .appointment-card .appointment-actions a,
+    .appointment-card .appointment-actions button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    .search-filter-section,
+    .appointments-section {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .search-filter-container,
+    .search-box-wrapper,
+    .search-input,
+    .filter-dropdown-wrapper,
+    .filter-dropdown {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .doctor-card .consultation-fee,
+    .appointment-card .doctor-details,
+    .appointment-card .detail-badge {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+    }
+
+    .appointment-card .appointment-doctor {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    .doctor-card .doctor-specialty,
+    .doctor-card .doctor-qualification,
+    .doctor-card .doctor-basic-info,
+    .appointment-card .detail-item span,
+    .appointment-card .doctor-info,
+    .appointment-card .appointment-status {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .appointment-card .countdown-section {
+        text-align: left !important;
+    }
+
+    .appointment-card .countdown-display {
+        max-width: 100% !important;
+    }
+
+    .doctor-card,
+    .appointment-card {
+        max-width: 360px !important;
+        width: 100% !important;
     }
 }

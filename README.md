@@ -224,7 +224,7 @@ MentalWellnessPlatform/
 ## 📞 Support
 
 ### Emergency Contacts
-- **Emergency Hotline**: 16101
+- **Emergency services**: 999
 - **Email**: support@mentalwellness.com
 
 ## 🤝 Contributing

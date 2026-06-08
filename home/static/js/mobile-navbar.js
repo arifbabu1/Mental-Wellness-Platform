@@ -7,7 +7,6 @@
         const navbarNav = document.getElementById('navbarNav');
         
         if (!navbarToggle || !navbarNav) {
-            console.log('Navbar elements not found');
             return;
         }
         

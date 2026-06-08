@@ -1,7 +1,9 @@
 from pathlib import Path
 import importlib.util
 import os
+import sys
 from urllib.parse import urlparse
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,8 +56,13 @@ def _database_from_url(default_sqlite_path):
 _load_dotenv(BASE_DIR / '.env')
 
 # Security settings
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure--o$tbvh1+2sa-4_vtpuaxmpit^f@*)gtl+g1w_x8nt&t**^4s5')
-DEBUG = _env_bool('DEBUG', True)
+DEBUG = _env_bool('DEBUG', 'runserver' in sys.argv and 'DEBUG' not in os.environ)
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-local-development-only-change-me'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG=False.')
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', ['127.0.0.1', 'localhost', 'testserver'])
 
 # Custom User Model
@@ -88,7 +95,7 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
-SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_LOGIN_ON_GET = False
 SOCIALACCOUNT_STORE_TOKENS = False
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -121,6 +128,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'home',  # Your app here
 ]
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -182,12 +191,11 @@ STATIC_URL = '/static/'  # URL for accessing static files
 # This is for collecting static files in one place for production
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
-    BASE_DIR / 'home' / 'static',  # Add home/static to the static files search
 ]
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-if importlib.util.find_spec('whitenoise') and not DEBUG and (BASE_DIR / 'staticfiles' / 'staticfiles.json').exists():
+if importlib.util.find_spec('whitenoise') and not DEBUG:
     STORAGES = {
         'default': {
             'BACKEND': 'django.core.files.storage.FileSystemStorage',

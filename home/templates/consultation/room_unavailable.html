@@ -51,9 +51,22 @@
 </head>
 <body>
     <main class="room-unavailable">
-        <h1>Consultation room unavailable</h1>
-        <p>This consultation room could not be loaded right now. The issue has been logged for review.</p>
-        <a href="{% url 'home' %}">Return home</a>
+        <h1>{{ unavailable_title|default:"Consultation room unavailable" }}</h1>
+        <p>{{ unavailable_message|default:"This consultation room could not be loaded right now. The issue has been logged for review." }}</p>
+        {% if scheduled_at %}
+            <p>Scheduled time: {{ scheduled_at|date:"M d, Y g:i A" }}</p>
+        {% endif %}
+        {% if available_at and unavailable_title != "Meeting expired" %}
+            <p>Room opens: {{ available_at|date:"M d, Y g:i A" }}</p>
+        {% endif %}
+        {% if expires_at %}
+            <p>Room expires: {{ expires_at|date:"M d, Y g:i A" }}</p>
+        {% endif %}
+        {% if return_url_name %}
+            <a href="{% url return_url_name %}">Return to appointments</a>
+        {% else %}
+            <a href="{% url 'home' %}">Return home</a>
+        {% endif %}
     </main>
 </body>
 </html>

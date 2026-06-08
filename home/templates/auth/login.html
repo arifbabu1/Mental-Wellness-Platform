@@ -66,12 +66,16 @@
             </button>
         </form>
 
-        <div class="auth-divider"><span>or</span></div>
-
-        <a href="{% provider_login_url 'google' process='login' %}" class="google-login-btn">
-            <span class="google-icon" aria-hidden="true">G</span>
-            Continue with Google
-        </a>
+        {% if google_oauth_enabled %}
+            <div class="auth-divider"><span>or</span></div>
+            <form method="post" action="{% url 'google_oauth_login' %}">
+                {% csrf_token %}
+                <button type="submit" class="google-login-btn">
+                    <span class="google-icon" aria-hidden="true">G</span>
+                    Continue with Google
+                </button>
+            </form>
+        {% endif %}
         
         <div class="quick-links">
             <a href="{% url 'register' %}" class="quick-link">

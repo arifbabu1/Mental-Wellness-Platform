@@ -4,7 +4,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db.models import Sum, Count
 from django.contrib.admin.models import LogEntry
@@ -17,10 +16,10 @@ from .models import (
     TaskCompletion,
 )
 
-# Custom decorator to check if user is staff
+# Custom decorator to check if user is a superuser for sensitive admin pages
 def staff_required(view_func):
     @wraps(view_func)
-    @staff_member_required
+    @user_passes_test(lambda user: user.is_authenticated and user.is_superuser)
     def wrapper(request, *args, **kwargs):
         return view_func(request, *args, **kwargs)
     return wrapper

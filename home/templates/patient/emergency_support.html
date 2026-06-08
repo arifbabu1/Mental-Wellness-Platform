@@ -1,0 +1,86 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Support | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/emergency.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'patient_dashboard' %}" class="navbar-brand">Mental Wellness Platform</a>
+            <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'clinical_assessment' %}">Clinical Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container" style="max-width: 1000px; padding-top: 2rem; padding-bottom: 3rem;">
+        <section class="emergency-hero" style="margin-bottom: 1.5rem;">
+            <h1>Immediate Support Is Available</h1>
+            <p>Your responses indicate that extra support may be needed now. Please contact a crisis resource or emergency service if you feel unsafe.</p>
+            <a href="tel:999" class="btn-base btn-danger">
+                <i class="fas fa-phone"></i> Call Emergency Services
+            </a>
+        </section>
+
+        {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <section class="emergency-resources" style="margin-bottom: 1.5rem;">
+            {% for resource in crisis_resources %}
+            <article class="resource-card">
+                <h2>{{ resource.name }}</h2>
+                <p>{{ resource.description }}</p>
+                <p><strong>{{ resource.available }}</strong></p>
+                <a href="tel:{{ resource.phone }}" class="btn-base btn-primary">
+                    <i class="fas fa-phone"></i> {{ resource.phone }}
+                </a>
+            </article>
+            {% endfor %}
+        </section>
+
+        {% if emergency_doctors %}
+        <section class="emergency-resources">
+            {% for doctor in emergency_doctors %}
+            <article class="resource-card">
+                <h2>Dr. {{ doctor.user.get_full_name|default:doctor.user.username }}</h2>
+                <p>{{ doctor.specialty }}</p>
+                <a href="{% url 'book_appointment' doctor.id %}" class="btn-base btn-primary">
+                    <i class="fas fa-calendar-check"></i> Book Emergency Support
+                </a>
+            </article>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </main>
+
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <script>
+        function toggleNavbar() {
+            const nav = document.getElementById('navbarNav');
+            const toggle = document.querySelector('.navbar-toggle');
+            if (nav) nav.classList.toggle('active');
+            if (toggle) toggle.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

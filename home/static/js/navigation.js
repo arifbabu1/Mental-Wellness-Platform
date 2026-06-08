@@ -98,13 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Debug: Log current path and active links
-    console.log('Current path:', currentPath);
-    const activeLinks = document.querySelectorAll('.navbar-nav a.active');
-    console.log('Active links found:', activeLinks.length);
-    activeLinks.forEach(link => {
-        console.log('Active link:', link.getAttribute('href'), link.textContent);
-    });
 });
 
 // Assessment form progress tracking

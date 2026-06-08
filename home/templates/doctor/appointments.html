@@ -108,12 +108,13 @@
                                     
                                     <div class="appointment-actions">
                                         {% if appointment.has_consultation_room %}
-                                            <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-primary btn-small">
-                                                {% if appointment.can_join_consultation %}Join Video Call{% else %}Consultation Link{% endif %}
-                                            </a>
-                                        {% endif %}
-                                        {% if appointment.consultation_access_message and not appointment.can_join_consultation %}
-                                            <span class="btn-base btn-outline btn-small disabled">{{ appointment.consultation_access_message }}</span>
+                                            {% if appointment.can_join_consultation %}
+                                                <a href="{% url 'consultation_room' appointment.id %}" class="btn-base btn-primary btn-small">
+                                                    {{ appointment.consultation_join_label }}
+                                                </a>
+                                            {% else %}
+                                                <span class="btn-base btn-outline btn-small disabled">{{ appointment.consultation_join_label }}</span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>

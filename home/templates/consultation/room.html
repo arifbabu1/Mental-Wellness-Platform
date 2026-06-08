@@ -20,14 +20,14 @@
     <div class="consultation-room">
         <!-- Main Content Area -->
         <div class="consultation-container">
-            {% if show_patient_waiting %}
+            {% if show_waiting_room %}
             <div id="patientWaitingRoom" class="consultation-waiting-room">
                 <div class="waiting-room-card">
                     <div class="waiting-room-icon">
                         <i class="fas fa-user-md"></i>
                     </div>
-                    <h1>Waiting for Dr. {{ doctor_display_name }}</h1>
-                    <p>Your consultation room is ready. You will enter the video call automatically as soon as your doctor starts the session.</p>
+                    <h1>{{ waiting_room_title }}</h1>
+                    <p>{{ waiting_room_message }}</p>
                     <div class="waiting-room-status">
                         <span class="waiting-pulse"></span>
                         Checking consultation status...
@@ -37,8 +37,8 @@
             </div>
             {% endif %}
 
-            {% if show_doctor_start %}
-            <div id="doctorStartRoom" class="consultation-waiting-room doctor-start-room">
+            {% if participant_role == 'doctor' and not consultation_started %}
+            <div id="doctorStartRoom" class="consultation-waiting-room doctor-start-room" {% if not show_doctor_start %}style="display: none;"{% endif %}>
                 <div class="waiting-room-card">
                     <div class="waiting-room-icon">
                         <i class="fas fa-video"></i>
@@ -84,11 +84,11 @@
             </div>
 
             <!-- Video Section -->
-            <div id="meetingArea" class="meeting-area" {% if show_patient_waiting or show_doctor_start %}style="display: none;"{% endif %}>
+            <div id="meetingArea" class="meeting-area" {% if show_waiting_room or show_doctor_start %}style="display: none;"{% endif %}>
             <div class="video-section">
                 <div id="doctorDisconnectedOverlay" class="doctor-disconnected-overlay" style="display: none;">
                     <i class="fas fa-wifi"></i>
-                    <span>Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.</span>
+                    <span>Doctor disconnected. Please wait for the doctor to rejoin.</span>
                 </div>
                 <div class="main-video-wrapper">
                     <div class="main-video-container">
@@ -404,6 +404,7 @@
 
     <script src="https://meet.jit.si/external_api.js"></script>
     <script>
+        const debugLog = function () {};
         // Fully Functional Consultation Room
         class ConsultationRoom {
             constructor() {
@@ -417,6 +418,7 @@
                 this.isJoining = false;
                 this.remainingAttempts = parseInt('{{ remaining_join_attempts|default:3 }}', 10);
                 this.consultationStarted = {{ consultation_started|yesno:"true,false" }};
+                this.canStartVideo = {{ consultation_access.can_start_video|yesno:"true,false" }};
                 
                 // Room info
                 this.roomId = '{{ jitsi_room_name|escapejs }}';
@@ -497,47 +499,47 @@
             }
             
             initializeEventListeners() {
-                console.log('Initializing event listeners...');
+                debugLog('Initializing event listeners...');
                 
                 // Video controls
                 if (this.toggleVideoBtn) {
                     this.toggleVideoBtn.addEventListener('click', () => this.toggleVideo());
-                    console.log('Video button listener added');
+                    debugLog('Video button listener added');
                 } else {
                     console.error('Video button not found');
                 }
                 
                 if (this.toggleMicBtn) {
                     this.toggleMicBtn.addEventListener('click', () => this.toggleAudio());
-                    console.log('Mic button listener added');
+                    debugLog('Mic button listener added');
                 } else {
                     console.error('Mic button not found');
                 }
                 
                 if (this.toggleScreenBtn) {
                     this.toggleScreenBtn.addEventListener('click', () => this.toggleScreen());
-                    console.log('Screen button listener added');
+                    debugLog('Screen button listener added');
                 } else {
                     console.error('Screen button not found');
                 }
                 
                 if (this.raiseHandBtn) {
                     this.raiseHandBtn.addEventListener('click', () => this.toggleRaiseHand());
-                    console.log('Raise hand button listener added');
+                    debugLog('Raise hand button listener added');
                 } else {
                     console.error('Raise hand button not found');
                 }
                 
                 if (this.endCallBtn) {
                     this.endCallBtn.addEventListener('click', () => this.showEndCallModal());
-                    console.log('End call button listener added');
+                    debugLog('End call button listener added');
                 } else {
                     console.error('End call button not found');
                 }
 
                 if (this.startConsultationBtn) {
                     this.startConsultationBtn.addEventListener('click', () => this.startConsultation());
-                    console.log('Start consultation button listener added');
+                    debugLog('Start consultation button listener added');
                 }
 
                 if (this.rejoinConsultationBtn) {
@@ -551,23 +553,23 @@
                 // Chat controls
                 if (this.sendMessageBtn) {
                     this.sendMessageBtn.addEventListener('click', () => this.sendMessage());
-                    console.log('Send message button listener added');
+                    debugLog('Send message button listener added');
                 }
                 if (this.chatInput) {
                     this.chatInput.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter') this.sendMessage();
                     });
-                    console.log('Chat input listener added');
+                    debugLog('Chat input listener added');
                 }
                 
                 // Panel toggle buttons
                 if (this.chatToggleBtn) {
                     this.chatToggleBtn.addEventListener('click', () => this.showChatPanel());
-                    console.log('Chat toggle button listener added');
+                    debugLog('Chat toggle button listener added');
                 }
                 if (this.participantsToggleBtn) {
                     this.participantsToggleBtn.addEventListener('click', () => this.showParticipantsPanel());
-                    console.log('Participants toggle button listener added');
+                    debugLog('Participants toggle button listener added');
                 }
                 
                 // Doctor panel tabs (only for doctors)
@@ -580,38 +582,38 @@
                         addCustomTaskBtn.addEventListener('click', () => {
                             addCustomTask();
                         });
-                        console.log('Custom task button listener added');
+                        debugLog('Custom task button listener added');
                     }
                 }
                 
                 // Modal controls
                 if (this.cancelEndCallBtn) {
                     this.cancelEndCallBtn.addEventListener('click', () => this.hideEndCallModal());
-                    console.log('Cancel end call button listener added');
+                    debugLog('Cancel end call button listener added');
                 }
                 if (this.confirmEndCallBtn) {
                     this.confirmEndCallBtn.addEventListener('click', () => this.endCall());
-                    console.log('Confirm end call button listener added');
+                    debugLog('Confirm end call button listener added');
                 }
                 
                 // Chat and Participants close buttons
                 const closeChatBtn = document.getElementById('closeChat');
                 if (closeChatBtn) {
                     closeChatBtn.addEventListener('click', () => this.hideChatPanel());
-                    console.log('Close chat button listener added');
+                    debugLog('Close chat button listener added');
                 }
                 
                 const closeParticipantsBtn = document.getElementById('closeParticipants');
                 if (closeParticipantsBtn) {
                     closeParticipantsBtn.addEventListener('click', () => this.hideParticipantsPanel());
-                    console.log('Close participants button listener added');
+                    debugLog('Close participants button listener added');
                 }
                 
-                console.log('Event listeners initialized successfully');
+                debugLog('Event listeners initialized successfully');
             }
             
             startTimer() {
-                console.log('Starting timer...');
+                debugLog('Starting timer...');
                 this.startTime = Date.now();
                 
                 if (this.timerInterval) {
@@ -632,15 +634,15 @@
                     }
                 }, 1000);
                 
-                console.log('Timer started successfully');
+                debugLog('Timer started successfully');
             }
             
             stopTimer() {
-                console.log('Stopping timer...');
+                debugLog('Stopping timer...');
                 if (this.timerInterval) {
                     clearInterval(this.timerInterval);
                     this.timerInterval = null;
-                    console.log('Timer stopped');
+                    debugLog('Timer stopped');
                 }
             }
 
@@ -653,7 +655,13 @@
                 }
 
                 if (this.userRole === 'doctor' && !this.consultationStarted) {
-                    this.showDoctorStartRoom();
+                    if (this.canStartVideo && this.doctorStartRoom) {
+                        this.showDoctorStartRoom();
+                    } else {
+                        this.showPatientWaitingRoom();
+                        this.checkConsultationStatus();
+                        this.waitingPollInterval = setInterval(() => this.checkConsultationStatus(), 4000);
+                    }
                     return;
                 }
 
@@ -665,8 +673,8 @@
                 if (this.waitingRoom) this.waitingRoom.style.display = 'flex';
                 if (this.doctorStartRoom) this.doctorStartRoom.style.display = 'none';
                 if (this.meetingArea) this.meetingArea.style.display = 'none';
-                this.updateConnectionStatus('Waiting for doctor');
-                this.addSystemMessage('Waiting for the doctor to start the consultation.');
+                this.updateConnectionStatus(this.userRole === 'doctor' ? 'Waiting for start time' : 'Waiting for doctor');
+                this.addSystemMessage('Waiting for consultation to start.');
             }
 
             showDoctorStartRoom() {
@@ -688,7 +696,7 @@
                 if (!this.doctorDisconnectedOverlay) return;
                 const text = this.doctorDisconnectedOverlay.querySelector('span');
                 if (text) {
-                    text.textContent = message || 'Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.';
+                    text.textContent = message || 'Doctor disconnected. Please wait for the doctor to rejoin.';
                 }
                 this.doctorDisconnectedOverlay.style.display = 'flex';
             }
@@ -746,7 +754,7 @@
                 if (this.rejoinMessage) {
                     this.rejoinMessage.textContent = message || (
                         this.userRole === 'doctor'
-                            ? 'Please rejoin within 3 minutes, otherwise the consultation will be completed automatically.'
+                            ? 'You can rejoin the consultation if you still have attempts remaining.'
                             : 'You can rejoin the consultation if you still have attempts remaining.'
                     );
                 }
@@ -784,9 +792,12 @@
                         this.hideDoctorDisconnectedOverlay();
                     }
 
-                    if (data.started === true || data.doctor_joined === true) {
+                    this.canStartVideo = data.can_start_video === true;
+                    if (data.started === true || data.video_ready === true) {
                         this.consultationStarted = true;
                         this.initializeJitsi();
+                    } else if (this.userRole === 'doctor' && this.canStartVideo && this.doctorStartRoom) {
+                        this.showDoctorStartRoom();
                     }
                 } catch (error) {
                     console.error('Failed to check consultation status:', error);
@@ -996,7 +1007,7 @@
                     }
                     if (data.doctor_left && this.userRole === 'patient') {
                         this.showDoctorDisconnectedOverlay(data.message);
-                        this.addSystemMessage(data.message || 'Doctor disconnected. Please wait. The doctor can rejoin within 3 minutes.');
+                        this.addSystemMessage(data.message || 'Doctor disconnected. Please wait for the doctor to rejoin.');
                     } else if (!data.doctor_left) {
                         this.hideDoctorDisconnectedOverlay();
                     }
@@ -1079,7 +1090,7 @@
             }
             
             toggleRaiseHand() {
-                console.log('Toggling raise hand...');
+                debugLog('Toggling raise hand...');
                 const isRaised = this.raiseHandBtn.classList.contains('active');
                 if (this.jitsiApi) {
                     try {
@@ -1090,15 +1101,15 @@
                 }
                 
                 if (isRaised) {
-                    console.log('Lowering hand...');
+                    debugLog('Lowering hand...');
                     this.raiseHandBtn.classList.remove('active');
                     this.addSystemMessage('Hand lowered');
-                    console.log('Hand lowered successfully');
+                    debugLog('Hand lowered successfully');
                 } else {
-                    console.log('Raising hand...');
+                    debugLog('Raising hand...');
                     this.raiseHandBtn.classList.add('active');
                     this.addSystemMessage('Hand raised');
-                    console.log('Hand raised successfully');
+                    debugLog('Hand raised successfully');
                 }
             }
             
@@ -1125,15 +1136,15 @@
             }
             
             sendMessage() {
-                console.log('Sending message...');
+                debugLog('Sending message...');
                 const message = this.chatInput.value.trim();
                 if (message && this.chatMessages) {
-                    console.log('Message:', message);
+                    debugLog('Message:', message);
                     this.addChatMessage(this.userName, message, new Date().toISOString());
                     this.chatInput.value = '';
-                    console.log('Message sent successfully');
+                    debugLog('Message sent successfully');
                 } else {
-                    console.log('No message or chat messages container not found');
+                    debugLog('No message or chat messages container not found');
                 }
             }
             
@@ -1326,27 +1337,27 @@
             }
             
             showEndCallModal() {
-                console.log('Showing end call modal...');
+                debugLog('Showing end call modal...');
                 if (this.endCallModal) {
                     this.endCallModal.style.display = 'flex';
-                    console.log('End call modal shown');
+                    debugLog('End call modal shown');
                 } else {
                     console.error('End call modal not found');
                 }
             }
             
             hideEndCallModal() {
-                console.log('Hiding end call modal...');
+                debugLog('Hiding end call modal...');
                 if (this.endCallModal) {
                     this.endCallModal.style.display = 'none';
-                    console.log('End call modal hidden');
+                    debugLog('End call modal hidden');
                 } else {
                     console.error('End call modal not found');
                 }
             }
             
             async endCall() {
-                console.log('Ending call...');
+                debugLog('Ending call...');
 
                 if (this.jitsiApi) {
                     try {
@@ -1412,7 +1423,7 @@
             
             updateConnectionStatus(status) {
                 // Connection status overlay was removed, so just log the status
-                console.log('Connection status:', status);
+                debugLog('Connection status:', status);
             }
             
             saveNotes() {
@@ -1452,7 +1463,7 @@
             }
             
             initializeDoctorPanel() {
-                console.log('Initializing doctor panel...');
+                debugLog('Initializing doctor panel...');
                 this.initializeDoctorDrawer();
                 
                 // Wait for DOM to be ready
@@ -1461,8 +1472,8 @@
                     const doctorTabBtns = document.querySelectorAll('.doctor-tab-btn');
                     const doctorTabContents = document.querySelectorAll('.doctor-tab-content');
                     
-                    console.log('Found tab buttons:', doctorTabBtns.length);
-                    console.log('Found tab contents:', doctorTabContents.length);
+                    debugLog('Found tab buttons:', doctorTabBtns.length);
+                    debugLog('Found tab contents:', doctorTabContents.length);
                     
                     if (doctorTabBtns.length === 0) {
                         console.error('No doctor tab buttons found!');
@@ -1472,7 +1483,7 @@
                     doctorTabBtns.forEach(btn => {
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
-                            console.log('Tab clicked:', btn.dataset.tab);
+                            debugLog('Tab clicked:', btn.dataset.tab);
                             const targetTab = btn.dataset.tab;
                             
                             // Remove active class from all tabs and contents
@@ -1484,7 +1495,7 @@
                             const targetContent = document.getElementById(`${targetTab}-tab`);
                             if (targetContent) {
                                 targetContent.classList.add('active');
-                                console.log('Activated tab:', targetTab);
+                                debugLog('Activated tab:', targetTab);
                             } else {
                                 console.error('Tab content not found:', targetTab);
                             }
@@ -1497,7 +1508,7 @@
                         btn.addEventListener('click', (e) => {
                             e.preventDefault();
                             const category = btn.dataset.category;
-                            console.log('Task category clicked:', category);
+                            debugLog('Task category clicked:', category);
                             
                             // Remove active class from all category buttons
                             taskCategoryBtns.forEach(b => b.classList.remove('active'));
@@ -1513,7 +1524,7 @@
                     if (saveAllBtn) {
                         saveAllBtn.addEventListener('click', (e) => {
                             e.preventDefault();
-                            console.log('Save button clicked');
+                            debugLog('Save button clicked');
                             this.saveAllDoctorData();
                         });
                     } else {
@@ -1523,7 +1534,7 @@
                     // Load initial task templates
                     this.loadTaskTemplates('all');
                     
-                    console.log('Doctor panel initialized successfully');
+                    debugLog('Doctor panel initialized successfully');
                 }, 100); // Small delay to ensure DOM is ready
             }
 
@@ -1644,7 +1655,7 @@
                         tasks: selectedTasks
                     };
                     
-                    console.log('Saving data:', data);
+                    debugLog('Saving data:', data);
                     
                     // Validate data before sending
                     if (!data.appointmentId || !data.patientId) {
@@ -1661,7 +1672,7 @@
                         body: JSON.stringify(data)
                     });
                     
-                    console.log('Response status:', response.status);
+                    debugLog('Response status:', response.status);
                     
                     if (!response.ok) {
                         // Handle HTTP errors
@@ -1673,7 +1684,7 @@
                     }
                     
                     const result = await response.json();
-                    console.log('Response result:', result);
+                    debugLog('Response result:', result);
                     
                     if (result.success) {
                         this.showNotification('Consultation data saved successfully!', 'success');
@@ -1741,7 +1752,7 @@
             
             getSelectedTasks() {
                 const tasks = collectSelectedTasksFromDom();
-                console.log('Final tasks array:', tasks);
+                debugLog('Final tasks array:', tasks);
                 return tasks;
             }
             
@@ -1764,7 +1775,7 @@
                 const medications = [];
                 const medicationItems = document.querySelectorAll('#medicationsList .medication-item');
                 
-                console.log('Found medication items:', medicationItems.length);
+                debugLog('Found medication items:', medicationItems.length);
                 
                 medicationItems.forEach((item, index) => {
                     const name = item.querySelector('.med-name')?.value?.trim();
@@ -1772,7 +1783,7 @@
                     const frequency = item.querySelector('.med-frequency')?.value?.trim();
                     const duration = item.querySelector('.med-duration')?.value?.trim();
                     
-                    console.log(`Medication ${index}:`, { name, dosage, frequency, duration });
+                    debugLog(`Medication ${index}:`, { name, dosage, frequency, duration });
                     
                     if (name && dosage) {
                         medications.push({ 
@@ -1784,12 +1795,12 @@
                     }
                 });
                 
-                console.log('Final medications array:', medications);
+                debugLog('Final medications array:', medications);
                 return medications;
             }
             
             cleanup() {
-                console.log('Cleaning up consultation room...');
+                debugLog('Cleaning up consultation room...');
                 this.disposeJitsi();
                 this.stopTimer();
                 
@@ -1802,7 +1813,7 @@
                     this.waitingPollInterval = null;
                 }
                 
-                console.log('Cleanup completed');
+                debugLog('Cleanup completed');
             }
 
             disposeJitsi() {
@@ -1821,7 +1832,7 @@
         
         // Global functions for prescription and task management
         function addMedication() {
-            console.log('Adding medication...');
+            debugLog('Adding medication...');
             const medicationsList = document.getElementById('medicationsList');
             if (medicationsList) {
                 const newMedication = document.createElement('div');
@@ -1834,7 +1845,7 @@
                     <button type="button" class="btn-remove">×</button>
                 `;
                 medicationsList.appendChild(newMedication);
-                console.log('Medication added successfully');
+                debugLog('Medication added successfully');
                 
                 // Add event listener to the new button
                 const removeBtn = newMedication.querySelector('.btn-remove');
@@ -1849,11 +1860,11 @@
         }
         
         function removeMedication(button) {
-            console.log('Removing medication...');
+            debugLog('Removing medication...');
             const medicationItem = button.closest('.medication-item');
             if (medicationItem) {
                 medicationItem.remove();
-                console.log('Medication removed successfully');
+                debugLog('Medication removed successfully');
             } else {
                 console.error('Medication item not found');
             }
@@ -1863,7 +1874,7 @@
             const tasks = [];
             const selectedTaskItems = document.querySelectorAll('#selectedTasksList .selected-task-item');
 
-            console.log('Found selected task items:', selectedTaskItems.length);
+            debugLog('Found selected task items:', selectedTaskItems.length);
 
             selectedTaskItems.forEach((item, index) => {
                 const title = item.querySelector('h6')?.textContent?.trim();
@@ -1873,7 +1884,7 @@
                 const priority = item.querySelector('.task-priority')?.textContent?.trim();
                 const durationDays = parseInt(durationText) || 7;
 
-                console.log(`Task ${index}:`, { title, description, category, durationDays, priority });
+                debugLog(`Task ${index}:`, { title, description, category, durationDays, priority });
 
                 if (title && description) {
                     tasks.push({
@@ -1899,7 +1910,7 @@
         }
         
         function addTaskFromTemplate(index) {
-            console.log('Adding task from template index:', index);
+            debugLog('Adding task from template index:', index);
             
             const taskTemplates = document.getElementById('taskTemplates');
             const templateItems = taskTemplates.querySelectorAll('.task-template-item');
@@ -1907,7 +1918,7 @@
             
             if (templateItem) {
                 const taskData = JSON.parse(decodeURIComponent(templateItem.dataset.task));
-                console.log('Template task data:', taskData);
+                debugLog('Template task data:', taskData);
                 
                 const selectedTasksList = document.getElementById('selectedTasksList');
                 if (selectedTasksList) {
@@ -1930,11 +1941,11 @@
                                 <span class="task-priority medium">medium</span>
                             </div>
                         </div>
-                        <button onclick="removeSelectedTask(this)" class="btn-remove">×</button>
+                        <button onclick="removeSelectedTask(this)" class="btn-remove">&times;</button>
                     `;
                     selectedTasksList.appendChild(taskItem);
                     
-                    console.log('Template task added successfully');
+                    debugLog('Template task added successfully');
                     updateSelectedTasksCount();
                     syncDailyTasksJson();
                 } else {
@@ -1979,7 +1990,7 @@
                             <span class="task-priority ${priority}">${priority}</span>
                         </div>
                     </div>
-                    <button onclick="removeSelectedTask(this)" class="btn-remove">×</button>
+                    <button onclick="removeSelectedTask(this)" class="btn-remove">&times;</button>
                 `;
                 selectedTasksList.appendChild(taskItem);
                 
@@ -1998,11 +2009,11 @@
         }
         
         function removeSelectedTask(button) {
-            console.log('Removing selected task...');
+            debugLog('Removing selected task...');
             const taskItem = button.closest('.selected-task-item');
             if (taskItem) {
                 taskItem.remove();
-                console.log('Selected task removed successfully');
+                debugLog('Selected task removed successfully');
                 updateSelectedTasksCount();
                 
                 // Show "No tasks selected" if list is empty
@@ -2022,7 +2033,7 @@
             const countSpan = document.getElementById('selectedTasksCount');
             if (countSpan) {
                 countSpan.textContent = count;
-                console.log('Updated task count:', count);
+                debugLog('Updated task count:', count);
             } else {
                 console.error('Task count span not found');
             }
@@ -2129,12 +2140,12 @@
             };
             
             // Debug logging
-            console.log('=== SAVING PRESCRIPTION AND TASKS ===');
-            console.log('Saving data:', data);
-            console.log('Prescription data:', prescriptionData);
-            console.log('Tasks data:', selectedTasks);
-            console.log('Number of tasks:', selectedTasks.length);
-            console.log('Consultation ID:', consultationId);
+            debugLog('=== SAVING PRESCRIPTION AND TASKS ===');
+            debugLog('Saving data:', data);
+            debugLog('Prescription data:', prescriptionData);
+            debugLog('Tasks data:', selectedTasks);
+            debugLog('Number of tasks:', selectedTasks.length);
+            debugLog('Consultation ID:', consultationId);
             
             // Show loading state
             const saveBtn = document.querySelector('button[onclick="savePrescriptionAndTasks()"]');
@@ -2144,7 +2155,7 @@
             }
             
             // Send to backend
-            console.log('=== SENDING REQUEST TO BACKEND ===');
+            debugLog('=== SENDING REQUEST TO BACKEND ===');
             fetch(`/consultation/{{ consultation.id }}/save-prescription-tasks/`, {
                 method: 'POST',
                 headers: {
@@ -2154,11 +2165,11 @@
                 body: JSON.stringify(data)
             })
             .then(response => {
-                console.log('Response status:', response.status);
+                debugLog('Response status:', response.status);
                 return response.json();
             })
             .then(result => {
-                console.log('Result:', result);
+                debugLog('Result:', result);
                 if (result.success) {
                     // Show success message
                     window.consultationRoom.addSystemMessage('Prescription and tasks saved successfully!');
@@ -2375,7 +2386,7 @@
                             <span class="task-priority ${priority}">${priority}</span>
                         </div>
                     </div>
-                    <button onclick="removeSelectedTask(this)" class="btn-remove">Ã—</button>
+                    <button onclick="removeSelectedTask(this)" class="btn-remove">&times;</button>
                 `;
                 selectedTasksList.appendChild(taskItem);
                 
@@ -2440,32 +2451,32 @@
         
         // Initialize consultation room
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, initializing consultation room...');
+            debugLog('DOM loaded, initializing consultation room...');
             try {
                 window.consultationRoom = new ConsultationRoom();
-                console.log('Consultation room initialized successfully');
+                debugLog('Consultation room initialized successfully');
                 
                 // Test basic functionality
                 setTimeout(() => {
-                    console.log('Testing basic functionality...');
+                    debugLog('Testing basic functionality...');
                     
                     // Test medication addition
                     const medList = document.getElementById('medicationsList');
-                    console.log('Medications list found:', !!medList);
+                    debugLog('Medications list found:', !!medList);
                     
                     // Test custom task button
                     const addTaskBtn = document.getElementById('addCustomTaskBtn');
-                    console.log('Add task button found:', !!addTaskBtn);
+                    debugLog('Add task button found:', !!addTaskBtn);
                     
                     // Test custom task form
                     const taskTitle = document.getElementById('customTaskTitle');
-                    console.log('Task title field found:', !!taskTitle);
+                    debugLog('Task title field found:', !!taskTitle);
                     
                     // Test selected tasks list
                     const selectedTasks = document.getElementById('selectedTasksList');
-                    console.log('Selected tasks list found:', !!selectedTasks);
+                    debugLog('Selected tasks list found:', !!selectedTasks);
                     
-                    console.log('Basic functionality test complete');
+                    debugLog('Basic functionality test complete');
                 }, 2000);
                 
             } catch (error) {

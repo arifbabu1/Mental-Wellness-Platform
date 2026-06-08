@@ -67,7 +67,7 @@ When detected:
 - A safe crisis response is returned.
 - `EmergencyLog` is created.
 - Emergency-support doctors are prioritized.
-- Hotline `16101` and immediate professional help are recommended.
+- Bangladesh emergency services `999` and immediate professional help are recommended.
 
 ## Doctor Matching Algorithm
 

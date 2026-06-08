@@ -88,7 +88,7 @@
               <div class="hotline-content">
                 <div class="hotline-number-display">
                   <div class="call-icon">Call</div>
-                  <div class="number-text">16101</div>
+                  <div class="number-text">999</div>
                   <div class="available-text">Available 24/7</div>
                 </div>
                 
@@ -220,7 +220,7 @@
             <h3>Emergency Contacts</h3>
             <p>Save important numbers for quick access during crisis.</p>
             <ul>
-              <li>Emergency Hotline: 16101</li>
+              <li>Emergency Hotline: 999</li>
               <li>Local Emergency Services</li>
               <li>Trusted Friend/Family</li>
             </ul>
@@ -321,8 +321,9 @@
 
     <!-- JavaScript -->
     <script>
+      const debugLog = function () {};
       // Simple test function
-      console.log('Emergency page script loaded');
+      debugLog('Emergency page script loaded');
       
       // Emergency page functions
       function startLiveChat() {
@@ -331,7 +332,7 @@
       }
 
       function findNearbyHelp() {
-        alert('Nearby help finder coming soon. Please call: hotline for immediate assistance.');
+        alert('Nearby help finder coming soon. Please call emergency services at 999 for immediate assistance.');
       }
 
       function scrollToMap() {
@@ -457,17 +458,17 @@
         
         // PRIORITY 1: SUICIDE AND SELF-HARM - Most Critical
         if (lowerMessage.includes('suicide') || lowerMessage.includes('kill myself') || lowerMessage.includes('end my life') || lowerMessage.includes('want to die') || lowerMessage.includes('suicidal') || lowerMessage.includes('end it all') || lowerMessage.includes('want to suiside') || lowerMessage.includes('suiside') || lowerMessage.includes('daie') || lowerMessage.includes('daing')) {
-          return "I hear you're in incredible pain and thinking about ending your life. This is a mental health emergency, and I want you to know: **Your life matters deeply.** These feelings, while overwhelming right now, are temporary and treatable. Please call our emergency hotline **16101** immediately - they're trained professionals available 24/7 who can help you through this crisis. You don't have to carry this pain alone. I'll stay here with you while you make that call. Your life is worth saving, and help is available right now.";
+          return "I hear you're in incredible pain and thinking about ending your life. This is a mental health emergency, and I want you to know: **Your life matters deeply.** These feelings, while overwhelming right now, are temporary and treatable. Please call Bangladesh emergency services at **999** immediately. You don't have to carry this pain alone. I'll stay here with you while you make that call. Your life is worth saving, and help is available right now.";
         }
         
         // PRIORITY 2: IMMEDIATE DANGER AND SAFETY CONCERNS
         if (lowerMessage.includes('watching me') || lowerMessage.includes('someone watching') || lowerMessage.includes('followed') || lowerMessage.includes('stalked') || lowerMessage.includes('paranoid') || lowerMessage.includes('scared of someone') || lowerMessage.includes('danger') || lowerMessage.includes('unsafe') || lowerMessage.includes('threat') || lowerMessage.includes('abuse')) {
-          return "I'm concerned about your safety. If you feel you're in immediate danger, please call emergency services right away. You can also reach our crisis team at **16101**. Your safety is the absolute priority. Can you tell me more about what's making you feel unsafe? Are you currently in a safe location?";
+          return "I'm concerned about your safety. If you feel you're in immediate danger, please call emergency services right away at **999**. Your safety is the absolute priority. Can you tell me more about what's making you feel unsafe? Are you currently in a safe location?";
         }
         
         // PRIORITY 3: SEVERE MENTAL HEALTH CRISES
         if (lowerMessage.includes('kill me') || lowerMessage.includes('harm me') || lowerMessage.includes('hurt me') || lowerMessage.includes('attack me') || lowerMessage.includes('hide') || lowerMessage.includes('abuse')) {
-          return "I'm deeply concerned about your safety. If you're in immediate danger, please call emergency services or our hotline at **16101**. Your wellbeing is my top priority. Please reach out for help right away - you don't have to face this alone.";
+          return "I'm deeply concerned about your safety. If you're in immediate danger, please call emergency services at **999**. Your wellbeing is my top priority. Please reach out for help right away - you don't have to face this alone.";
         }
         
         // Enhanced conversation flow - more natural like ChatGPT/Gemini
@@ -594,7 +595,7 @@
       }
 
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('Initializing emergency page functionality...');
+        debugLog('Initializing emergency page functionality...');
         
         // Emergency call button - Multiple selectors to catch all variations
         const callButtons = document.querySelectorAll('.btn-emergency-call, .btn-primary-emergency');
@@ -683,8 +684,8 @@
           });
         });
         
-        console.log('Emergency page functionality initialized successfully');
-        console.log('Found buttons:', {
+        debugLog('Emergency page functionality initialized successfully');
+        debugLog('Found buttons:', {
           callButtons: callButtons.length,
           smsButtons: smsButtons.length,
           findCentersButtons: findCentersButtons.length,
@@ -750,7 +751,7 @@
       }
       
       function makeEmergencyCall() {
-        const phoneNumber = '16101';
+        const phoneNumber = '999';
         
         // Show confirmation dialog
         const confirmed = confirm(`Are you sure you want to call the emergency hotline?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
@@ -760,7 +761,7 @@
           window.location.href = `tel:${phoneNumber}`;
           
           // Log the call attempt for analytics (if needed)
-          console.log('Emergency call initiated:', phoneNumber);
+          debugLog('Emergency call initiated:', phoneNumber);
           
           // Show a message after a short delay
           setTimeout(() => {
@@ -771,7 +772,7 @@
       
       // Enhanced SMS functionality
       function sendEmergencySMS() {
-        const phoneNumber = '16101';
+        const phoneNumber = '999';
         
         // Show confirmation dialog
         const confirmed = confirm(`Do you want to send an SMS to the emergency hotline?\n\nPhone: ${phoneNumber}\n\nWe\'ll respond as quickly as possible.`);

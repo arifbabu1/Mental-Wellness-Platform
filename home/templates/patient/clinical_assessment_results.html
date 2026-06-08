@@ -1,0 +1,95 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Assessment Results | Mental Wellness Platform</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'css/clinical-assessment.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <div class="container">
+            <a href="{% url 'patient_dashboard' %}" class="navbar-brand">Mental Wellness Platform</a>
+            <button class="navbar-toggle" onclick="toggleNavbar()" aria-label="Toggle navigation menu">
+                <span class="hamburger"></span>
+            </button>
+            <ul class="navbar-nav" id="navbarNav">
+                <li><a href="{% url 'patient_dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'clinical_assessment' %}" class="active">Clinical Assessment</a></li>
+                <li><a href="{% url 'doctors_list' %}">Doctors</a></li>
+                <li><a href="{% url 'patient_appointments' %}">Appointments</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container" style="max-width: 1100px; padding-top: 2rem; padding-bottom: 3rem;">
+        <section class="assessment-card" style="margin-bottom: 1.5rem;">
+            <h1>Clinical Assessment Results</h1>
+            <p>Your PHQ-9 and GAD-7 screening is complete. These results are screening guidance only and are not a diagnosis.</p>
+        </section>
+
+        <section class="assessment-card" style="margin-bottom: 1.5rem;">
+            <div class="results-grid">
+                <div class="result-card">
+                    <span class="result-label">PHQ-9 Depression Score</span>
+                    <strong>{{ assessment.phq9_score }}/27</strong>
+                    <span class="status-badge">{{ assessment.get_depression_severity_display }}</span>
+                </div>
+                <div class="result-card">
+                    <span class="result-label">GAD-7 Anxiety Score</span>
+                    <strong>{{ assessment.gad7_score }}/21</strong>
+                    <span class="status-badge">{{ assessment.get_anxiety_severity_display }}</span>
+                </div>
+                <div class="result-card">
+                    <span class="result-label">Primary Area</span>
+                    <strong>{{ assessment.primary_condition }}</strong>
+                    <span class="status-badge">Screening focus</span>
+                </div>
+            </div>
+        </section>
+
+        {% if recommended_doctors %}
+        <section class="assessment-card" style="margin-bottom: 1.5rem;">
+            <h2>Recommended Doctors</h2>
+            <div class="doctor-recommendations">
+                {% for item in recommended_doctors %}
+                <article class="recommendation-card">
+                    <h3>Dr. {{ item.doctor.user.get_full_name|default:item.doctor.user.username }}</h3>
+                    <p>{{ item.doctor.specialty }}</p>
+                    <p>{{ item.match_reason }}</p>
+                    <a href="{% url 'book_appointment' item.doctor.id %}" class="btn-base btn-primary">
+                        <i class="fas fa-calendar-check"></i> Book Appointment
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="assessment-card">
+            <h2>Important Note</h2>
+            <p>{{ medical_disclaimer }}</p>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <a href="{% url 'doctors_list' %}" class="btn-base btn-primary">Find a Doctor</a>
+                <a href="{% url 'patient_dashboard' %}" class="btn-base btn-outline">Back to Dashboard</a>
+            </div>
+        </section>
+    </main>
+
+    <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
+    <script>
+        function toggleNavbar() {
+            const nav = document.getElementById('navbarNav');
+            const toggle = document.querySelector('.navbar-toggle');
+            if (nav) nav.classList.toggle('active');
+            if (toggle) toggle.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

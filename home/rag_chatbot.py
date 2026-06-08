@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import html
 import json
 import logging
@@ -50,18 +50,18 @@ CRISIS_PATTERNS = [
     r'\bkill myself\b',
     r'\bend my life\b',
     r'\bwant to die\b',
-    r'\bdon\'?t want to live\b',
+    r"\bdon'?t want to live\b",
     r'\bself[-\s]?harm\b',
     r'\bhurt myself\b',
     r'\bcut myself\b',
     r'\boverdose\b',
     r'\bmedical emergency\b',
-    r'\bcan\'?t stay safe\b',
+    r"\bcan'?t stay safe\b",
     r'\bextreme depression\b',
     r'\bviolent thoughts\b',
     r'\bhurt someone\b',
     r'\bkill someone\b',
-    r'আত্মহত্যা',
+    'আত্মহত্যা',
     r'নিজেকে\s*মেরে',
     r'মরে\s*যেতে',
     r'বাঁচতে\s*চাই\s*না',
@@ -69,11 +69,12 @@ CRISIS_PATTERNS = [
     r'মেরে\s*ফেলব',
 ]
 
+
 PLATFORM_KEYWORDS = {
     'appointment', 'appointments', 'book', 'booking', 'doctor', 'doctors',
     'therapist', 'therapy', 'dashboard', 'assessment', 'clinical', 'phq',
     'gad', 'blog', 'blogs', 'payment', 'prescription', 'task', 'tasks',
-    'hotline', '16101', 'center', 'centers', 'schedule', 'login', 'register',
+    'hotline', '999', 'center', 'centers', 'schedule', 'login', 'register',
     'platform', 'website', 'service', 'services', 'consultation',
 }
 
@@ -120,129 +121,11 @@ SYMPTOM_KEYWORDS = {
         'doctor_terms': ['ocd', 'obsessive', 'psychiatrist', 'therapist'],
     },
     'relationship': {
-        'en': ['relationship', 'breakup', 'family', 'partner', 'marriage'],
+        'en': ['relationship', 'breakup', 'family', 'spouse', 'marriage'],
         'bn': ['সম্পর্ক', 'বিচ্ছেদ', 'পরিবার', 'সঙ্গী', 'বিয়ে'],
-        'doctor_terms': ['relationship', 'family', 'counselor', 'therapist'],
+        'doctor_terms': ['relationship', 'family', 'therapist', 'counselor'],
     },
 }
-
-STOPWORDS = {
-    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'for',
-    'from', 'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or',
-    'our', 'the', 'this', 'to', 'with', 'you', 'your',
-}
-
-
-def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
-    """Route a user message through safety, RAG, or general local LLM response."""
-    message = (message or '').strip()
-    language = detect_language(message)
-    chat_session = get_or_create_chat_session(session_id, user, django_session_key, language)
-    if not message:
-        return {
-            'response': translate_static("I'm here with you. What would you like to talk about?", language),
-            'category': 'general_wellness',
-            'used_rag': False,
-            'session_id': str(chat_session.id),
-            'language': language,
-        }
-
-    ChatMessage.objects.create(session=chat_session, role='user', content=message)
-    update_session_title(chat_session, message, language)
-    history = get_recent_history(chat_session)
-    symptoms = extract_symptoms_from_history(history)
-    recommended_doctors = recommend_doctors_for_symptoms(symptoms, crisis=is_crisis_query(message), limit=3)
-
-    if is_crisis_query(message):
-        detected_terms = detect_crisis_terms(message)
-        EmergencyLog.objects.create(
-            session=chat_session,
-            user=user if getattr(user, 'is_authenticated', False) else None,
-            message=message,
-            detected_terms=detected_terms,
-            risk_level='critical',
-            recommended_action='Call emergency services, hotline 16101, and consult emergency-support doctor',
-        )
-        response = crisis_response(language, recommended_doctors)
-        ChatMessage.objects.create(
-            session=chat_session,
-            role='assistant',
-            content=response,
-            category='high_risk_crisis',
-            metadata={'doctors': serialize_doctors(recommended_doctors), 'detected_terms': detected_terms},
-        )
-        return {
-            'response': response,
-            'category': 'high_risk_crisis',
-            'used_rag': False,
-            'session_id': str(chat_session.id),
-            'language': language,
-            'doctors': serialize_doctors(recommended_doctors),
-        }
-
-    try:
-        category = classify_query_without_retrieval(message)
-        if category == 'general_wellness':
-            words = set(tokenize(message))
-            if not words & GENERAL_WELLNESS_KEYWORDS:
-                ensure_knowledge_base_synced()
-                category = classify_query(message)
-        if category == 'platform_specific':
-            ensure_knowledge_base_synced()
-            contexts = retrieve_context(message, minimum_score=0.08)
-            if contexts:
-                response = generate_platform_response(message, contexts, history, language, recommended_doctors)
-                ChatMessage.objects.create(
-                    session=chat_session,
-                    role='assistant',
-                    content=response,
-                    category=category,
-                    metadata={'used_rag': True, 'sources': [_source_payload(context) for context in contexts], 'doctors': serialize_doctors(recommended_doctors)},
-                )
-                return {
-                    'response': response,
-                    'category': category,
-                    'used_rag': True,
-                    'sources': [_source_payload(context) for context in contexts],
-                    'session_id': str(chat_session.id),
-                    'language': language,
-                    'doctors': serialize_doctors(recommended_doctors),
-                }
-
-        response = generate_general_response(message, history, language, recommended_doctors)
-        ChatMessage.objects.create(
-            session=chat_session,
-            role='assistant',
-            content=response,
-            category=category,
-            metadata={'used_rag': False, 'doctors': serialize_doctors(recommended_doctors)},
-        )
-        return {
-            'response': response,
-            'category': category,
-            'used_rag': False,
-            'session_id': str(chat_session.id),
-            'language': language,
-            'doctors': serialize_doctors(recommended_doctors),
-        }
-    except Exception:
-        logger.exception('Emergency chatbot pipeline failed; falling back safely.')
-        response = safe_fallback_response(message, language)
-        ChatMessage.objects.create(
-            session=chat_session,
-            role='assistant',
-            content=response,
-            category=classify_query_without_retrieval(message),
-            metadata={'fallback': True, 'doctors': serialize_doctors(recommended_doctors)},
-        )
-        return {
-            'response': response,
-            'category': classify_query_without_retrieval(message),
-            'used_rag': False,
-            'session_id': str(chat_session.id),
-            'language': language,
-            'doctors': serialize_doctors(recommended_doctors),
-        }
 
 
 def is_crisis_query(text):
@@ -259,17 +142,17 @@ def crisis_response(language='en', doctors=None):
     doctor_text = doctor_recommendation_text(doctors or [], language, emergency=True)
     if language == 'bn':
         return (
-            "আপনি আমাকে বলেছেন বলে ধন্যবাদ। এটা জরুরি মনে হচ্ছে, আর এখন আপনার নিরাপত্তাই সবচেয়ে গুরুত্বপূর্ণ। "
-            "যদি আপনি নিজেকে আঘাত করার ঝুঁকিতে থাকেন, নিরাপদ থাকতে না পারেন, অথবা এটি মেডিকেল ইমার্জেন্সি হয়, এখনই জরুরি সেবায় কল করুন বা নিকটস্থ জরুরি বিভাগে যান। "
-            "এই প্ল্যাটফর্মের ২৪/৭ জরুরি হটলাইন 16101-এও কল করতে পারেন। সম্ভব হলে ক্ষতি করতে পারে এমন জিনিস থেকে দূরে যান এবং একজন বিশ্বস্ত মানুষকে আপনার পাশে থাকতে বলুন। "
-            f"{doctor_text}"
+            'আপনি আমাকে বলেছেন বলে ধন্যবাদ। এটা জরুরি মনে হচ্ছে, আর এখন আপনার নিরাপত্তাই সবচেয়ে গুরুত্বপূর্ণ। '
+            'যদি আপনি নিজেকে আঘাত করার ঝুঁকিতে থাকেন, নিরাপদ থাকতে না পারেন, অথবা এটি মেডিক্যাল ইমার্জেন্সি হয়, এখনই জরুরি সেবা নিন বা নিকটস্থ জরুরি বিভাগে যান। '
+            'এ প্ল্যাটফর্মের ২৪/৭ জরুরি হটলাইন 999-এও কল করতে পারেন। সম্ভব হলে ক্ষতি করতে পারে এমন জিনিস থেকে দূরে যান এবং একজন বিশ্বস্ত মানুষকে আপনার পাশে থাকতে বলুন। '
+            f'{doctor_text}'
         )
     return (
         "I'm really glad you told me. This sounds urgent, and your safety matters most right now. "
         "If you might hurt yourself, feel unable to stay safe, or this is a medical emergency, please call emergency services now or go to the nearest emergency room. "
-        "You can also call this platform's 24/7 emergency hotline at 16101. "
+        "You can also call Bangladesh emergency services at 999. "
         "If possible, move away from anything you could use to harm yourself and contact a trusted person to stay with you while you get help. "
-        f"{doctor_text}"
+        f'{doctor_text}'
     )
 
 
@@ -373,7 +256,7 @@ def build_system_prompt(language='en', platform_mode=False):
         "You are not a licensed doctor and must not claim to diagnose, prescribe medicine, or replace therapy. "
         "Use recent conversation context so the user does not need to repeat themselves. "
         "For mental health topics, validate feelings, ask one gentle follow-up when useful, and suggest professional consultation when symptoms are persistent, severe, or impairing daily life. "
-        "For crisis, self-harm, suicide, violence, or medical emergency, prioritize immediate safety, hotline 16101, emergency services, and emergency doctor consultation. "
+        "For crisis, self-harm, suicide, violence, or medical emergency, prioritize immediate safety, Bangladesh emergency services at 999, and emergency doctor consultation. "
         "Do not provide harmful instructions, methods, medication dosages, or dangerous medical advice. "
         "Keep responses short, natural, and non-repetitive. "
         f"{language_rule}"
@@ -391,6 +274,77 @@ def generate_general_response(message, history=None, language='en', doctors=None
     return response or safe_fallback_response(message, language, doctors)
 
 
+def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
+    message = (message or '').strip()
+    language = detect_language(message)
+    chat_session = get_or_create_chat_session(session_id, user, django_session_key, language)
+    history = get_recent_history(chat_session)
+    history_text = ' '.join(
+        [message] + [item.content for item in history if item.role == 'user']
+    )
+    crisis = is_crisis_query(message)
+    symptoms = extract_symptoms_from_history(history_text)
+    recommended_doctors = recommend_doctors_for_symptoms(symptoms, crisis=crisis, limit=3)
+    category = 'crisis' if crisis else classify_query(message)
+    contexts = []
+    used_rag = False
+
+    ChatMessage.objects.create(
+        session=chat_session,
+        role='user',
+        content=message,
+        category=category,
+        metadata={'language': language, 'symptoms': symptoms},
+    )
+
+    if crisis:
+        response = crisis_response(language, recommended_doctors)
+        EmergencyLog.objects.create(
+            session=chat_session,
+            user=user if getattr(user, 'is_authenticated', False) else None,
+            message=message,
+            detected_terms=detect_crisis_terms(message),
+            risk_level='critical',
+            recommended_action='Call Bangladesh emergency services at 999 or go to the nearest emergency department.',
+        )
+    elif category == 'platform_specific':
+        try:
+            ensure_knowledge_base_synced()
+            contexts = retrieve_context(message)
+        except Exception as exc:
+            logger.warning('Chatbot knowledge lookup unavailable: %s', exc)
+            contexts = []
+        used_rag = bool(contexts)
+        if contexts:
+            response = generate_platform_response(message, contexts, history, language, recommended_doctors)
+        else:
+            response = safe_fallback_response(message, language, recommended_doctors)
+    else:
+        response = generate_general_response(message, history, language, recommended_doctors)
+
+    ChatMessage.objects.create(
+        session=chat_session,
+        role='assistant',
+        content=response,
+        category=category,
+        metadata={
+            'language': language,
+            'used_rag': used_rag,
+            'doctors': serialize_doctors(recommended_doctors),
+        },
+    )
+    update_session_title(chat_session, message, language)
+    return {
+        'response': response,
+        'category': category,
+        'used_rag': used_rag,
+        'session_id': str(chat_session.id),
+        'language': language,
+        'is_emergency': crisis,
+        'doctors': serialize_doctors(recommended_doctors),
+    }
+
+
 def safe_fallback_response(message, language='en', doctors=None):
     if is_crisis_query(message):
         return crisis_response(language, doctors)
@@ -399,14 +353,14 @@ def safe_fallback_response(message, language='en', doctors=None):
     doctor_text = doctor_recommendation_text(doctors or [], language)
     if language == 'bn':
         if any(word in lowered for word in ['anxiety', 'panic', 'anxious']) or any(term in message for term in SYMPTOM_KEYWORDS['anxiety']['bn']):
-            return f"এটা খুব অস্বস্তিকর লাগতে পারে। একটু ধীরে শ্বাস নিন: ৪ গণনা করে শ্বাস নিন, ৬ গণনা করে ছাড়ুন। উদ্বেগ বারবার হলে একজন মানসিক স্বাস্থ্য বিশেষজ্ঞের সাথে কথা বলা সহায়ক হতে পারে। {doctor_text}"
+            return f'এটা খুব অস্বস্তিকর লাগতে পারে। একটু ধীরে শ্বাস নিন: ৪ গণনা করে শ্বাস নিন, ৬ গণনা করে ছাড়ুন। উদ্বেগ বারবার হলে একজন মানসিক স্বাস্থ্য বিশেষজ্ঞের সাথে কথা বলা সহায়ক হতে পারে। {doctor_text}'
         if any(word in lowered for word in ['sad', 'depressed', 'hopeless']) or any(term in message for term in SYMPTOM_KEYWORDS['depression']['bn']):
-            return f"আপনার কষ্টটা সত্যিই ভারী শোনাচ্ছে। আপনি একা নন। একজন বিশ্বস্ত মানুষকে জানানো এবং প্রয়োজন হলে থেরাপিস্ট/ডাক্তারের সাহায্য নেওয়া ভালো হতে পারে। {doctor_text}"
+            return f'আপনার কষ্টটা সত্যিই ভারী শোনাচ্ছে। আপনি একা নন। একজন বিশ্বস্ত মানুষকে জানান এবং প্রয়োজন হলে থেরাপিস্ট/ডাক্তারের সাহায্য নেওয়া ভালো হতে পারে। {doctor_text}'
         if any(word in lowered for word in ['stress', 'overwhelmed', 'burnout']) or any(term in message for term in SYMPTOM_KEYWORDS['stress']['bn']):
-            return f"একসাথে অনেক চাপ এলে এমন লাগা স্বাভাবিক। এখন একটি ছোট কাজ বেছে নিন, একটু বিরতি নিন, এবং ধীরে শ্বাস নিন। চাপ দীর্ঘদিন থাকলে পেশাদার সাহায্য নিন। {doctor_text}"
+            return f'একসাথে অনেক চাপ এলে এমন লাগা স্বাভাবিক। এখন একটি ছোট কাজ বেছে নিন, একটু বিরতি নিন, এবং ধীরে শ্বাস নিন। চাপ দীর্ঘদিন থাকলে পেশাদার সাহায্য নিন। {doctor_text}'
         if any(term in lowered for term in ['sleep', 'insomnia', 'cannot sleep', 'cant sleep']) or any(term in message for term in SYMPTOM_KEYWORDS['sleep']['bn']):
-            return f"ঘুম না হওয়া শরীর ও মনের জন্য খুব ক্লান্তিকর। আজ রাতে আলো কমিয়ে, স্ক্রিন থেকে বিরতি নিয়ে, ধীরে শ্বাস নেওয়ার চেষ্টা করুন। সমস্যা চলতে থাকলে ডাক্তারের সাথে কথা বলা ভালো। {doctor_text}"
-        return f"আমি আপনার সাথে আছি। কী হচ্ছে আরেকটু বলবেন? আমি সহানুভূতির সাথে সাহায্য করার চেষ্টা করব। {doctor_text}"
+            return f'ঘুম না হওয়া শরীর ও মনের জন্য খুব ক্লান্তিকর। আজ রাতে আলো কমিয়ে, স্ক্রিন থেকে বিরতি নিয়ে, ধীরে শ্বাস নেওয়ার চেষ্টা করুন। সমস্যা চলতে থাকলে ডাক্তারের সাথে কথা বলা ভালো। {doctor_text}'
+        return f'আমি আপনার সাথে আছি। কী হয়েছে আরেকটু বলবেন? আমি সহানুভূতির সাথে সাহায্য করার চেষ্টা করব। {doctor_text}'
 
     if any(word in lowered for word in ['anxiety', 'panic', 'anxious']):
         return f"That sounds really uncomfortable. Try slowing your breathing for a moment: breathe in for 4 counts, then out for 6. If anxiety keeps interfering with daily life, a mental health professional can help you build a plan. {doctor_text}"
@@ -423,41 +377,41 @@ def platform_context_fallback(message, contexts, language='en', doctors=None):
     lowered = message.lower()
     if any(word in lowered for word in ['book', 'appointment', 'schedule']):
         if language == 'bn':
-            return "অ্যাপয়েন্টমেন্ট বুক করতে Doctors পেজে যান, একজন উপলব্ধ মানসিক স্বাস্থ্য বিশেষজ্ঞ নির্বাচন করুন, প্রোফাইল দেখুন, তারপর বুকিং অপশন থেকে কনসালটেশন টাইপ ও সময় বেছে নিন।"
+            return 'অ্যাপয়েন্টমেন্ট বুক করতে Doctors পেজে যান, একজন উপলব্ধ মানসিক স্বাস্থ্য বিশেষজ্ঞ নির্বাচন করুন, প্রোফাইল দেখুন, তারপর বুকিং অপশন থেকে কনসালটেশন টাইপ ও সময় বেছে নিন।'
         return (
-            "To book an appointment, open the Doctors page, choose an available mental health professional, "
-            "view their profile, then use the booking option to select a consultation type and available time. "
-            "You can manage upcoming appointments from the patient dashboard."
+            'To book an appointment, open the Doctors page, choose an available mental health professional, '
+            'view their profile, then use the booking option to select a consultation type and available time. '
+            'You can manage upcoming appointments from the patient dashboard.'
         )
     if any(word in lowered for word in ['service', 'services', 'offer', 'offers']):
         if language == 'bn':
-            return "এই প্ল্যাটফর্মে পেশাদার কনসালটেশন, মানসিক স্বাস্থ্য অ্যাসেসমেন্ট, ডাক্তার খোঁজা, অ্যাপয়েন্টমেন্ট বুকিং, ওয়েলনেস ব্লগ, প্রেসক্রিপশন, দৈনিক স্বাস্থ্য টাস্ক এবং 16101 জরুরি হটলাইন সাপোর্ট আছে।"
+            return 'এই প্ল্যাটফর্মে পেশাদার কনসালটেশন, মানসিক স্বাস্থ্য অ্যাসেসমেন্ট, ডাক্তার খোঁজা, অ্যাপয়েন্টমেন্ট বুকিং, ওয়েলনেস ব্লগ, প্রেসক্রিপশন, দৈনিক স্বাস্থ্য টাস্ক এবং 999 জরুরি সাপোর্ট আছে।'
         return (
-            "The platform supports mental wellness care through professional consultations, mental health assessments, "
-            "doctor discovery, appointment booking, published wellness blogs, prescriptions, daily health tasks, "
-            "and emergency support through the hotline at 16101."
+            'The platform supports mental wellness care through professional consultations, mental health assessments, '
+            'doctor discovery, appointment booking, published wellness blogs, prescriptions, daily health tasks, '
+            'and emergency guidance that directs immediate danger to Bangladesh emergency services at 999.'
         )
     if any(word in lowered for word in ['assessment', 'phq', 'gad', 'screening']):
         if language == 'bn':
-            return "প্ল্যাটফর্মে ডিপ্রেশন ও উদ্বেগ স্ক্রিনিংয়ের জন্য PHQ-9 এবং GAD-7 অ্যাসেসমেন্ট আছে। অ্যাসেসমেন্ট শেষে উপযুক্ত ডাক্তার রেকমেন্ডেশন পাওয়া যায়।"
+            return 'প্ল্যাটফর্মে ডিপ্রেশন ও উদ্বেগ স্ক্রিনিংয়ের জন্য PHQ-9 এবং GAD-7 অ্যাসেসমেন্ট আছে। অ্যাসেসমেন্ট শেষে উপযুক্ত ডাক্তার রেকমেন্ডেশন পাওয়া যায়।'
         return (
-            "The platform offers mental health assessments, including PHQ-9 and GAD-7 screening for depression and anxiety. "
-            "After completing an assessment, the platform can show severity information and recommend suitable doctors."
+            'The platform offers mental health assessments, including PHQ-9 and GAD-7 screening for depression and anxiety. '
+            'After completing an assessment, the platform can show severity information and recommend suitable doctors.'
         )
     if any(word in lowered for word in ['hotline', 'emergency', 'crisis', 'center']):
         if language == 'bn':
-            return "জরুরি সহায়তার জন্য emergency পেজ ব্যবহার করুন এবং ২৪/৭ হটলাইন 16101-এ কল করুন। তাৎক্ষণিক বিপদ হলে জরুরি সেবা বা নিকটস্থ ইমার্জেন্সি বিভাগে যান।"
+            return 'জরুরি সহায়তার জন্য emergency পেজ ব্যবহার করুন এবং ২৪/৭ হটলাইন 999-এ কল করুন। তাৎক্ষণিক বিপদ হলে জরুরি সেবা বা নিকটস্থ ইমার্জেন্সি বিভাগে যান।'
         return (
-            "For urgent support, use the emergency page and call the 24/7 hotline at 16101. "
-            "If there is immediate danger or a medical emergency, contact local emergency services or go to the nearest emergency room."
+            'For urgent support, use the emergency page and call Bangladesh emergency services at 999. '
+            'If there is immediate danger or a medical emergency, contact local emergency services or go to the nearest emergency room.'
         )
 
     best = contexts[0]
     answer = best['content'].strip()
     if len(answer) > 700:
         answer = answer[:700].rsplit(' ', 1)[0] + '...'
-    prefix = "প্ল্যাটফর্ম তথ্য থেকে যা পেলাম: " if language == 'bn' else "Here is what I found in the platform information: "
-    return f"{prefix}{answer} {doctor_recommendation_text(doctors or [], language)}"
+    prefix = 'প্ল্যাটফর্ম তথ্য থেকে যা পেলাম: ' if language == 'bn' else 'Here is what I found in the platform information: '
+    return f'{prefix}{answer} {doctor_recommendation_text(doctors or [], language)}'
 
 
 def ollama_chat(system_prompt, user_prompt):
@@ -575,7 +529,7 @@ def detect_language(text):
 def translate_static(text, language):
     if language == 'bn':
         translations = {
-            "I'm here with you. What would you like to talk about?": "আমি আপনার সাথে আছি। আপনি কী নিয়ে কথা বলতে চান?",
+            "I'm here with you. What would you like to talk about?": "আমি আপনার সাথে আছি। আপনি কী নিয়ে কথা বলতে চান?",
         }
         return translations.get(text, text)
     return text
@@ -663,7 +617,7 @@ def doctor_recommendation_text(doctors, language='en', emergency=False):
     if not doctors:
         return ''
     if language == 'bn':
-        intro = 'জরুরি সহায়তার জন্য উপযুক্ত ডাক্তার: ' if emergency else 'আপনার কথার ভিত্তিতে উপযুক্ত ডাক্তার: '
+        intro = 'জরুরি সহায়তার জন্য উপযুক্ত ডাক্তার: ' if emergency else 'আপনার কথার ভিত্তিতে উপযুক্ত ডাক্তার: '
         names = '; '.join(
             f"{doctor['name']} ({', '.join(doctor['specializations'] or doctor['primary_focuses'] or ['Mental Health'])})"
             for doctor in doctors[:3]
@@ -776,7 +730,7 @@ def collect_platform_documents():
             'url': '/emergency/',
             'content': (
                 "Emergency Mental Health Support. AI Emergency Support is available on the emergency page. "
-                "The 24/7 emergency hotline is 16101. Crisis steps include stop, stay safe, think again, talk to someone, take care of your body, get help, and make a plan. "
+                "Bangladesh emergency services are available at 999. Crisis steps include stop, stay safe, think again, talk to someone, take care of your body, get help, and make a plan. "
                 "Users can call the helpline, find a therapist, visit centers, and use the 3-3-3 breathing exercise."
             ),
         },
@@ -985,3 +939,4 @@ def schedule_knowledge_sync():
         sync_knowledge_base()
     except Exception:
         logger.exception('Knowledge sync failed.')
+

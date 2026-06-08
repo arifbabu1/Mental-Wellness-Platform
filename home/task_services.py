@@ -1,13 +1,12 @@
 from datetime import time, timedelta
-import logging
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from .models import DailyTask, TaskCompletion
 
 
-logger = logging.getLogger(__name__)
 COMPLETION_START_TIME = time(5, 0)
 COMPLETION_END_TIME = time(19, 0)
 
@@ -26,6 +25,11 @@ def _normalize_priority(value):
     if priority not in {'low', 'medium', 'high'}:
         return 'medium'
     return priority
+
+
+def is_within_completion_window(now=None):
+    now = timezone.localtime(now or timezone.now())
+    return COMPLETION_START_TIME <= now.time() <= COMPLETION_END_TIME
 
 
 def normalize_task_payload(task_data, default_start=None):
@@ -80,22 +84,16 @@ def replace_active_daily_tasks(patient, doctor, consultation, tasks_data, prescr
         normalized = normalize_task_payload(raw_task)
         if not normalized:
             continue
-        task = DailyTask.objects.create(
+        task, _created = DailyTask.objects.update_or_create(
             patient=patient,
             doctor=doctor,
             consultation=consultation,
-            prescription=prescription,
-            is_active=True,
-            **normalized,
-        )
-        logger.debug(
-            "CREATED DAILY TASK: %s %s %s %s %s %s",
-            task.id,
-            task.title,
-            task.patient,
-            task.is_active,
-            task.start_date,
-            task.end_date,
+            title=normalized['title'],
+            defaults={
+                'prescription': prescription,
+                'is_active': True,
+                **normalized,
+            },
         )
         created_tasks.append(task)
 
@@ -140,6 +138,9 @@ def get_today_task_items(patient, today=None):
 def mark_task_completed(patient, task, notes=''):
     if not task.is_active or task.patient_id != patient.id or not task.is_today:
         raise DailyTask.DoesNotExist
+
+    if not is_within_completion_window():
+        raise ValidationError('Daily tasks can be completed only from 5:00 AM to 7:00 PM local time.')
 
     today = timezone.localdate()
     completion = TaskCompletion.objects.filter(daily_task=task, completion_date=today).first()

@@ -124,7 +124,7 @@
                             return;
                         }
                         
-                        const consultationOpenTime = appointmentDate - (20 * 60 * 1000);
+                        const consultationOpenTime = appointmentDate - (10 * 60 * 1000);
                         const consultationEndTime = appointmentDate + (2 * 60 * 60 * 1000);
                         const distanceToEnd = consultationEndTime - now;
                         
@@ -187,7 +187,7 @@
                                 
                                 // Reset join meeting link before appointment
                                 if (joinMeetingLink) {
-                                    joinMeetingLink.textContent = 'Room opens 20 minutes before';
+                                    joinMeetingLink.textContent = 'Room opens 10 minutes before';
                                     joinMeetingLink.style.color = '';
                                     joinMeetingLink.style.background = '';
                                     joinMeetingLink.style.cursor = 'not-allowed';
@@ -362,7 +362,7 @@
                                         {% if appointment.meeting_link and appointment.can_join_consultation %}
                                         <div class="detail-item meeting-link">
                                             <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-btn" data-original-href="{{ appointment.meeting_link }}">
-                                                Join Meeting
+                                                {{ appointment.consultation_join_label }}
                                             </a>
                                         </div>
                                         {% endif %}
@@ -386,10 +386,10 @@
                                             </a>
                                         {% endif %}
                                         {% if appointment.can_join_consultation %}
-                                            {% if appointment.consultation_type == 'Video' %}
+                                            {% if appointment.consultation_type == 'video' %}
                                                 {% if appointment.meeting_link %}
                                                     <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
-                                                        <i class="fas fa-video"></i> Join Video Call
+                                                        <i class="fas fa-video"></i> {{ appointment.consultation_join_label }}
                                                     </a>
                                                 {% else %}
                                                     <a href="#" class="btn-base btn-primary btn-small disabled">
@@ -397,9 +397,8 @@
                                                     </a>
                                                 {% endif %}
                                             {% endif %}
-                                            <button type="button" class="btn-base btn-success btn-small mark-completed-btn" data-appointment-id="{{ appointment.id }}">
-                                                <i class="fas fa-check"></i> Mark as Completed
-                                            </button>
+                                        {% elif appointment.has_consultation_room %}
+                                            <span class="btn-base btn-outline btn-small disabled">{{ appointment.consultation_join_label }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -477,7 +476,7 @@
                                     {% if appointment.meeting_link and appointment.can_join_consultation %}
                                     <div class="detail-item meeting-link">
                                         <a href="{{ appointment.meeting_link }}" target="_blank" class="meeting-link-btn" data-original-href="{{ appointment.meeting_link }}">
-                                            Join Meeting
+                                            {{ appointment.consultation_join_label }}
                                         </a>
                                     </div>
                                     {% endif %}
@@ -501,10 +500,10 @@
                                         </a>
                                     {% endif %}
                                     {% if appointment.can_join_consultation %}
-                                        {% if appointment.consultation_type == 'Video' %}
+                                        {% if appointment.consultation_type == 'video' %}
                                             {% if appointment.meeting_link %}
                                                 <a href="{{ appointment.meeting_link }}" target="_blank" class="btn-base btn-primary btn-small">
-                                                    <i class="fas fa-video"></i> Join Video Call
+                                                    <i class="fas fa-video"></i> {{ appointment.consultation_join_label }}
                                                 </a>
                                             {% else %}
                                                 <a href="#" class="btn-base btn-primary btn-small disabled">
@@ -512,6 +511,8 @@
                                                 </a>
                                             {% endif %}
                                         {% endif %}
+                                    {% elif appointment.has_consultation_room %}
+                                        <span class="btn-base btn-outline btn-small disabled">{{ appointment.consultation_join_label }}</span>
                                     {% endif %}
                                 </div>
                             </div>

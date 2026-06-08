@@ -91,7 +91,7 @@ const emergencyResponses = {
     "Grounding can help: press your feet into the floor and notice the room around you."
   ],
   location: [
-    "For immediate support, call the emergency hotline at 16101. You can also use the platform to find doctors and therapists.",
+    "For immediate danger or a medical emergency, call Bangladesh emergency services at 999. You can also use the platform to find doctors and therapists.",
     "The platform can help you browse doctors, book appointments, and find professional support.",
     "If you are in danger or this is a medical emergency, contact emergency services or go to the nearest emergency room."
   ],

@@ -781,6 +781,7 @@ class Notification(models.Model):
         ('task_incomplete', 'Incomplete Task'),
         ('prescription_update', 'Prescription Update'),
         ('appointment_reminder', 'Appointment Reminder'),
+        ('message', 'Message'),
         ('system', 'System Notification'),
     ]
     
@@ -790,7 +791,7 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
     is_read = models.BooleanField(default=False)
     is_actionable = models.BooleanField(default=False)
-    action_url = models.URLField(null=True, blank=True)
+    action_url = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -1021,7 +1022,7 @@ class DoctorSchedule(models.Model):
         current = datetime.combine(datetime.today(), self.start_time)
         end = datetime.combine(datetime.today(), self.end_time)
         
-        while current < end:
+        while current + timedelta(minutes=self.slot_duration) <= end:
             slot_time = current.time()
             slots.append(slot_time.strftime('%H:%M'))
             current += timedelta(minutes=self.slot_duration)

@@ -16,7 +16,7 @@
 <body>
     <!-- Emergency Top Bar -->
     <div class="emergency-top-bar">
-        <span>Need immediate help? Call our hotline: <strong>16101</strong></span>
+        <span>Need immediate help? Call Bangladesh emergency services: <strong>999</strong></span>
         <a href="{% url 'emergency' %}" class="btn-base">Get Support</a>
     </div>
 
@@ -90,7 +90,7 @@
                                         Completed at {{ task_item.completion.completed_at|time:"g:i A" }}
                                     </span>
                                 {% else %}
-                                    <button onclick="completeTask({{ task_item.task.id }})" class="btn-complete">
+                                    <button onclick="completeTask({{ task_item.task.id }}, event)" class="btn-complete">
                                         <i class="fas fa-check"></i> Mark Complete
                                     </button>
                                 {% endif %}
@@ -232,10 +232,12 @@
                                                 </div>
                                                 <div class="appointment-status">
                                                     <span class="badge badge-info">{{ appointment.status|title }}</span>
-                                                    {% if appointment.can_join_consultation %}
-                                                        <a href="{% url 'consultation_room' appointment.id %}" class="join-session-btn">Join Session</a>
-                                                    {% elif appointment.consultation_access_message %}
-                                                        <small>{{ appointment.consultation_access_message }}</small>
+                                                    {% if appointment.has_consultation_room %}
+                                                        {% if appointment.can_join_consultation %}
+                                                            <a href="{% url 'consultation_room' appointment.id %}" class="join-session-btn">{{ appointment.consultation_join_label }}</a>
+                                                        {% else %}
+                                                            <span class="join-session-btn disabled">{{ appointment.consultation_join_label }}</span>
+                                                        {% endif %}
                                                     {% endif %}
                                                 </div>
                                             </div>
@@ -355,7 +357,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button onclick="markAllAsRead()" class="btn-base btn-outline">Mark All as Read</button>
+                <button onclick="markAllAsRead(event)" class="btn-base btn-outline">Mark All as Read</button>
                 <button onclick="closeNotificationModal()" class="btn-base btn-primary">Close</button>
             </div>
         </div>
@@ -379,11 +381,11 @@
         }
 
         // Task Management Functions
-        function completeTask(taskId) {
+        function completeTask(taskId, event) {
             const notes = prompt('Add any notes about this task (optional):');
             if (notes === null) return;
             
-            const btn = event.target;
+            const btn = event.currentTarget || event.target;
             const originalHTML = btn.innerHTML;
             const originalDisabled = btn.disabled;
             
@@ -579,16 +581,17 @@
             });
         }
 
-        function markAllAsRead() {
+        function markAllAsRead(event) {
             const unreadNotifications = document.querySelectorAll('.notification-item.unread');
             if (unreadNotifications.length === 0) {
                 showNotification('All notifications are already read', 'info');
                 return;
             }
             
+            const btn = event.currentTarget || event.target;
             // Show loading state
-            event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            event.target.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
             
             fetch('/api/notifications/mark-all-read/', {
                 method: 'POST',
@@ -616,8 +619,8 @@
             })
             .finally(() => {
                 // Restore button state
-                event.target.innerHTML = 'Mark All as Read';
-                event.target.disabled = false;
+                btn.innerHTML = 'Mark All as Read';
+                btn.disabled = false;
             });
         }
 
@@ -774,10 +777,10 @@
 
                 
         function makeEmergencyCall() {
-            const phoneNumber = '16101';
+            const phoneNumber = '999';
             
             // Show confirmation dialog
-            const confirmed = confirm(`Are you sure you want to call the emergency hotline?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
+            const confirmed = confirm(`Are you sure you want to call Bangladesh emergency services?\n\nPhone: ${phoneNumber}\n\nThis service is available 24/7 for immediate mental health support.`);
             
             if (confirmed) {
                 // Try to make the call
@@ -786,7 +789,7 @@
                                 
                 // Show a message after a short delay
                 setTimeout(() => {
-                    alert('Connecting you to the emergency hotline...\n\nIf the call doesn\'t connect automatically, please dial: ' + phoneNumber);
+                    alert('Connecting you to emergency services...\n\nIf the call doesn\'t connect automatically, please dial: ' + phoneNumber);
                 }, 500);
             }
         }
