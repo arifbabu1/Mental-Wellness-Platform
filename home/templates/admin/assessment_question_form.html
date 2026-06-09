@@ -1,0 +1,166 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-assessment-questions.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="assessment-question-page">
+    <section class="assessment-question-shell">
+        <header class="assessment-question-header">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-pen-to-square"></i>
+                    {% if question %}Edit{% else %}Add{% endif %} Assessment Question
+                </h1>
+                <p class="page-description">Manage the question, scoring metadata, and option rows below.</p>
+            </div>
+            <div class="question-actions">
+                <a href="{% url 'assessment_questions_manage' %}" class="btn-soft btn-primary">
+                    <i class="fas fa-list"></i> Back to list
+                </a>
+            </div>
+        </header>
+
+        <div style="padding: 24px;">
+            {% if messages %}
+                <div class="messages-container" style="margin-bottom:16px;">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if question_form.non_field_errors %}
+                <div class="alert alert-danger">{{ question_form.non_field_errors }}</div>
+            {% endif %}
+
+            <form method="post" id="questionForm">
+                {% csrf_token %}
+                <div class="question-form-grid">
+                    {% for field in question_form.visible_fields %}
+                        <div class="form-group" {% if field.name == 'question_text' %}style="grid-column: 1 / -1;"{% endif %}>
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <div class="assessment-question-form-header">
+                        <h2 class="section-title"><i class="fas fa-layer-group"></i> Answer Options</h2>
+                        <button type="button" class="btn-soft btn-primary" id="addOptionBtn"><i class="fas fa-plus"></i> Add option</button>
+                    </div>
+                    <p class="page-description" style="margin-top: 8px;">Choice-based questions need at least two options. Text questions can leave options empty.</p>
+                    {{ option_formset.management_form }}
+                    <div class="question-options" id="optionRows">
+                        {% for option_form in option_formset %}
+                        <div class="question-option-row option-row">
+                            <div class="form-group">
+                                <label class="form-label">{{ option_form.option_text.label }}</label>
+                                {{ option_form.option_text }}
+                                {% if option_form.option_text.errors %}<div class="text-danger">{{ option_form.option_text.errors }}</div>{% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">{{ option_form.score.label }}</label>
+                                {{ option_form.score }}
+                                {% if option_form.score.errors %}<div class="text-danger">{{ option_form.score.errors }}</div>{% endif %}
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
+                                {% if option_form.DELETE %}
+                                    <label style="display:flex;align-items:center;gap:8px;margin:0;">
+                                        {{ option_form.DELETE }}
+                                        <span>Delete</span>
+                                    </label>
+                                {% endif %}
+                                <button type="button" class="btn-soft remove-option-btn"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="question-actions" style="margin-top: 24px;">
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Save Question</button>
+                    <a href="{% url 'assessment_questions_manage' %}" class="btn-soft btn-primary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+<template id="optionTemplate">
+    <div class="question-option-row option-row">
+        <div class="form-group">
+            <label class="form-label">Option text</label>
+            <input type="text" name="options-__prefix__-option_text" class="form-control">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Score</label>
+            <input type="number" step="0.01" name="options-__prefix__-score" class="form-control">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
+            <button type="button" class="btn-soft remove-option-btn"><i class="fas fa-trash"></i></button>
+        </div>
+    </div>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const optionRows = document.getElementById('optionRows');
+    const addButton = document.getElementById('addOptionBtn');
+    const template = document.getElementById('optionTemplate');
+    const totalForms = document.getElementById('id_options-TOTAL_FORMS');
+    const initialForms = document.getElementById('id_options-INITIAL_FORMS');
+
+    function bindRemoveButtons() {
+        optionRows.querySelectorAll('.remove-option-btn').forEach(button => {
+            button.onclick = function () {
+                const row = button.closest('.option-row');
+                if (row) {
+                    row.remove();
+                    updateTotalForms();
+                }
+            };
+        });
+    }
+
+    function updateTotalForms() {
+        const count = optionRows.querySelectorAll('.option-row').length;
+        totalForms.value = count;
+        if (initialForms) {
+            initialForms.value = Math.min(parseInt(initialForms.value || '0', 10), count);
+        }
+        optionRows.querySelectorAll('.option-row').forEach((row, index) => {
+            row.querySelectorAll('input, textarea, select').forEach(field => {
+                if (field.name) {
+                    field.name = field.name.replace(/options-\d+-/, `options-${index}-`);
+                    field.id = field.id ? field.id.replace(/options-\d+-/, `options-${index}-`) : field.id;
+                }
+            });
+        });
+    }
+
+    if (addButton && template) {
+        addButton.addEventListener('click', function () {
+            const index = optionRows.querySelectorAll('.option-row').length;
+            const html = template.innerHTML.replace(/__prefix__/g, index);
+            optionRows.insertAdjacentHTML('beforeend', html);
+            updateTotalForms();
+            bindRemoveButtons();
+        });
+    }
+
+    bindRemoveButtons();
+});
+</script>
+{% endblock %}

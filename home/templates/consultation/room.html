@@ -1956,58 +1956,6 @@
             }
         }
         
-        function addCustomTask() {
-            // Get custom task form values
-            const title = document.getElementById('customTaskTitle').value.trim();
-            const category = document.getElementById('customTaskCategory').value;
-            const description = document.getElementById('customTaskDescription').value.trim();
-            const duration = document.getElementById('customTaskDuration').value;
-            const priority = document.getElementById('customTaskPriority').value;
-            
-            // Validate required fields
-            if (!title || !description) {
-                return;
-            }
-            
-            const selectedTasksList = document.getElementById('selectedTasksList');
-            if (selectedTasksList) {
-                // Clear "No tasks selected" message if present
-                const noTasksMessage = selectedTasksList.querySelector('.no-tasks-message');
-                if (noTasksMessage) {
-                    noTasksMessage.remove();
-                }
-                
-                const taskItem = document.createElement('div');
-                taskItem.className = 'selected-task-item';
-                taskItem.dataset.source = 'custom';
-                taskItem.innerHTML = `
-                    <div class="task-info">
-                        <h6>${title}</h6>
-                        <p>${description}</p>
-                        <div class="task-meta">
-                            <span class="task-category-badge">${category}</span>
-                            <span class="task-duration">${duration} days</span>
-                            <span class="task-priority ${priority}">${priority}</span>
-                        </div>
-                    </div>
-                    <button onclick="removeSelectedTask(this)" class="btn-remove">&times;</button>
-                `;
-                selectedTasksList.appendChild(taskItem);
-                
-                // Clear form
-                document.getElementById('customTaskTitle').value = '';
-                document.getElementById('customTaskDescription').value = '';
-                document.getElementById('customTaskDuration').value = '7';
-                document.getElementById('customTaskCategory').value = 'physical';
-                document.getElementById('customTaskPriority').value = 'medium';
-                
-                updateSelectedTasksCount();
-                syncDailyTasksJson();
-            } else {
-                console.error('Selected tasks list not found');
-            }
-        }
-        
         function removeSelectedTask(button) {
             debugLog('Removing selected task...');
             const taskItem = button.closest('.selected-task-item');
@@ -2037,10 +1985,6 @@
             } else {
                 console.error('Task count span not found');
             }
-        }
-        
-        function removeMedication(button) {
-            button.parentElement.remove();
         }
         
         function savePrescriptionAndTasks() {
@@ -2219,36 +2163,6 @@
                 }
             });
         }
-        
-        function removeMedication(button) {
-            button.parentElement.remove();
-        }
-        
-        function addCustomTask() {
-            const customTaskTitle = document.getElementById('customTaskTitle');
-            const customTaskDescription = document.getElementById('customTaskDescription');
-            
-            if (customTaskTitle && customTaskDescription) {
-                // Add to selected tasks
-                const selectedTasksList = document.getElementById('selected-tasks-list');
-                if (selectedTasksList) {
-                    const taskDiv = document.createElement('div');
-                    taskDiv.className = 'selected-task';
-                    taskDiv.innerHTML = `
-                        <span class="task-title">${customTaskTitle.value}</span>
-                        <button onclick="removeCustomTask(this)" class="btn-remove">×</button>
-                    `;
-                    selectedTasksList.appendChild(taskDiv);
-                    updateSelectedTasksDisplay();
-                }
-            }
-        }
-        
-        function removeCustomTask(element) {
-            element.remove();
-            updateSelectedTasksDisplay();
-        }
-        
         function updateSelectedTasksDisplay() {
             const selectedCount = document.getElementById('selectedCount');
             

@@ -546,6 +546,14 @@ def _role_redirect_name(user):
     return 'patient_dashboard'
 
 
+def _profile_needs_completion(user):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'role', None) != 'patient':
+        return False
+    return any(not getattr(user, field, None) for field in ['phone', 'age', 'gender'])
+
+
 def _safe_next_url(request):
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url and url_has_allowed_host_and_scheme(
@@ -590,6 +598,7 @@ from .system_config import (
     send_configured_mail,
 )
 from .task_services import get_today_task_items, mark_task_completed, replace_active_daily_tasks
+from .forms import CompleteSocialProfileForm
 
 from .recommendation_engine import (
     DYNAMIC_QUESTION_GROUPS,
@@ -1053,6 +1062,7 @@ def register(request):
 
         first_name = (request.POST.get('first_name') or '').strip()
         last_name = (request.POST.get('last_name') or '').strip()
+        address = (request.POST.get('address') or '').strip()
         age_raw = (request.POST.get('age') or '').strip()
         gender = (request.POST.get('gender') or '').strip()
         previous_treatment = request.POST.get('previous_mental_health_treatment', '').strip()
@@ -1117,6 +1127,7 @@ def register(request):
             role=role,
             first_name=first_name,
             last_name=last_name,
+            address=address or None,
             age=user_age,
             gender=gender or None,
         )
@@ -1185,6 +1196,8 @@ def google_oauth_login(request):
 
 @login_required
 def auth_redirect(request):
+    if _profile_needs_completion(request.user):
+        return redirect('complete_social_profile')
     next_url = _safe_next_url(request)
     if next_url:
         return redirect(next_url)
@@ -1196,29 +1209,38 @@ def complete_social_profile(request):
     """Fallback profile completion for OAuth users missing platform role details."""
 
     if request.method == 'POST':
-        selected_role = 'patient'
-        request.user.role = selected_role
-        phone = request.POST.get('phone', '').strip()
-        age = request.POST.get('age', '').strip()
-        gender = request.POST.get('gender', '').strip()
-        if phone:
+        form = CompleteSocialProfileForm(request.POST)
+        if form.is_valid():
+            phone = form.cleaned_data['phone']
+            age = form.cleaned_data['age']
+            gender = form.cleaned_data['gender']
+            address = form.cleaned_data.get('address', '').strip()
+            request.user.role = 'patient'
             request.user.phone = phone
-        if age:
-            try:
-                request.user.age = int(age)
-            except (TypeError, ValueError):
-                messages.error(request, 'Please enter a valid age.')
-                return render(request, 'auth/complete_social_profile.html')
-        if gender:
+            request.user.age = age
             request.user.gender = gender
-        request.user.save(update_fields=['role', 'phone', 'age', 'gender'])
+            if hasattr(request.user, 'address'):
+                request.user.address = address
+            update_fields = ['role', 'phone', 'age', 'gender']
+            if hasattr(request.user, 'address'):
+                update_fields.append('address')
+            request.user.save(update_fields=update_fields)
+            return redirect('patient_dashboard')
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f'{field.title()}: {error}')
+    else:
+        form = CompleteSocialProfileForm(initial={
+            'phone': request.user.phone,
+            'age': request.user.age,
+            'gender': request.user.gender,
+            'address': getattr(request.user, 'address', ''),
+        })
 
-        return redirect('patient_dashboard')
-
-    if request.user.role:
+    if request.user.role and not _profile_needs_completion(request.user):
         return redirect(_role_redirect_name(request.user))
 
-    return render(request, 'auth/complete_social_profile.html')
+    return render(request, 'auth/complete_social_profile.html', {'form': form})
 
 
 
@@ -4619,6 +4641,22 @@ def register_consultation_join(request, appointment_id):
         return JsonResponse({'success': False, 'allowed': False, 'expired': True, 'message': 'Consultation window has expired.'}, status=403)
     if not access['can_join']:
         return JsonResponse({'success': False, 'allowed': False, 'message': access['message']}, status=403)
+    if not _consultation_has_started(consultation):
+        _mark_participant_joined(consultation, request.user, now=access['now'])
+        _sync_consultation_live_state(appointment, consultation, now=access['now'])
+        consultation.refresh_from_db()
+        joined_count = consultation.patient_join_count if participant_role == 'patient' else consultation.doctor_join_count
+        return JsonResponse({
+            'success': True,
+            'allowed': True,
+            'waiting': True,
+            'remaining_attempts': max(CONSULTATION_MAX_JOIN_ATTEMPTS - joined_count, 0),
+            'video_ready': False,
+            'jitsi_room_name': consultation.room_name,
+            'consultation_status': consultation.status,
+            'message': 'Waiting for consultation to start.',
+        })
+
     allowed, joined_count, remaining_attempts = _count_consultation_join_attempt(
         consultation,
         participant_role,
@@ -4631,20 +4669,6 @@ def register_consultation_join(request, appointment_id):
             'remaining_attempts': 0,
             'message': 'You have reached the maximum rejoin limit.',
         }, status=403)
-
-    if not _consultation_has_started(consultation):
-        _sync_consultation_live_state(appointment, consultation, now=access['now'])
-        consultation.refresh_from_db()
-        return JsonResponse({
-            'success': True,
-            'allowed': True,
-            'waiting': True,
-            'remaining_attempts': remaining_attempts,
-            'video_ready': False,
-            'jitsi_room_name': consultation.room_name,
-            'consultation_status': consultation.status,
-            'message': 'Waiting for consultation to start.',
-        })
 
     _sync_consultation_live_state(appointment, consultation, now=access['now'])
     consultation.refresh_from_db()

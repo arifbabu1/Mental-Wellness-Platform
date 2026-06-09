@@ -1,0 +1,126 @@
+.assessment-question-page {
+    padding: 24px;
+}
+
+.assessment-question-shell {
+    background: #fff;
+    border: 1px solid #e6edf5;
+    border-radius: 14px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+}
+
+.assessment-question-header,
+.assessment-question-toolbar,
+.assessment-question-form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.assessment-question-header {
+    padding: 24px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.assessment-question-toolbar {
+    padding: 16px 24px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.assessment-question-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.assessment-question-table th,
+.assessment-question-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+    vertical-align: top;
+}
+
+.assessment-question-table th {
+    background: #f8fbff;
+    text-align: left;
+    color: #1f2a44;
+    font-weight: 600;
+}
+
+.question-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.question-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eef6ff;
+    color: #0f5fa8;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.question-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.question-options {
+    display: grid;
+    gap: 12px;
+}
+
+.question-option-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 140px auto;
+    gap: 12px;
+    align-items: end;
+    padding: 14px;
+    border: 1px solid #e3eaf3;
+    border-radius: 12px;
+    background: #fbfdff;
+}
+
+.question-option-row.is-empty {
+    opacity: 0.7;
+}
+
+.question-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn-soft {
+    border: 1px solid #cde0f5;
+    background: #f5faff;
+    color: #0f5fa8;
+}
+
+@media (max-width: 767px) {
+    .assessment-question-page {
+        padding: 14px;
+    }
+
+    .assessment-question-header,
+    .assessment-question-toolbar {
+        padding: 16px;
+    }
+
+    .question-option-row {
+        grid-template-columns: 1fr;
+    }
+
+    .assessment-question-table {
+        display: block;
+        overflow-x: auto;
+    }
+}

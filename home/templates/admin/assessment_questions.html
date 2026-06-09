@@ -1,0 +1,112 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-dashboard-professional.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin-assessment-questions.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="assessment-question-page">
+    <section class="assessment-question-shell">
+        <header class="assessment-question-header">
+            <div>
+                <h1 class="page-title"><i class="fas fa-clipboard-list"></i> Assessment Questions</h1>
+                <p class="page-description">Create and manage question text, answer types, options, and ordering.</p>
+            </div>
+            <div class="question-actions">
+                <a href="{% url 'assessments_detail' %}" class="btn-soft btn-primary">
+                    <i class="fas fa-chart-line"></i> Assessments
+                </a>
+                <a href="{% url 'assessment_question_add' %}" class="btn-primary">
+                    <i class="fas fa-plus"></i> Add Question
+                </a>
+            </div>
+        </header>
+
+        <div class="assessment-question-toolbar">
+            <div class="search-wrapper" style="max-width: 420px; width: 100%;">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" id="questionSearch" placeholder="Search questions, category, type, or order..." autocomplete="off">
+            </div>
+            <div class="question-badges">
+                <span class="question-badge"><i class="fas fa-circle-question"></i> {{ total_questions|default:"0" }} Questions</span>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="assessment-question-table searchable-table">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Order</th>
+                        <th>Status</th>
+                        <th>Options</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in questions %}
+                    <tr>
+                        <td>
+                            <strong>{{ question.question_text|truncatechars:90 }}</strong>
+                            <div class="text-muted" style="margin-top: 6px;">Weight: {{ question.weight_value }}{% if question.reverse_scoring %} | Reverse scoring{% endif %}</div>
+                        </td>
+                        <td>{{ question.category }}</td>
+                        <td>{{ question.get_question_type_display }}</td>
+                        <td>{{ question.track_number }}</td>
+                        <td>
+                            {% if question.is_active %}
+                                <span class="question-badge"><i class="fas fa-check"></i> Active</span>
+                            {% else %}
+                                <span class="question-badge" style="background:#fbeff1;color:#a43b4a;"><i class="fas fa-pause"></i> Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ question.option_choices|length }}</td>
+                        <td>
+                            <div class="question-actions">
+                                <a href="{% url 'assessment_question_edit' question.id %}" class="btn-soft btn-primary"><i class="fas fa-pen"></i> Edit</a>
+                                <form method="post" action="{% url 'assessment_question_delete' question.id %}" onsubmit="return confirm('Delete this assessment question?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-soft" style="border-color:#f2c6c6;color:#a43b4a;background:#fff;"><i class="fas fa-trash"></i> Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="no-data">
+                            <div class="no-data-content">
+                                <i class="fas fa-clipboard-question"></i>
+                                <p>No assessment questions found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('questionSearch');
+    if (!input) return;
+    input.addEventListener('input', function (event) {
+        const term = event.target.value.toLowerCase().trim();
+        document.querySelectorAll('.assessment-question-table tbody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

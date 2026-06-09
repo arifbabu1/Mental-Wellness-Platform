@@ -46,6 +46,7 @@ SECRET_KEY=replace-with-a-long-random-secret
 DEBUG=False
 ALLOWED_HOSTS=yourusername.pythonanywhere.com
 CSRF_TRUSTED_ORIGINS=https://yourusername.pythonanywhere.com
+SITE_DOMAIN=yourusername.pythonanywhere.com
 SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
@@ -55,11 +56,38 @@ PAYMENT_TEST_MODE=True
 
 If Google login is not configured, leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty. The Google button will be hidden.
 
-## 4. Database And Static Files
+## 4. Google Login Setup
+
+In Google Cloud Console create an OAuth 2.0 Web application client.
+
+Use these values for PythonAnywhere:
+
+- Authorized JavaScript origin: `https://yourusername.pythonanywhere.com`
+- Authorized redirect URI: `https://yourusername.pythonanywhere.com/accounts/google/login/callback/`
+
+Then set these in `.env`:
+
+```env
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+SITE_DOMAIN=yourusername.pythonanywhere.com
+SITE_ID=1
+```
+
+After migrations, run:
+
+```bash
+python manage.py configure_site_domain
+```
+
+Google login uses a POST form because `SOCIALACCOUNT_LOGIN_ON_GET=False`. After Google authentication the app routes through `/auth/redirect/`; incomplete patient profiles are sent to the profile completion page before the dashboard.
+
+## 5. Database And Static Files
 
 ```bash
 source .venv/bin/activate
 python manage.py migrate
+python manage.py configure_site_domain
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
 python manage.py check
@@ -67,7 +95,7 @@ python manage.py check
 
 SQLite can work for a small demo. For heavier use, set `DATABASE_URL` to a hosted PostgreSQL database and run migrations again.
 
-## 5. PythonAnywhere WSGI
+## 6. PythonAnywhere WSGI
 
 In the PythonAnywhere Web tab, set:
 
@@ -91,7 +119,7 @@ from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
 ```
 
-## 6. Static And Media Mapping
+## 7. Static And Media Mapping
 
 In the Web tab static files section:
 
@@ -103,7 +131,7 @@ For uploaded media in a demo:
 - URL: `/media/`
 - Directory: `/home/yourusername/Mental-Wellness-Platform/media`
 
-## 7. Daily Task Reminder Scheduled Task
+## 8. Daily Task Reminder Scheduled Task
 
 Add a PythonAnywhere scheduled task, for example daily at 7:05 PM Asia/Dhaka:
 
@@ -113,7 +141,7 @@ cd /home/yourusername/Mental-Wellness-Platform && source .venv/bin/activate && p
 
 Use `--force` only for manual testing.
 
-## 8. Consultation Rooms
+## 9. Consultation Rooms
 
 Video consultations use Jitsi (`meet.jit.si`). No custom WebRTC/WebSocket dependency is required for the consultation room. The room status uses safe backend polling, so WSGI deployment works.
 
@@ -126,11 +154,12 @@ Current timing rules:
 - Doctor can explicitly complete the consultation.
 - If the doctor leaves after the session starts and does not rejoin within 3 minutes, the backend marks it completed.
 
-## 9. Common Troubleshooting
+## 10. Common Troubleshooting
 
 - `SECRET_KEY must be set when DEBUG=False`: create `.env` and set `SECRET_KEY`.
 - `DisallowedHost`: add your PythonAnywhere domain to `ALLOWED_HOSTS`.
 - CSRF errors after login/form submit: add `https://yourusername.pythonanywhere.com` to `CSRF_TRUSTED_ORIGINS`.
 - Static files missing: run `collectstatic --noinput` and confirm the `/static/` mapping.
 - Password reset emails not sending: configure SMTP environment variables or the admin-managed email config.
+- Google callback mismatch: confirm the redirect URI is exactly `https://yourusername.pythonanywhere.com/accounts/google/login/callback/` and run `python manage.py configure_site_domain`.
 - Chatbot unavailable: Ollama is optional. On PythonAnywhere free hosting it usually will not run, and the app falls back gracefully.

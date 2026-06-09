@@ -28,6 +28,7 @@ class User(AbstractUser):
     ]
     
     phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='patient')
     age = models.PositiveIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
@@ -351,6 +352,13 @@ class Doctor(models.Model):
 
 
 class AssessmentQuestion(models.Model):
+    QUESTION_TYPE_CHOICES = [
+        ('single_choice', 'Single Choice'),
+        ('multiple_choice', 'Multiple Choice'),
+        ('likert_scale', 'Likert Scale'),
+        ('yes_no', 'Yes / No'),
+        ('text', 'Text'),
+    ]
     CATEGORY_CHOICES = [
         ('Depression', 'Depression'),
         ('Anxiety', 'Anxiety'),
@@ -363,6 +371,11 @@ class AssessmentQuestion(models.Model):
     weight_value = models.IntegerField(default=1)
     category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
     track_number = models.PositiveIntegerField(default=1, help_text="Track number for calculation (1=Depression, 2=Anxiety, 3=Sleep, 4=Energy)")
+    question_type = models.CharField(max_length=30, choices=QUESTION_TYPE_CHOICES, default='single_choice')
+    option_choices = models.JSONField(default=list, blank=True, help_text='List of answer options with scores.')
+    required = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    reverse_scoring = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

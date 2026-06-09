@@ -34,8 +34,6 @@ svg {
 .dashboard-cards-row,
 .stats-cards,
 .doctor-stats,
-.appointments-grid,
-.doctors-grid,
 .blog-grid,
 .blogs-grid,
 .tasks-grid,
@@ -47,6 +45,12 @@ svg {
         display: grid;
         gap: var(--compact-gap);
     }
+
+.appointments-container .appointments-grid,
+.doctors-container .doctors-grid {
+    display: grid;
+    gap: var(--compact-gap);
+}
 
 .table-responsive,
 .table-container,
@@ -70,8 +74,6 @@ svg {
     .dashboard-cards-row,
     .stats-cards,
     .doctor-stats,
-    .appointments-grid,
-    .doctors-grid,
     .blog-grid,
     .blogs-grid,
     .tasks-grid,
@@ -79,6 +81,14 @@ svg {
     .recommendations-grid,
     .specialties-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .appointments-container .appointments-grid {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .doctors-container .doctors-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
 }
 
@@ -308,8 +318,6 @@ svg {
     .features-grid,
     .quick-actions-grid,
     .dashboard-cards-row,
-    .appointments-grid,
-    .doctors-grid,
     .blog-grid,
     .blogs-grid,
     .tasks-grid,
@@ -486,8 +494,6 @@ svg {
     .features-grid,
     .quick-actions-grid,
     .dashboard-cards-row,
-    .appointments-grid,
-    .doctors-grid,
     .blog-grid,
     .blogs-grid,
     .tasks-grid,
@@ -498,6 +504,12 @@ svg {
     .resource-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 12px !important;
+    }
+
+    .appointments-container .appointments-grid,
+    .doctors-container .doctors-grid {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+        gap: 16px !important;
     }
 
     .stats-cards,
@@ -606,8 +618,6 @@ svg {
     .features-grid,
     .quick-actions-grid,
     .dashboard-cards-row,
-    .appointments-grid,
-    .doctors-grid,
     .blog-grid,
     .blogs-grid,
     .tasks-grid,
@@ -724,8 +734,6 @@ svg {
     .features-grid,
     .quick-actions-grid,
     .dashboard-cards-row,
-    .appointments-grid,
-    .doctors-grid,
     .blog-grid,
     .blogs-grid,
     .tasks-grid,
@@ -788,8 +796,8 @@ svg {
 
 /* Page-specific mobile fixes that must win after compact global rules. */
 @media (max-width: 767px) {
-    .doctors-grid,
-    .appointments-grid {
+    .doctors-container .doctors-grid,
+    .appointments-container .appointments-grid {
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;

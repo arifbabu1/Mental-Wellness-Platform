@@ -173,6 +173,9 @@ class AuthenticationUpgradeTests(TestCase):
             email='auth_patient@example.com',
             password='pass1234',
             role='patient',
+            phone='01712345678',
+            age=25,
+            gender='male',
         )
 
     def test_manual_login_still_redirects_by_role(self):
@@ -252,6 +255,19 @@ class AuthenticationUpgradeTests(TestCase):
         response = self.client.get(reverse('auth_redirect'))
 
         self.assertRedirects(response, reverse('patient_dashboard'), fetch_redirect_response=False)
+
+    def test_auth_redirect_sends_incomplete_profile_to_completion(self):
+        incomplete_user = User.objects.create_user(
+            username='oauth_incomplete',
+            email='oauth_incomplete@example.com',
+            password='pass1234',
+            role='patient',
+        )
+        self.client.login(username='oauth_incomplete', password='pass1234')
+
+        response = self.client.get(reverse('auth_redirect'))
+
+        self.assertRedirects(response, reverse('complete_social_profile'), fetch_redirect_response=False)
 
     def test_google_adapter_populates_profile_defaults(self):
         request = RequestFactory().get('/accounts/google/login/callback/')
@@ -765,6 +781,52 @@ class AdminSettingsConfigTests(TestCase):
             with self.subTest(page=page):
                 response = self.client.get(page)
                 self.assertEqual(response.status_code, 200)
+
+    def test_assessment_question_admin_pages_work(self):
+        self.client.login(username='settings_admin', password='pass1234')
+
+        list_response = self.client.get(reverse('assessment_questions_manage'))
+        add_response = self.client.get(reverse('assessment_question_add'))
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(add_response.status_code, 200)
+        self.assertContains(list_response, 'Assessment Questions')
+        self.assertContains(add_response, 'Add Assessment Question')
+
+        post_response = self.client.post(
+            reverse('assessment_question_add'),
+            data={
+                'category': 'Depression',
+                'question_text': 'How often have you felt down lately?',
+                'question_type': 'single_choice',
+                'weight_value': 3,
+                'track_number': 10,
+                'required': 'on',
+                'is_active': 'on',
+                'reverse_scoring': '',
+                'options-TOTAL_FORMS': '2',
+                'options-INITIAL_FORMS': '0',
+                'options-MIN_NUM_FORMS': '0',
+                'options-MAX_NUM_FORMS': '1000',
+                'options-0-option_text': 'Not at all',
+                'options-0-score': '0',
+                'options-1-option_text': 'Nearly every day',
+                'options-1-score': '3',
+            },
+            follow=True,
+        )
+
+        self.assertEqual(post_response.status_code, 200)
+        question = AssessmentQuestion.objects.get(question_text='How often have you felt down lately?')
+        self.assertEqual(question.question_type, 'single_choice')
+        self.assertEqual(len(question.option_choices), 2)
+        self.assertEqual(question.option_choices[1]['option_text'], 'Nearly every day')
+        self.assertContains(post_response, 'Assessment question added successfully.')
+
+        edit_response = self.client.get(reverse('assessment_question_edit', args=[question.id]))
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, 'Edit Assessment Question')
+        self.assertContains(edit_response, 'How often have you felt down lately?')
 
 
 class DailyTaskFeatureTests(TestCase):

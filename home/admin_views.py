@@ -2,8 +2,10 @@ from functools import wraps
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import render, get_object_or_404
+from django.forms import formset_factory
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
+from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.db.models import Sum, Count
 from django.contrib.admin.models import LogEntry
@@ -15,6 +17,7 @@ from .models import (
     BlogPost, Consultation, DailyTask, Notification, SystemEmailConfig, PaymentReceiverAccount,
     TaskCompletion,
 )
+from .forms import AssessmentQuestionForm, AssessmentQuestionOptionForm
 
 # Custom decorator to check if user is a superuser for sensitive admin pages
 def staff_required(view_func):
@@ -292,6 +295,136 @@ def assessments_detail(request):
     }
     
     return render(request, 'admin/assessments_detail.html', context)
+
+
+def _assessment_question_option_initial(question=None):
+    if not question:
+        return [{'option_text': '', 'score': ''}, {'option_text': '', 'score': ''}]
+    options = question.option_choices or []
+    initial = []
+    for option in options:
+        if isinstance(option, dict):
+            initial.append({
+                'option_text': option.get('option_text') or option.get('text') or '',
+                'score': option.get('score', ''),
+            })
+    return initial or [{'option_text': '', 'score': ''}, {'option_text': '', 'score': ''}]
+
+
+def _assessment_question_formset(post_data=None, question=None):
+    option_formset_cls = formset_factory(AssessmentQuestionOptionForm, extra=0, can_delete=True)
+    prefix = 'options'
+    if post_data is not None:
+        return option_formset_cls(post_data, prefix=prefix)
+    return option_formset_cls(prefix=prefix, initial=_assessment_question_option_initial(question))
+
+
+def _assessment_question_common_context(request, question_form, option_formset, instance=None):
+    return {
+        'question_form': question_form,
+        'option_formset': option_formset,
+        'question': instance,
+        'choice_based_types': {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'},
+        'title': 'Assessment Question',
+    }
+
+
+@staff_required
+def assessment_questions_manage(request):
+    questions = AssessmentQuestion.objects.order_by('track_number', 'id')
+    return render(request, 'admin/assessment_questions.html', {
+        'questions': questions,
+        'total_questions': questions.count(),
+        'title': 'Assessment Questions',
+    })
+
+
+@staff_required
+def assessment_question_add(request):
+    if request.method == 'POST':
+        question_form = AssessmentQuestionForm(request.POST)
+        option_formset = _assessment_question_formset(request.POST)
+        if question_form.is_valid() and option_formset.is_valid():
+            question_type = question_form.cleaned_data['question_type']
+            question_text = question_form.cleaned_data['question_text'].strip()
+            track_number = question_form.cleaned_data['track_number']
+            category = question_form.cleaned_data['category']
+            duplicate_order = AssessmentQuestion.objects.exclude(
+                id=getattr(question_form.instance, 'id', None)
+            ).filter(category=category, track_number=track_number).exists()
+            if duplicate_order:
+                question_form.add_error('track_number', 'Another question already uses this order number for this category.')
+            cleaned_options = [
+                form.cleaned_data for form in option_formset
+                if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
+            ]
+            if question_type in {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'} and len(cleaned_options) < 2:
+                question_form.add_error(None, 'Choice-based questions need at least two options.')
+            if question_form.errors:
+                pass
+            else:
+                question = question_form.save(commit=False)
+                question.question_text = question_text
+                question.option_choices = [
+                    {
+                        'option_text': (item['option_text'] or '').strip(),
+                        'score': float(item['score']) if item.get('score') is not None else 0,
+                    }
+                    for item in cleaned_options
+                ]
+                question.save()
+                messages.success(request, 'Assessment question added successfully.')
+                return redirect('assessment_questions_manage')
+    else:
+        question_form = AssessmentQuestionForm()
+        option_formset = _assessment_question_formset()
+    return render(request, 'admin/assessment_question_form.html', _assessment_question_common_context(request, question_form, option_formset))
+
+
+@staff_required
+def assessment_question_edit(request, question_id):
+    question = get_object_or_404(AssessmentQuestion, id=question_id)
+    if request.method == 'POST':
+        question_form = AssessmentQuestionForm(request.POST, instance=question)
+        option_formset = _assessment_question_formset(request.POST, question=question)
+        if question_form.is_valid() and option_formset.is_valid():
+            question_type = question_form.cleaned_data['question_type']
+            category = question_form.cleaned_data['category']
+            track_number = question_form.cleaned_data['track_number']
+            duplicate_order = AssessmentQuestion.objects.exclude(id=question.id).filter(category=category, track_number=track_number).exists()
+            if duplicate_order:
+                question_form.add_error('track_number', 'Another question already uses this order number for this category.')
+            cleaned_options = [
+                form.cleaned_data for form in option_formset
+                if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
+            ]
+            if question_type in {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'} and len(cleaned_options) < 2:
+                question_form.add_error(None, 'Choice-based questions need at least two options.')
+            if not question_form.errors:
+                updated_question = question_form.save(commit=False)
+                updated_question.option_choices = [
+                    {
+                        'option_text': (item['option_text'] or '').strip(),
+                        'score': float(item['score']) if item.get('score') is not None else 0,
+                    }
+                    for item in cleaned_options
+                ]
+                updated_question.save()
+                messages.success(request, 'Assessment question updated successfully.')
+                return redirect('assessment_questions_manage')
+    else:
+        question_form = AssessmentQuestionForm(instance=question)
+        option_formset = _assessment_question_formset(question=question)
+    return render(request, 'admin/assessment_question_form.html', _assessment_question_common_context(request, question_form, option_formset, question))
+
+
+@staff_required
+@require_http_methods(['POST'])
+def assessment_question_delete(request, question_id):
+    question = get_object_or_404(AssessmentQuestion, id=question_id)
+    question.delete()
+    messages.success(request, 'Assessment question deleted successfully.')
+    return redirect('assessment_questions_manage')
 
 
 @staff_required

@@ -13,6 +13,10 @@ urlpatterns = [
     path('admin/doctors/toggle-availability/<int:doctor_id>/', admin_views.toggle_doctor_availability, name='toggle_doctor_availability'),
     path('admin/appointments/', admin_views.appointments_detail, name='appointments_detail'),
     path('admin/assessments/', admin_views.assessments_detail, name='assessments_detail'),
+    path('admin/assessment-questions/', admin_views.assessment_questions_manage, name='assessment_questions_manage'),
+    path('admin/assessment-questions/add/', admin_views.assessment_question_add, name='assessment_question_add'),
+    path('admin/assessment-questions/<int:question_id>/edit/', admin_views.assessment_question_edit, name='assessment_question_edit'),
+    path('admin/assessment-questions/<int:question_id>/delete/', admin_views.assessment_question_delete, name='assessment_question_delete'),
     path('admin/financial/', admin_views.admin_payments, name='admin_payments'),
     # Django admin URLs
     path('admin/', admin.site.urls),

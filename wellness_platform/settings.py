@@ -64,6 +64,9 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG=False.')
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', ['127.0.0.1', 'localhost', 'testserver'])
+SITE_DOMAIN = os.environ.get('SITE_DOMAIN', '')
+if SITE_DOMAIN and SITE_DOMAIN not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(SITE_DOMAIN)
 
 # Custom User Model
 AUTH_USER_MODEL = 'home.User'
@@ -76,7 +79,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/patient/dashboard/'
+LOGIN_REDIRECT_URL = '/auth/redirect/'
 LOGOUT_REDIRECT_URL = '/'
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
@@ -88,7 +91,8 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 
 ACCOUNT_LOGOUT_REDIRECT_URL = '/'
-ACCOUNT_SIGNUP_REDIRECT_URL = '/patient/dashboard/'
+ACCOUNT_SIGNUP_REDIRECT_URL = '/auth/redirect/'
+SOCIALACCOUNT_LOGIN_REDIRECT_URL = '/auth/redirect/'
 
 SOCIALACCOUNT_ADAPTER = 'home.adapters.CustomSocialAccountAdapter'
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -195,7 +199,7 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-if importlib.util.find_spec('whitenoise') and not DEBUG:
+if importlib.util.find_spec('whitenoise') and not DEBUG and 'test' not in sys.argv:
     STORAGES = {
         'default': {
             'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -269,3 +273,7 @@ CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS', [
     'http://127.0.0.1:8000',
     'http://localhost:8000',
 ])
+if SITE_DOMAIN:
+    https_site_origin = f'https://{SITE_DOMAIN}'
+    if https_site_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(https_site_origin)

@@ -48,6 +48,7 @@ MAX_CONTEXT_CHARS = 1800
 CRISIS_PATTERNS = [
     r'\bsuicid(?:e|al)\b',
     r'\bkill myself\b',
+    r'\bself harm\b',
     r'\bend my life\b',
     r'\bwant to die\b',
     r"\bdon'?t want to live\b",
@@ -62,10 +63,15 @@ CRISIS_PATTERNS = [
     r'\bhurt someone\b',
     r'\bkill someone\b',
     'আত্মহত্যা',
+    r'নিজেকে\s*মেরে\s*ফেলব',
     r'নিজেকে\s*মেরে',
     r'মরে\s*যেতে',
+    r'মরতে\s*চাই',
     r'বাঁচতে\s*চাই\s*না',
+    r'নিজেকে\s*আঘাত\s*করব',
     r'নিজেকে\s*আঘাত',
+    r'জীবন\s*শেষ',
+    r'সব\s*শেষ\s*করে\s*দেব',
     r'মেরে\s*ফেলব',
 ]
 
