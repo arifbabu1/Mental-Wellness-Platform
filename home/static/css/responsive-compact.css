@@ -115,6 +115,7 @@ svg {
     .login-container {
         width: 100%;
         max-width: 100%;
+        box-sizing: border-box !important;
         padding-left: 12px !important;
         padding-right: 12px !important;
     }
@@ -134,6 +135,9 @@ svg {
     .registration-section {
         padding: 22px 12px !important;
         margin-bottom: 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .row:has(.service-card),
@@ -145,7 +149,7 @@ svg {
     .row:has(.action-card),
     .row:has(.quick-action-card) {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 12px !important;
     }
 
@@ -183,6 +187,38 @@ svg {
         padding: 22px 14px !important;
         margin-bottom: 16px !important;
         border-radius: 0 0 18px 18px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .hero-content,
+    .page-header-content,
+    .dashboard-header-content,
+    .section-header,
+    .card-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .hero-content,
+    .hero-content h1,
+    .hero-content p,
+    .section-header,
+    .section-header h2,
+    .section-header p,
+    .service-card h3,
+    .service-card p,
+    .feature-card h3,
+    .feature-card p,
+    .card h3,
+    .card p {
+        max-width: calc(100vw - 48px) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
     }
 
     h1,
@@ -193,6 +229,10 @@ svg {
         line-height: 1.18 !important;
         letter-spacing: 0 !important;
         margin-bottom: 8px !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
     }
 
     h2,
@@ -224,6 +264,9 @@ svg {
         font-size: 13px !important;
         line-height: 1.45 !important;
         margin-bottom: 8px !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
     }
 
     .navbar,
@@ -274,6 +317,20 @@ svg {
         padding: 8px 12px !important;
         font-size: 12.5px !important;
         line-height: 1.35 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .emergency-message,
+    .hotline-message,
+    .alert-message {
+        min-width: 0 !important;
+        max-width: calc(100vw - 48px) !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
     }
 
     .card,
@@ -307,6 +364,10 @@ svg {
         margin-bottom: 12px !important;
         border-radius: var(--compact-radius) !important;
         box-shadow: var(--compact-shadow) !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }
 
     .dashboard-grid,
@@ -742,7 +803,7 @@ svg {
     .specialties-grid,
     .contact-grid,
     .resource-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
         gap: 8px !important;
     }
 
@@ -751,7 +812,7 @@ svg {
     .summary-grid,
     .metrics-grid,
     .doctor-metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: 1fr !important;
     }
 
     .card,
@@ -800,7 +861,7 @@ svg {
     .appointments-container .appointments-grid {
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important;
+        align-items: stretch !important;
         grid-template-columns: none !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -810,7 +871,7 @@ svg {
 
     .doctor-card {
         width: 100% !important;
-        max-width: 360px !important;
+        max-width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
         box-sizing: border-box !important;
@@ -818,7 +879,7 @@ svg {
 
     .appointment-card {
         width: 100% !important;
-        max-width: 360px !important;
+        max-width: 100% !important;
         margin-left: auto !important;
         margin-right: auto !important;
         box-sizing: border-box !important;
@@ -911,7 +972,90 @@ svg {
 
     .doctor-card,
     .appointment-card {
-        max-width: 360px !important;
+        max-width: 100% !important;
         width: 100% !important;
+    }
+
+    .hero-content,
+    .hero-content h1,
+    .hero-content p,
+    .emergency-message,
+    .hotline-message,
+    .alert-message {
+        width: calc(100vw - 44px) !important;
+        max-width: calc(100vw - 44px) !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        box-sizing: border-box !important;
+    }
+
+    .section-header,
+    .section-header h2,
+    .section-header p,
+    .service-card h3,
+    .service-card p,
+    .feature-card h3,
+    .feature-card p,
+    .card-body,
+    .card h3,
+    .card p {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        box-sizing: border-box !important;
+    }
+
+    .hero-title-break {
+        display: block !important;
+    }
+
+    .hero-title-line {
+        display: block !important;
+    }
+
+    .hero-content h1 {
+        font-size: 22px !important;
+        line-height: 1.2 !important;
+    }
+
+    .emergency-top-bar .container,
+    .emergency-banner .container,
+    .hotline-banner .container,
+    .alert-banner .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 36px !important;
+        padding-right: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    .emergency-message,
+    .hotline-message,
+    .alert-message {
+        width: min(280px, calc(100vw - 72px)) !important;
+        max-width: min(280px, calc(100vw - 72px)) !important;
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+    }
+
+    .features-section .section-header p,
+    .features-section .card p,
+    .features-section .card h3 {
+        width: auto !important;
+        max-width: min(270px, calc(100vw - 100px)) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    .features-section .card-body {
+        width: auto !important;
+        max-width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        box-sizing: border-box !important;
     }
 }

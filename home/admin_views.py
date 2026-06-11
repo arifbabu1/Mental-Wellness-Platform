@@ -18,6 +18,7 @@ from .models import (
     TaskCompletion,
 )
 from .forms import AssessmentQuestionForm, AssessmentQuestionOptionForm
+from .recommendation_engine import CORE_TRACKS, DYNAMIC_QUESTION_GROUPS
 
 # Custom decorator to check if user is a superuser for sensitive admin pages
 def staff_required(view_func):
@@ -299,16 +300,26 @@ def assessments_detail(request):
 
 def _assessment_question_option_initial(question=None):
     if not question:
-        return [{'option_text': '', 'score': ''}, {'option_text': '', 'score': ''}]
+        return [
+            {'option_order': 1, 'option_text': 'Never', 'score': 0},
+            {'option_order': 2, 'option_text': 'Rarely', 'score': 1},
+            {'option_order': 3, 'option_text': 'Sometimes', 'score': 2},
+            {'option_order': 4, 'option_text': 'Often', 'score': 3},
+            {'option_order': 5, 'option_text': 'Always', 'score': 4},
+        ]
     options = question.option_choices or []
     initial = []
-    for option in options:
+    for index, option in enumerate(options, start=1):
         if isinstance(option, dict):
             initial.append({
+                'option_order': option.get('option_order') or option.get('order') or index,
                 'option_text': option.get('option_text') or option.get('text') or '',
                 'score': option.get('score', ''),
             })
-    return initial or [{'option_text': '', 'score': ''}, {'option_text': '', 'score': ''}]
+    return initial or [
+        {'option_order': 1, 'option_text': '', 'score': ''},
+        {'option_order': 2, 'option_text': '', 'score': ''},
+    ]
 
 
 def _assessment_question_formset(post_data=None, question=None):
@@ -320,11 +331,22 @@ def _assessment_question_formset(post_data=None, question=None):
 
 
 def _assessment_question_common_context(request, question_form, option_formset, instance=None):
+    standard_options = [
+        {'option_order': 1, 'option_text': 'Never', 'score': 0},
+        {'option_order': 2, 'option_text': 'Rarely', 'score': 1},
+        {'option_order': 3, 'option_text': 'Sometimes', 'score': 2},
+        {'option_order': 4, 'option_text': 'Often', 'score': 3},
+        {'option_order': 5, 'option_text': 'Always', 'score': 4},
+    ]
     return {
         'question_form': question_form,
         'option_formset': option_formset,
         'question': instance,
         'choice_based_types': {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'},
+        'standard_options_json': json.dumps(standard_options),
+        'standard_options': standard_options,
+        'core_tracks': CORE_TRACKS,
+        'dynamic_question_groups': DYNAMIC_QUESTION_GROUPS,
         'title': 'Assessment Question',
     }
 
@@ -332,11 +354,60 @@ def _assessment_question_common_context(request, question_form, option_formset, 
 @staff_required
 def assessment_questions_manage(request):
     questions = AssessmentQuestion.objects.order_by('track_number', 'id')
+    group_filter = request.GET.get('group', 'all')
+    status_filter = request.GET.get('status', 'all')
+    category_filter = request.GET.get('category', 'all')
+
+    if group_filter == 'general':
+        questions = questions.filter(track_number__lte=7)
+    elif group_filter == 'dynamic':
+        questions = questions.filter(track_number__gt=7)
+
+    if status_filter == 'active':
+        questions = questions.filter(is_active=True)
+    elif status_filter == 'inactive':
+        questions = questions.filter(is_active=False)
+
+    if category_filter != 'all':
+        questions = questions.filter(category=category_filter)
+
+    total_questions = AssessmentQuestion.objects.count()
+    general_count = AssessmentQuestion.objects.filter(track_number__lte=7).count()
+    dynamic_count = AssessmentQuestion.objects.filter(track_number__gt=7).count()
     return render(request, 'admin/assessment_questions.html', {
         'questions': questions,
-        'total_questions': questions.count(),
+        'total_questions': total_questions,
+        'filtered_questions': questions.count(),
+        'general_count': general_count,
+        'dynamic_count': dynamic_count,
+        'active_count': AssessmentQuestion.objects.filter(is_active=True).count(),
+        'inactive_count': AssessmentQuestion.objects.filter(is_active=False).count(),
+        'category_choices': AssessmentQuestion.CATEGORY_CHOICES,
+        'current_group': group_filter,
+        'current_status': status_filter,
+        'current_category': category_filter,
+        'dynamic_question_groups': DYNAMIC_QUESTION_GROUPS,
         'title': 'Assessment Questions',
     })
+
+
+def _clean_assessment_options(option_formset):
+    cleaned_options = [
+        form.cleaned_data for form in option_formset
+        if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
+    ]
+    cleaned_options = sorted(
+        cleaned_options,
+        key=lambda item: (item.get('option_order') or 9999, item.get('option_text') or '')
+    )
+    return [
+        {
+            'option_order': int(item.get('option_order') or index),
+            'option_text': (item['option_text'] or '').strip(),
+            'score': float(item['score']) if item.get('score') is not None else 0,
+        }
+        for index, item in enumerate(cleaned_options, start=1)
+    ]
 
 
 @staff_required
@@ -351,13 +422,10 @@ def assessment_question_add(request):
             category = question_form.cleaned_data['category']
             duplicate_order = AssessmentQuestion.objects.exclude(
                 id=getattr(question_form.instance, 'id', None)
-            ).filter(category=category, track_number=track_number).exists()
+            ).filter(track_number=track_number).exists()
             if duplicate_order:
-                question_form.add_error('track_number', 'Another question already uses this order number for this category.')
-            cleaned_options = [
-                form.cleaned_data for form in option_formset
-                if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
-            ]
+                question_form.add_error('track_number', 'Another assessment question already uses this order number.')
+            cleaned_options = _clean_assessment_options(option_formset)
             if question_type in {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'} and len(cleaned_options) < 2:
                 question_form.add_error(None, 'Choice-based questions need at least two options.')
             if question_form.errors:
@@ -365,13 +433,7 @@ def assessment_question_add(request):
             else:
                 question = question_form.save(commit=False)
                 question.question_text = question_text
-                question.option_choices = [
-                    {
-                        'option_text': (item['option_text'] or '').strip(),
-                        'score': float(item['score']) if item.get('score') is not None else 0,
-                    }
-                    for item in cleaned_options
-                ]
+                question.option_choices = cleaned_options
                 question.save()
                 messages.success(request, 'Assessment question added successfully.')
                 return redirect('assessment_questions_manage')
@@ -391,24 +453,15 @@ def assessment_question_edit(request, question_id):
             question_type = question_form.cleaned_data['question_type']
             category = question_form.cleaned_data['category']
             track_number = question_form.cleaned_data['track_number']
-            duplicate_order = AssessmentQuestion.objects.exclude(id=question.id).filter(category=category, track_number=track_number).exists()
+            duplicate_order = AssessmentQuestion.objects.exclude(id=question.id).filter(track_number=track_number).exists()
             if duplicate_order:
-                question_form.add_error('track_number', 'Another question already uses this order number for this category.')
-            cleaned_options = [
-                form.cleaned_data for form in option_formset
-                if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
-            ]
+                question_form.add_error('track_number', 'Another assessment question already uses this order number.')
+            cleaned_options = _clean_assessment_options(option_formset)
             if question_type in {'single_choice', 'multiple_choice', 'likert_scale', 'yes_no'} and len(cleaned_options) < 2:
                 question_form.add_error(None, 'Choice-based questions need at least two options.')
             if not question_form.errors:
                 updated_question = question_form.save(commit=False)
-                updated_question.option_choices = [
-                    {
-                        'option_text': (item['option_text'] or '').strip(),
-                        'score': float(item['score']) if item.get('score') is not None else 0,
-                    }
-                    for item in cleaned_options
-                ]
+                updated_question.option_choices = cleaned_options
                 updated_question.save()
                 messages.success(request, 'Assessment question updated successfully.')
                 return redirect('assessment_questions_manage')

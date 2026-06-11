@@ -18,7 +18,7 @@
         <header class="assessment-question-header">
             <div>
                 <h1 class="page-title"><i class="fas fa-clipboard-list"></i> Assessment Questions</h1>
-                <p class="page-description">Create and manage question text, answer types, options, and ordering.</p>
+                <p class="page-description">Manage general screening questions, reference follow-up questions, option scores, and ordering.</p>
             </div>
             <div class="question-actions">
                 <a href="{% url 'assessments_detail' %}" class="btn-soft btn-primary">
@@ -31,13 +31,52 @@
         </header>
 
         <div class="assessment-question-toolbar">
-            <div class="search-wrapper" style="max-width: 420px; width: 100%;">
+            <div class="search-wrapper">
                 <i class="fas fa-search search-icon"></i>
-                <input type="text" class="search-input" id="questionSearch" placeholder="Search questions, category, type, or order..." autocomplete="off">
+                <input type="text" class="search-input" id="questionSearch" placeholder="Search questions, category, group, trigger, or score..." autocomplete="off">
             </div>
             <div class="question-badges">
-                <span class="question-badge"><i class="fas fa-circle-question"></i> {{ total_questions|default:"0" }} Questions</span>
+                <span class="question-badge"><i class="fas fa-circle-question"></i> {{ total_questions|default:"0" }} total</span>
+                <span class="question-badge badge-general">General {{ general_count|default:"0" }}</span>
+                <span class="question-badge badge-dynamic">Dynamic {{ dynamic_count|default:"0" }}</span>
+                <span class="question-badge badge-active">Active {{ active_count|default:"0" }}</span>
             </div>
+        </div>
+
+        <div class="assessment-filter-bar">
+            <nav class="filter-tabs" aria-label="Question group filters">
+                <a class="{% if current_group == 'all' %}is-active{% endif %}" href="?group=all&status={{ current_status }}&category={{ current_category }}">All</a>
+                <a class="{% if current_group == 'general' %}is-active{% endif %}" href="?group=general&status={{ current_status }}&category={{ current_category }}">General Questions</a>
+                <a class="{% if current_group == 'dynamic' %}is-active{% endif %}" href="?group=dynamic&status={{ current_status }}&category={{ current_category }}">Dynamic Questions</a>
+            </nav>
+            <form method="get" class="filter-form">
+                <input type="hidden" name="group" value="{{ current_group }}">
+                <label>
+                    <span>Status</span>
+                    <select name="status" class="form-control" onchange="this.form.submit()">
+                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>All</option>
+                        <option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Category</span>
+                    <select name="category" class="form-control" onchange="this.form.submit()">
+                        <option value="all" {% if current_category == 'all' %}selected{% endif %}>All categories</option>
+                        {% for value, label in category_choices %}
+                            <option value="{{ value }}" {% if current_category == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </form>
+        </div>
+
+        <div class="dynamic-section-summary">
+            <strong>Runtime dynamic sections:</strong>
+            {% for module_key, module in dynamic_question_groups.items %}
+                <span class="question-badge badge-dynamic">{{ module.label }}</span>
+            {% endfor %}
+            <small>Dynamic trigger rules remain in the existing patient assessment engine.</small>
         </div>
 
         <div class="table-wrapper">
@@ -45,11 +84,13 @@
                 <thead>
                     <tr>
                         <th>Question</th>
-                        <th>Category</th>
-                        <th>Type</th>
+                        <th>Group</th>
+                        <th>Category / track</th>
+                        <th>Trigger info</th>
                         <th>Order</th>
-                        <th>Status</th>
                         <th>Options</th>
+                        <th>Weight</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -57,33 +98,59 @@
                     {% for question in questions %}
                     <tr>
                         <td>
-                            <strong>{{ question.question_text|truncatechars:90 }}</strong>
-                            <div class="text-muted" style="margin-top: 6px;">Weight: {{ question.weight_value }}{% if question.reverse_scoring %} | Reverse scoring{% endif %}</div>
+                            <strong>{{ question.question_text|truncatechars:95 }}</strong>
+                            <div class="text-muted">Type: {{ question.get_question_type_display }}{% if question.reverse_scoring %} | Reverse scoring{% endif %}</div>
                         </td>
-                        <td>{{ question.category }}</td>
-                        <td>{{ question.get_question_type_display }}</td>
-                        <td>{{ question.track_number }}</td>
                         <td>
-                            {% if question.is_active %}
-                                <span class="question-badge"><i class="fas fa-check"></i> Active</span>
+                            {% if question.track_number <= 7 %}
+                                <span class="question-badge badge-general"><i class="fas fa-list-ol"></i> General</span>
                             {% else %}
-                                <span class="question-badge" style="background:#fbeff1;color:#a43b4a;"><i class="fas fa-pause"></i> Inactive</span>
+                                <span class="question-badge badge-dynamic"><i class="fas fa-route"></i> Dynamic</span>
                             {% endif %}
                         </td>
-                        <td>{{ question.option_choices|length }}</td>
+                        <td>
+                            <strong>{{ question.category }}</strong>
+                            <div class="text-muted">Track: {{ question.category }}</div>
+                        </td>
+                        <td>
+                            {% if question.track_number <= 7 %}
+                                <span class="text-muted">Appears in first 7 screening questions.</span>
+                            {% else %}
+                                <span class="text-muted">Order 8+ follow-up/reference item. Existing module triggers are code-driven.</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ question.track_number }}</td>
+                        <td>
+                            <span class="option-count">{{ question.option_choices|length }}</span>
+                            {% if question.option_choices %}
+                                <div class="option-score-preview">
+                                    {% for option in question.option_choices|slice:":3" %}
+                                        <span>{{ option.option_text|default:option.text }}={{ option.score }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ question.weight_value }}</td>
+                        <td>
+                            {% if question.is_active %}
+                                <span class="question-badge badge-active"><i class="fas fa-check"></i> Active</span>
+                            {% else %}
+                                <span class="question-badge badge-inactive"><i class="fas fa-pause"></i> Inactive</span>
+                            {% endif %}
+                        </td>
                         <td>
                             <div class="question-actions">
                                 <a href="{% url 'assessment_question_edit' question.id %}" class="btn-soft btn-primary"><i class="fas fa-pen"></i> Edit</a>
                                 <form method="post" action="{% url 'assessment_question_delete' question.id %}" onsubmit="return confirm('Delete this assessment question?');">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn-soft" style="border-color:#f2c6c6;color:#a43b4a;background:#fff;"><i class="fas fa-trash"></i> Delete</button>
+                                    <button type="submit" class="btn-soft btn-danger-soft"><i class="fas fa-trash"></i> Delete</button>
                                 </form>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="no-data">
+                        <td colspan="9" class="no-data">
                             <div class="no-data-content">
                                 <i class="fas fa-clipboard-question"></i>
                                 <p>No assessment questions found.</p>

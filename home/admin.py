@@ -701,16 +701,37 @@ class ChatbotKnowledgeChunkAdmin(OptimizedAdminMixin, admin.ModelAdmin):
 
 @admin.register(AssessmentQuestion)
 class AssessmentQuestionAdmin(OptimizedAdminMixin, admin.ModelAdmin):
-    list_display = ('question_text', 'category', 'weight_value', 'created_at')
-    list_filter = ('category', 'created_at')
+    list_display = ('question_text', 'question_group_badge', 'category', 'track_number', 'option_count', 'weight_value', 'active_badge', 'created_at')
+    list_filter = ('is_active', 'required', 'category', 'question_type', 'created_at')
     search_fields = ('question_text', 'category')
-    ordering = ('category', 'weight_value')
+    ordering = ('track_number', 'id')
     
     fieldsets = (
-        ('Question Details', {
-            'fields': ('question_text', 'category', 'weight_value')
+        ('Question Basic Information', {
+            'fields': ('question_text', 'category', 'question_type', 'weight_value', 'track_number')
+        }),
+        ('Status and Scoring Controls', {
+            'fields': ('required', 'is_active', 'reverse_scoring')
+        }),
+        ('Answer Options and Scores', {
+            'fields': ('option_choices',),
+            'description': 'Store option rows as JSON using option_text, score, and option_order. Standard scoring is Never=0, Rarely=1, Sometimes=2, Often=3, Always=4.'
         }),
     )
+
+    @admin.display(description='Group', ordering='track_number')
+    def question_group_badge(self, obj):
+        if obj.track_number <= 7:
+            return status_badge('General', 'green')
+        return status_badge('Dynamic', 'amber')
+
+    @admin.display(description='Options')
+    def option_count(self, obj):
+        return len(obj.option_choices or [])
+
+    @admin.display(description='Status', ordering='is_active')
+    def active_badge(self, obj):
+        return status_badge('Active' if obj.is_active else 'Inactive', 'green' if obj.is_active else 'gray')
 
 
 class AssessmentAnswerInline(admin.TabularInline):
