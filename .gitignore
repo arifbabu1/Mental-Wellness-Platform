@@ -156,13 +156,5 @@ Thumbs.db
 backup/
 backups/
 all/
-test_*.py
-create_sample_*.py
-deploy_*.py
-image*.png
-*.jpg
-*.jpeg
-*.gif
-*.bmp
 PROJECT_*.md
 *Details.txt

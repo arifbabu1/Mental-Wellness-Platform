@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
@@ -23,6 +24,10 @@ NON_CONTENT_UPDATE_FIELDS = {
 
 
 def refresh_chatbot_knowledge(sender=None, update_fields=None, **_kwargs):
+    if not getattr(settings, 'CHATBOT_AUTO_SYNC_KNOWLEDGE', False):
+        logger.info('Chatbot knowledge auto-sync skipped; run sync_chatbot_knowledge manually.')
+        return
+
     if update_fields and sender in NON_CONTENT_UPDATE_FIELDS:
         if set(update_fields).issubset(NON_CONTENT_UPDATE_FIELDS[sender]):
             return

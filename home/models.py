@@ -368,18 +368,92 @@ class AssessmentQuestion(models.Model):
     ]
     
     question_text = models.TextField()
+    question_text_bn = models.TextField(blank=True, default='')
     weight_value = models.IntegerField(default=1)
     category = models.CharField(max_length=100, choices=CATEGORY_CHOICES)
     track_number = models.PositiveIntegerField(default=1, help_text="Track number for calculation (1=Depression, 2=Anxiety, 3=Sleep, 4=Energy)")
     question_type = models.CharField(max_length=30, choices=QUESTION_TYPE_CHOICES, default='single_choice')
     option_choices = models.JSONField(default=list, blank=True, help_text='List of answer options with scores.')
+    option_choices_bn = models.JSONField(default=list, blank=True, help_text='Bangla option labels with scores.')
     required = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
+    is_core = models.BooleanField(default=False, help_text='Protected default screening question.')
+    core_order = models.PositiveSmallIntegerField(null=True, blank=True, help_text='Protected core question order from 1 to 7.')
+    is_required = models.BooleanField(default=False, help_text='System-required question that should not be disabled.')
     reverse_scoring = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['core_order'],
+                condition=models.Q(is_core=True),
+                name='unique_core_assessment_order',
+            ),
+        ]
     
     def __str__(self):
         return f"{self.category}: {self.question_text[:50]}..."
+
+    @property
+    def has_bangla_translation(self):
+        return bool((self.question_text_bn or '').strip())
+
+    def get_question_text(self, lang='en'):
+        if (lang or 'en').lower() == 'bn' and self.question_text_bn:
+            return self.question_text_bn
+        return self.question_text
+
+    def get_option_choices(self, lang='en'):
+        if (lang or 'en').lower() == 'bn' and self.option_choices_bn:
+            return self.option_choices_bn
+        return self.option_choices or []
+
+    def clean(self):
+        super().clean()
+        if self.is_core:
+            if self.core_order is None and self.track_number:
+                self.core_order = self.track_number
+            if self.core_order not in range(1, 8):
+                raise ValidationError({'core_order': 'Core assessment question order must be between 1 and 7.'})
+            duplicate_core = AssessmentQuestion.objects.filter(
+                is_core=True,
+                core_order=self.core_order,
+            )
+            if self.pk:
+                duplicate_core = duplicate_core.exclude(pk=self.pk)
+            if duplicate_core.exists():
+                raise ValidationError({'core_order': 'Another core assessment question already uses this order.'})
+
+    def save(self, *args, **kwargs):
+        if self.is_core:
+            if self.core_order is None and self.track_number:
+                self.core_order = self.track_number
+            self.is_active = True
+            self.is_required = True
+            self.required = True
+            self.question_type = 'likert_scale'
+            if self.core_order:
+                self.track_number = self.core_order
+
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {
+                    'is_active',
+                    'is_required',
+                    'required',
+                    'question_type',
+                    'track_number',
+                    'core_order',
+                }
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.is_core:
+            raise ValidationError('Core assessment questions cannot be deleted because they are required for patient assessment.')
+        return super().delete(*args, **kwargs)
     
     @property
     def track_weight(self):

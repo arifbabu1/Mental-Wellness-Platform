@@ -4,9 +4,9 @@ import json
 import logging
 import math
 import re
-import time
 from pathlib import Path
-from urllib import error, request
+from urllib import request
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.db import transaction
@@ -28,20 +28,18 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_BASE_URL = getattr(settings, 'OLLAMA_BASE_URL', 'http://127.0.0.1:11434')
-OLLAMA_CHAT_MODEL = getattr(settings, 'OLLAMA_CHAT_MODEL', 'llama3.2:1b')
-OLLAMA_EMBED_MODEL = getattr(settings, 'OLLAMA_EMBED_MODEL', 'nomic-embed-text')
-CHAT_TIMEOUT = getattr(settings, 'OLLAMA_CHAT_TIMEOUT', 30)
-EMBED_TIMEOUT = getattr(settings, 'OLLAMA_EMBED_TIMEOUT', 5)
+CHATBOT_AI_ENABLED = getattr(settings, 'CHATBOT_AI_ENABLED', False)
+CHATBOT_AI_PROVIDER = getattr(settings, 'CHATBOT_AI_PROVIDER', 'gemini')
+GEMINI_API_KEY = getattr(settings, 'GEMINI_API_KEY', '')
+GEMINI_MODEL = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+CHAT_TIMEOUT = getattr(settings, 'CHATBOT_TIMEOUT', 6)
+CHATBOT_MAX_MESSAGE_LENGTH = getattr(settings, 'CHATBOT_MAX_MESSAGE_LENGTH', 1000)
 LOCAL_EMBED_DIM = 384
+LOCAL_EMBED_MODEL_NAME = 'local-hash-embedding'
 SYNC_INTERVAL_SECONDS = 30
-_last_sync_at = 0
-_next_chat_retry_at = 0
-_next_embed_retry_at = 0
-_chat_available = True
-_embed_available = True
-RETRY_UNAVAILABLE_AFTER_SECONDS = 60
-MAX_HISTORY_MESSAGES = 8
+MAX_USER_HISTORY_MESSAGES = 15
+MAX_HISTORY_MESSAGES = MAX_USER_HISTORY_MESSAGES * 2
+MAX_STORED_MESSAGES = MAX_HISTORY_MESSAGES
 MAX_CONTEXT_CHARS = 1800
 
 
@@ -88,6 +86,13 @@ GENERAL_WELLNESS_KEYWORDS = {
     'anxiety', 'anxious', 'stress', 'stressed', 'depression', 'depressed',
     'sad', 'sleep', 'panic', 'overwhelmed', 'lonely', 'mindfulness',
     'breathing', 'coping', 'relationship', 'work', 'burnout', 'grief',
+}
+
+STOPWORDS = {
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+    'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or', 'the',
+    'this', 'to', 'what', 'when', 'where', 'who', 'why', 'with', 'you',
+    'your', 'do', 'does', 'can', 'could', 'should', 'would', 'am',
 }
 
 SYMPTOM_KEYWORDS = {
@@ -151,6 +156,13 @@ def crisis_response(language='en', doctors=None):
             'আপনি আমাকে বলেছেন বলে ধন্যবাদ। এটা জরুরি মনে হচ্ছে, আর এখন আপনার নিরাপত্তাই সবচেয়ে গুরুত্বপূর্ণ। '
             'যদি আপনি নিজেকে আঘাত করার ঝুঁকিতে থাকেন, নিরাপদ থাকতে না পারেন, অথবা এটি মেডিক্যাল ইমার্জেন্সি হয়, এখনই জরুরি সেবা নিন বা নিকটস্থ জরুরি বিভাগে যান। '
             'এ প্ল্যাটফর্মের ২৪/৭ জরুরি হটলাইন 999-এও কল করতে পারেন। সম্ভব হলে ক্ষতি করতে পারে এমন জিনিস থেকে দূরে যান এবং একজন বিশ্বস্ত মানুষকে আপনার পাশে থাকতে বলুন। '
+            f'{doctor_text}'
+        )
+    if language == 'banglish':
+        return (
+            'Apni bolechen bole dhonnobad. Eta urgent mone hocche, ar ekhon apnar safety shobcheye important. '
+            'Jodi nijeke harm korar risk thake, safe thakte na paren, ba medical emergency hoy, ekhon-i emergency help nin. '
+            'Bangladesh emergency service 999 e call korte paren, ba nearest emergency department e jan. '
             f'{doctor_text}'
         )
     return (
@@ -229,8 +241,8 @@ def generate_platform_response(message, contexts, history=None, language='en', d
         f"Relevant doctors:\n{doctor_text}\n\n"
         f"User question: {message}"
     )
-    response = ollama_chat(system_prompt, user_prompt)
-    return response or platform_context_fallback(message, contexts, language, doctors)
+    response = ai_chat(system_prompt, user_prompt)
+    return compact_response(response) or platform_context_fallback(message, contexts, language, doctors)
 
 
 def should_use_direct_platform_answer(message):
@@ -240,16 +252,22 @@ def should_use_direct_platform_answer(message):
         'service', 'services', 'offer', 'offers',
         'assessment', 'phq', 'gad', 'screening',
         'hotline', 'emergency', 'crisis', 'center',
+        'recommendation', 'recommendations', 'consultation', 'jitsi',
+        'room', 'video', 'payment', 'demo', 'prescription', 'task',
+        'tasks', 'daily', 'dashboard', 'dashboards',
     ]
-    return any(term in lowered for term in direct_terms)
+    return any(term in lowered for term in direct_terms) or (
+        'doctor' in lowered and 'recommend' in lowered
+    )
 
 
 def build_system_prompt(language='en', platform_mode=False):
-    language_rule = (
-        "Reply in Bangla because the user is writing in Bangla."
-        if language == 'bn'
-        else "Reply in English unless the user switches language."
-    )
+    if language == 'bn':
+        language_rule = "Reply in Bangla because the user is writing in Bangla."
+    elif language == 'banglish':
+        language_rule = "Reply in simple Banglish because the user is using Banglish."
+    else:
+        language_rule = "Reply in English unless the user switches language."
     source_rule = (
         "You are the offline AI assistant for a Mental Wellness Platform. "
         "Use only the provided platform context for platform-specific facts. "
@@ -264,7 +282,8 @@ def build_system_prompt(language='en', platform_mode=False):
         "For mental health topics, validate feelings, ask one gentle follow-up when useful, and suggest professional consultation when symptoms are persistent, severe, or impairing daily life. "
         "For crisis, self-harm, suicide, violence, or medical emergency, prioritize immediate safety, Bangladesh emergency services at 999, and emergency doctor consultation. "
         "Do not provide harmful instructions, methods, medication dosages, or dangerous medical advice. "
-        "Keep responses short, natural, and non-repetitive. "
+        "Keep responses compact: 3 to 6 short sentences. "
+        "Never reveal API keys, environment variables, stack traces, or server errors. "
         f"{language_rule}"
     )
 
@@ -276,12 +295,12 @@ def generate_general_response(message, history=None, language='en', doctors=None
         f"Relevant doctor options:\n{doctor_recommendation_text(doctors or [], language)}\n\n"
         f"User message: {message}"
     )
-    response = ollama_chat(system_prompt, user_prompt)
-    return response or safe_fallback_response(message, language, doctors)
+    response = ai_chat(system_prompt, user_prompt)
+    return compact_response(response) or safe_fallback_response(message, language, doctors)
 
 
 def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
-    message = (message or '').strip()
+    message = sanitize_message(message)
     language = detect_language(message)
     chat_session = get_or_create_chat_session(session_id, user, django_session_key, language)
     history = get_recent_history(chat_session)
@@ -295,27 +314,27 @@ def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
     contexts = []
     used_rag = False
 
-    ChatMessage.objects.create(
-        session=chat_session,
-        role='user',
-        content=message,
-        category=category,
-        metadata={'language': language, 'symptoms': symptoms},
-    )
+    if not is_duplicate_recent_user_message(chat_session, message):
+        ChatMessage.objects.create(
+            session=chat_session,
+            role='user',
+            content=message,
+            category=category,
+            metadata={'language': language, 'symptoms': symptoms},
+        )
 
     if crisis:
         response = crisis_response(language, recommended_doctors)
         EmergencyLog.objects.create(
             session=chat_session,
             user=user if getattr(user, 'is_authenticated', False) else None,
-            message=message,
+            message=f'[redacted crisis message, length={len(message)}]',
             detected_terms=detect_crisis_terms(message),
             risk_level='critical',
             recommended_action='Call Bangladesh emergency services at 999 or go to the nearest emergency department.',
         )
     elif category == 'platform_specific':
         try:
-            ensure_knowledge_base_synced()
             contexts = retrieve_context(message)
         except Exception as exc:
             logger.warning('Chatbot knowledge lookup unavailable: %s', exc)
@@ -324,7 +343,7 @@ def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
         if contexts:
             response = generate_platform_response(message, contexts, history, language, recommended_doctors)
         else:
-            response = safe_fallback_response(message, language, recommended_doctors)
+            response = platform_context_fallback(message, [], language, recommended_doctors)
     else:
         response = generate_general_response(message, history, language, recommended_doctors)
 
@@ -339,6 +358,7 @@ def chatbot_reply(message, user=None, session_id=None, django_session_key=''):
             'doctors': serialize_doctors(recommended_doctors),
         },
     )
+    trim_chat_session_messages(chat_session)
     update_session_title(chat_session, message, language)
     return {
         'response': response,
@@ -368,6 +388,15 @@ def safe_fallback_response(message, language='en', doctors=None):
             return f'ঘুম না হওয়া শরীর ও মনের জন্য খুব ক্লান্তিকর। আজ রাতে আলো কমিয়ে, স্ক্রিন থেকে বিরতি নিয়ে, ধীরে শ্বাস নেওয়ার চেষ্টা করুন। সমস্যা চলতে থাকলে ডাক্তারের সাথে কথা বলা ভালো। {doctor_text}'
         return f'আমি আপনার সাথে আছি। কী হয়েছে আরেকটু বলবেন? আমি সহানুভূতির সাথে সাহায্য করার চেষ্টা করব। {doctor_text}'
 
+    if language == 'banglish':
+        if any(word in lowered for word in ['anxiety', 'panic', 'tension']):
+            return f'Eta khub uncomfortable lagte pare. Ektu slow breathing try korun: 4 count inhale, 6 count exhale. Anxiety bar bar daily life e problem korle mental health professional er sathe kotha bola helpful hote pare. {doctor_text}'
+        if any(word in lowered for word in ['sad', 'depressed', 'mon kharap', 'hopeless']):
+            return f'Apnar kosto ta heavy shonacche. Apni eka na. Trusted karo sathe kotha bolun, ar eta jodi choltei thake tahole doctor/therapist support nite paren. {doctor_text}'
+        if any(word in lowered for word in ['stress', 'overwhelmed', 'pressure']):
+            return f'Onek pressure ekshathe ele emon laga normal. Akhon ekta choto next step choose korun, ektu pause nin, and slow breathing korun. Long-term stress hole professional support helpful. {doctor_text}'
+        return f'Ami ekhane achi. Ki hocche aro ektu bolle ami short kore support korte parbo. {doctor_text}'
+
     if any(word in lowered for word in ['anxiety', 'panic', 'anxious']):
         return f"That sounds really uncomfortable. Try slowing your breathing for a moment: breathe in for 4 counts, then out for 6. If anxiety keeps interfering with daily life, a mental health professional can help you build a plan. {doctor_text}"
     if any(word in lowered for word in ['sad', 'depressed', 'hopeless']):
@@ -384,14 +413,24 @@ def platform_context_fallback(message, contexts, language='en', doctors=None):
     if any(word in lowered for word in ['book', 'appointment', 'schedule']):
         if language == 'bn':
             return 'অ্যাপয়েন্টমেন্ট বুক করতে Doctors পেজে যান, একজন উপলব্ধ মানসিক স্বাস্থ্য বিশেষজ্ঞ নির্বাচন করুন, প্রোফাইল দেখুন, তারপর বুকিং অপশন থেকে কনসালটেশন টাইপ ও সময় বেছে নিন।'
+        if language == 'banglish':
+            return 'Appointment book korte Doctors page e jan, available doctor choose korun, profile dekhen, then booking option theke consultation type and time select korun. Upcoming appointments patient dashboard e manage korte parben.'
         return (
             'To book an appointment, open the Doctors page, choose an available mental health professional, '
             'view their profile, then use the booking option to select a consultation type and available time. '
             'You can manage upcoming appointments from the patient dashboard.'
         )
+    if any(word in lowered for word in ['account', 'login', 'register', 'password', 'signup', 'sign up']):
+        if language == 'bn':
+            return 'অ্যাকাউন্টের জন্য Register পেজে গিয়ে patient বা doctor হিসেবে সাইন আপ করুন। লগইন করার পর আপনার role অনুযায়ী dashboard খুলবে। পাসওয়ার্ড বা Google login সমস্যায় login পেজের নির্দেশনা অনুসরণ করুন বা admin/support এ জানান।'
+        if language == 'banglish':
+            return 'Account er jonno Register page theke patient ba doctor hisebe sign up korun. Login korle role onujayi dashboard open hobe. Password ba Google login issue hole login page er instruction follow korun or support/admin ke bolun.'
+        return 'Use the Register page to create a patient or doctor account. After login, the platform opens the dashboard for your role. For password or Google login trouble, follow the login page guidance or contact support/admin.'
     if any(word in lowered for word in ['service', 'services', 'offer', 'offers']):
         if language == 'bn':
             return 'এই প্ল্যাটফর্মে পেশাদার কনসালটেশন, মানসিক স্বাস্থ্য অ্যাসেসমেন্ট, ডাক্তার খোঁজা, অ্যাপয়েন্টমেন্ট বুকিং, ওয়েলনেস ব্লগ, প্রেসক্রিপশন, দৈনিক স্বাস্থ্য টাস্ক এবং 999 জরুরি সাপোর্ট আছে।'
+        if language == 'banglish':
+            return 'Ei platform e mental health assessment, doctor recommendation, appointment booking, Jitsi consultation, demo payment, prescription, daily tasks, dashboards, blogs, and emergency 999 support ache.'
         return (
             'The platform supports mental wellness care through professional consultations, mental health assessments, '
             'doctor discovery, appointment booking, published wellness blogs, prescriptions, daily health tasks, '
@@ -400,6 +439,8 @@ def platform_context_fallback(message, contexts, language='en', doctors=None):
     if any(word in lowered for word in ['assessment', 'phq', 'gad', 'screening']):
         if language == 'bn':
             return 'প্ল্যাটফর্মে ডিপ্রেশন ও উদ্বেগ স্ক্রিনিংয়ের জন্য PHQ-9 এবং GAD-7 অ্যাসেসমেন্ট আছে। অ্যাসেসমেন্ট শেষে উপযুক্ত ডাক্তার রেকমেন্ডেশন পাওয়া যায়।'
+        if language == 'banglish':
+            return 'Assessment page e core mental health questions answer korle platform severity bujhte help kore and suitable doctor recommend kore. Dynamic follow-up questions need hole same flow e ashe.'
         return (
             'The platform offers mental health assessments, including PHQ-9 and GAD-7 screening for depression and anxiety. '
             'After completing an assessment, the platform can show severity information and recommend suitable doctors.'
@@ -407,79 +448,132 @@ def platform_context_fallback(message, contexts, language='en', doctors=None):
     if any(word in lowered for word in ['hotline', 'emergency', 'crisis', 'center']):
         if language == 'bn':
             return 'জরুরি সহায়তার জন্য emergency পেজ ব্যবহার করুন এবং ২৪/৭ হটলাইন 999-এ কল করুন। তাৎক্ষণিক বিপদ হলে জরুরি সেবা বা নিকটস্থ ইমার্জেন্সি বিভাগে যান।'
+        if language == 'banglish':
+            return 'Emergency hole emergency page use korun and Bangladesh emergency service 999 e call korun. Immediate danger thakle nearest emergency department e jan.'
         return (
             'For urgent support, use the emergency page and call Bangladesh emergency services at 999. '
             'If there is immediate danger or a medical emergency, contact local emergency services or go to the nearest emergency room.'
         )
+    if any(word in lowered for word in ['recommendation', 'recommendations', 'doctor recommend']):
+        if language == 'bn':
+            return 'অ্যাসেসমেন্টের উত্তর, স্কোর এবং প্রাসঙ্গিক ফোকাস এরিয়ার ভিত্তিতে প্ল্যাটফর্ম উপযুক্ত ডাক্তার সাজেস্ট করে। ডায়নামিক প্রশ্নগুলো recommendation_engine.py-তেই থাকে।'
+        if language == 'banglish':
+            return 'Doctor recommendation assessment score, concern area, specialization, availability, and matching focus er upor base kore hoy. Dynamic questions recommendation_engine.py thekei trigger hoy.'
+        return 'Doctor recommendations are based on assessment scores, concern areas, specialization/focus matches, and doctor availability. Dynamic follow-up questions remain handled in the recommendation engine.'
+    if any(word in lowered for word in ['consultation', 'jitsi', 'room', 'video']):
+        if language == 'bn':
+            return 'ভিডিও কনসালটেশন Jitsi দিয়ে চলে এবং পেজটি AJAX polling ব্যবহার করে। রুম সময়ের ১০ মিনিট আগে খোলে, ডাক্তার শুরু করলে রোগী ভিডিওতে ঢুকতে পারে।'
+        if language == 'banglish':
+            return 'Consultation room Jitsi use kore, ar live status AJAX polling diye update hoy. Room schedule er 10 min age open hoy, doctor start korle patient video te join korte pare.'
+        return 'Video consultations use Jitsi with AJAX polling for live status. The room opens 10 minutes before schedule, and patients wait until the doctor starts or joins the session.'
+    if any(word in lowered for word in ['payment', 'demo', 'pay']):
+        if language == 'bn':
+            return 'এই প্ল্যাটফর্মে এখন ডেমো পেমেন্ট বুকিং ফ্লো আছে। বাস্তব টাকা চার্জ করা হয় না, কিন্তু বুকিং কনফার্মেশনের মতো অভিজ্ঞতা দেখানো হয়।'
+        if language == 'banglish':
+            return 'Payment ekhane demo booking flow. Real taka charge hoy na, kintu booking confirmation er experience test kora jay.'
+        return 'This project uses a demo payment booking flow. It does not charge real money, but it keeps the booking confirmation experience available for testing.'
+    if any(word in lowered for word in ['prescription', 'task', 'tasks', 'daily']):
+        if language == 'bn':
+            return 'কনসালটেশন শেষে ডাক্তার প্রেসক্রিপশন ও দৈনিক টাস্ক দিতে পারেন। রোগী ড্যাশবোর্ড থেকে এগুলো দেখতে ও টাস্ক সম্পন্ন হিসেবে মার্ক করতে পারে।'
+        if language == 'banglish':
+            return 'Consultation seshe doctor prescription and daily tasks dite pare. Patient dashboard theke prescription dekhte parbe and task complete mark korte parbe.'
+        return 'After a consultation, doctors can save prescriptions and assign daily tasks. Patients can view prescriptions and mark assigned tasks from their dashboard.'
+    if any(word in lowered for word in ['dashboard', 'dashboards']):
+        if language == 'bn':
+            return 'রোল অনুযায়ী আলাদা ড্যাশবোর্ড আছে: patient, doctor, এবং admin। Patient dashboard appointment, task, prescription ও assessment flow দেখায়।'
+        if language == 'banglish':
+            return 'Role onujayi dashboard alada: patient, doctor, admin. Patient dashboard e appointments, tasks, prescriptions, and assessment access thake.'
+        return 'The platform has role-based dashboards for patients, doctors, and admins. Patient dashboards show appointments, tasks, prescriptions, and assessment access.'
+
+    if not contexts:
+        return safe_fallback_response(message, language, doctors)
 
     best = contexts[0]
     answer = best['content'].strip()
     if len(answer) > 700:
         answer = answer[:700].rsplit(' ', 1)[0] + '...'
     prefix = 'প্ল্যাটফর্ম তথ্য থেকে যা পেলাম: ' if language == 'bn' else 'Here is what I found in the platform information: '
-    return f'{prefix}{answer} {doctor_recommendation_text(doctors or [], language)}'
+    return compact_response(f'{prefix}{answer} {doctor_recommendation_text(doctors or [], language)}')
 
 
-def ollama_chat(system_prompt, user_prompt):
-    global _chat_available, _next_chat_retry_at
-    now = time.time()
-    if not _chat_available and now < _next_chat_retry_at:
+def ai_chat(system_prompt, user_prompt):
+    if not getattr(settings, 'CHATBOT_AI_ENABLED', False):
+        return ''
+    if (getattr(settings, 'CHATBOT_AI_PROVIDER', 'gemini') or '').lower() != 'gemini':
+        return ''
+    return gemini_chat(system_prompt, user_prompt)
+
+
+def gemini_chat(system_prompt, user_prompt):
+    api_key = getattr(settings, 'GEMINI_API_KEY', '')
+    model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+    timeout = getattr(settings, 'CHATBOT_TIMEOUT', 6)
+    if not api_key:
         return ''
 
+    url = (
+        'https://generativelanguage.googleapis.com/v1beta/models/'
+        f'{model}:generateContent?{urlencode({"key": api_key})}'
+    )
     payload = {
-        'model': OLLAMA_CHAT_MODEL,
-        'messages': [
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt},
-        ],
-        'stream': False,
-        'options': {'temperature': 0.3, 'num_predict': 350},
+        'systemInstruction': {'parts': [{'text': system_prompt}]},
+        'contents': [{'role': 'user', 'parts': [{'text': user_prompt}]}],
+        'generationConfig': {
+            'temperature': 0.35,
+            'maxOutputTokens': 220,
+        },
     }
+    req = request.Request(
+        url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
     try:
-        data = _post_ollama('/api/chat', payload, CHAT_TIMEOUT)
-        _chat_available = True
-        return data.get('message', {}).get('content', '').strip()
+        with request.urlopen(req, timeout=timeout) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        parts = data.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+        text = ' '.join(part.get('text', '') for part in parts).strip()
+        return compact_response(text)
     except Exception as exc:
-        _chat_available = False
-        _next_chat_retry_at = now + RETRY_UNAVAILABLE_AFTER_SECONDS
-        logger.warning('Ollama chat unavailable: %s', exc)
+        logger.warning('Gemini chatbot unavailable; using local fallback: %s', exc)
         return ''
+
+
+def compact_response(text):
+    text = re.sub(r'\s+', ' ', (text or '')).strip()
+    if not text:
+        return ''
+    text = re.sub(r'(?i)(api key|gemini_api_key|secret_key)\s*[:=]\s*\S+', '[hidden]', text)
+    sentences = re.split(r'(?<=[.!?।])\s+', text)
+    compact = ' '.join(sentence for sentence in sentences[:6] if sentence).strip()
+    return compact[:900].strip()
+
+
+def sanitize_message(message):
+    cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', message or '')
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    max_length = getattr(settings, 'CHATBOT_MAX_MESSAGE_LENGTH', CHATBOT_MAX_MESSAGE_LENGTH)
+    return cleaned[:max_length]
 
 
 def embed_text(text):
-    global _embed_available, _next_embed_retry_at
-    now = time.time()
-    if not _embed_available and now < _next_embed_retry_at:
-        return local_hash_embedding(text), 'local-hash-embedding'
-
-    try:
-        data = _post_ollama('/api/embeddings', {'model': OLLAMA_EMBED_MODEL, 'prompt': text}, EMBED_TIMEOUT)
-        embedding = data.get('embedding') or []
-        if embedding:
-            _embed_available = True
-            return normalize_vector(embedding), OLLAMA_EMBED_MODEL
-    except Exception as exc:
-        _embed_available = False
-        _next_embed_retry_at = now + RETRY_UNAVAILABLE_AFTER_SECONDS
-        logger.warning('Ollama embeddings unavailable; using local lexical embedding: %s', exc)
-    return local_hash_embedding(text), 'local-hash-embedding'
-
-
-def _post_ollama(path, payload, timeout):
-    url = f"{OLLAMA_BASE_URL.rstrip('/')}{path}"
-    body = json.dumps(payload).encode('utf-8')
-    req = request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
-    with request.urlopen(req, timeout=timeout) as response:
-        return json.loads(response.read().decode('utf-8'))
+    return local_hash_embedding(text), LOCAL_EMBED_MODEL_NAME
 
 
 def get_or_create_chat_session(session_id=None, user=None, django_session_key='', language='en'):
     session = None
     if session_id:
         try:
-            session = ChatSession.objects.filter(pk=session_id).first()
+            candidate = ChatSession.objects.filter(pk=session_id).first()
         except (ValueError, TypeError):
-            session = None
+            candidate = None
+        if candidate:
+            if getattr(user, 'is_authenticated', False):
+                if candidate.user_id in {None, user.pk}:
+                    session = candidate
+            elif candidate.user_id is None and candidate.session_key == (django_session_key or ''):
+                session = candidate
 
     if session is None:
         session = ChatSession.objects.create(
@@ -517,19 +611,51 @@ def get_recent_history(chat_session, limit=MAX_HISTORY_MESSAGES):
     return list(reversed(messages))
 
 
+def is_duplicate_recent_user_message(chat_session, message, seconds=10):
+    recent = chat_session.messages.filter(role='user').order_by('-created_at').first()
+    if not recent or recent.content != message:
+        return False
+    age = (time_now() - recent.created_at).total_seconds()
+    return age <= seconds
+
+
+def trim_chat_session_messages(chat_session, max_messages=MAX_STORED_MESSAGES):
+    extra_ids = list(
+        chat_session.messages.order_by('-created_at').values_list('id', flat=True)[max_messages:]
+    )
+    if extra_ids:
+        ChatMessage.objects.filter(id__in=extra_ids).delete()
+
+
+def time_now():
+    from django.utils import timezone
+
+    return timezone.now()
+
+
 def format_history(messages):
     if not messages:
         return "No previous messages."
     lines = []
-    for message in messages[-MAX_HISTORY_MESSAGES:]:
+    user_messages = [message for message in messages if message.role == 'user'][-MAX_USER_HISTORY_MESSAGES:]
+    for message in user_messages:
         content = re.sub(r'\s+', ' ', message.content).strip()
-        lines.append(f"{message.role}: {content[:450]}")
+        lines.append(f"user: {content[:450]}")
     return '\n'.join(lines)
 
 
 def detect_language(text):
     bangla_chars = len(re.findall(r'[\u0980-\u09FF]', text or ''))
-    return 'bn' if bangla_chars >= 2 else 'en'
+    if bangla_chars >= 2:
+        return 'bn'
+    lowered = (text or '').lower()
+    banglish_terms = {
+        'ami', 'amar', 'korte', 'hobe', 'ki', 'keno', 'valo', 'bhalo',
+        'mon', 'kharap', 'ghum', 'lagche', 'hocche', 'ache', 'nai',
+    }
+    if len(set(re.findall(r'[a-z]+', lowered)) & banglish_terms) >= 2:
+        return 'banglish'
+    return 'en'
 
 
 def translate_static(text, language):
@@ -673,18 +799,16 @@ def detect_emergency_payload(message):
 
 
 def ensure_knowledge_base_synced(force=False):
-    global _last_sync_at
-    now = time.time()
-    if not force and ChatbotKnowledgeChunk.objects.exists() and now - _last_sync_at < SYNC_INTERVAL_SECONDS:
-        return
-    sync_knowledge_base()
-    _last_sync_at = now
+    if not force and ChatbotKnowledgeChunk.objects.exists():
+        return {'created': 0, 'updated': 0, 'deleted': 0, 'unchanged': ChatbotKnowledgeChunk.objects.count()}
+    return sync_knowledge_base()
 
 
 @transaction.atomic
 def sync_knowledge_base(source_filter=None):
     docs = collect_platform_documents()
     seen_keys = set()
+    summary = {'created': 0, 'updated': 0, 'deleted': 0, 'unchanged': 0}
 
     for doc in docs:
         if source_filter and doc['source_type'] not in source_filter:
@@ -702,11 +826,12 @@ def sync_knowledge_base(source_filter=None):
             if (
                 existing
                 and existing.content_hash == content_hash
-                and existing.embedding_model == OLLAMA_EMBED_MODEL
+                and existing.embedding_model == LOCAL_EMBED_MODEL_NAME
             ):
+                summary['unchanged'] += 1
                 continue
             embedding, embedding_model = embed_text(embedding_input)
-            ChatbotKnowledgeChunk.objects.update_or_create(
+            _, created = ChatbotKnowledgeChunk.objects.update_or_create(
                 source_type=doc['source_type'],
                 source_id=doc['source_id'],
                 chunk_index=index,
@@ -719,12 +844,19 @@ def sync_knowledge_base(source_filter=None):
                     'embedding_model': embedding_model,
                 },
             )
+            if created:
+                summary['created'] += 1
+            else:
+                summary['updated'] += 1
 
     if not source_filter:
         for chunk in ChatbotKnowledgeChunk.objects.all():
             key = (chunk.source_type, chunk.source_id, chunk.chunk_index)
             if key not in seen_keys:
                 chunk.delete()
+                summary['deleted'] += 1
+
+    return summary
 
 
 def collect_platform_documents():
@@ -752,12 +884,67 @@ def collect_platform_documents():
         },
         {
             'source_type': 'platform_static',
+            'source_id': 'consultation_room',
+            'title': 'Video Consultation Room',
+            'url': '/patient/appointments/',
+            'content': (
+                "Video consultations use a Jitsi room inside a normal Django page. "
+                "The room uses AJAX polling for live status, opens 10 minutes before the scheduled time, allows patients to wait until the doctor joins or starts, and limits rejoining to 3 attempts per participant. "
+                "If the doctor leaves after the session starts and does not return within 3 minutes, the consultation can be completed automatically. "
+                "If nobody joins, the room remains available for 30 minutes from the scheduled start time."
+            ),
+        },
+        {
+            'source_type': 'platform_static',
             'source_id': 'assessments',
             'title': 'Mental Health Assessments',
             'url': '/patient/clinical-assessment/',
             'content': (
                 "The platform includes PHQ-9 and GAD-7 clinical assessments for depression and anxiety screening. "
                 "Assessment results can recommend doctors and identify emergency risk when responses indicate possible self-harm."
+            ),
+        },
+        {
+            'source_type': 'platform_static',
+            'source_id': 'core_assessment_and_recommendations',
+            'title': 'Core Assessment and Doctor Recommendations',
+            'url': '/patient/assessment/',
+            'content': (
+                "The core mental health assessment has seven permanent Likert-scale questions for depression, anxiety, sleep, energy, and self-esteem. "
+                "Dynamic follow-up questions remain in the recommendation engine. "
+                "Doctor recommendations use assessment signals, condition focus, specialties, availability, and doctor profile matching."
+            ),
+        },
+        {
+            'source_type': 'platform_static',
+            'source_id': 'demo_payment',
+            'title': 'Demo Payment Flow',
+            'url': '/patient/appointments/',
+            'content': (
+                "The booking payment flow is a demo flow for the university project. "
+                "It does not charge real money and uses configured test verification to confirm bookings."
+            ),
+        },
+        {
+            'source_type': 'platform_static',
+            'source_id': 'prescriptions_daily_tasks_dashboards',
+            'title': 'Prescriptions, Daily Tasks, and Dashboards',
+            'url': '/patient/dashboard/',
+            'content': (
+                "Doctors can save consultation notes, prescriptions, and daily health tasks after consultations. "
+                "Patients can view prescriptions and complete daily tasks from the patient dashboard. "
+                "The platform has role-based dashboards for patients, doctors, and admins."
+            ),
+        },
+        {
+            'source_type': 'platform_static',
+            'source_id': 'accounts_and_login',
+            'title': 'Accounts, Login, and Dashboards',
+            'url': '/login/',
+            'content': (
+                "Users can register and log in as patients, doctors, or admins. "
+                "After login, the platform redirects each user to the correct role-based dashboard. "
+                "Google OAuth can be configured by environment variables, and support/admin can help with account access issues."
             ),
         },
     ]
@@ -939,9 +1126,6 @@ def _source_payload(context):
 
 def schedule_knowledge_sync():
     try:
-        sync_knowledge_base()
-    except (error.URLError, TimeoutError, OSError):
-        logger.warning('Knowledge sync could not contact Ollama; local embeddings will be used on next sync.')
         sync_knowledge_base()
     except Exception:
         logger.exception('Knowledge sync failed.')

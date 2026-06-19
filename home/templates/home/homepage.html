@@ -132,6 +132,35 @@
         </div>
       </section>
 
+      <!-- Top Doctors Section -->
+      <section class="top-doctors-section" aria-labelledby="top-doctors-heading">
+        <div class="container">
+          <div class="section-header compact-header">
+            <h2 id="top-doctors-heading">Meet Our Top Doctors</h2>
+            <p>Available mental health professionals ready to support you</p>
+          </div>
+
+          <div class="top-doctors-grid">
+            {% for doctor in top_doctors %}
+              <article class="top-doctor-card">
+                <div class="top-doctor-photo">
+                  {% if doctor.profile_image %}
+                    <img src="{{ doctor.profile_image.url }}" alt="Dr. {{ doctor.name|default:doctor.user.get_full_name }}">
+                  {% else %}
+                    <span>{{ doctor.name|default:doctor.user.get_full_name|default:doctor.user.username|slice:":1" }}</span>
+                  {% endif %}
+                </div>
+                <h3>Dr. {{ doctor.name|default:doctor.user.get_full_name|default:doctor.user.username }}</h3>
+                <p>{{ doctor.specialty|default:"Mental Health Specialist" }}</p>
+                <a href="{% url 'doctor_details' doctor.id %}" class="btn-base btn-gradient top-doctor-btn">View / Book</a>
+              </article>
+            {% empty %}
+              <p class="top-doctors-empty">Doctors will appear here as soon as they are marked available.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
       <!-- Consultation Packages Section -->
       <section class="packages-section" aria-labelledby="packages-heading">
         <div class="container">

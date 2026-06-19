@@ -1,23 +1,23 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="{{ assessment_lang|default:'en' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Professional mental health assessment to help understand your wellness better">
-    <title>Mental Health Assessment | Mental Wellness Platform</title>
+    <title>{% if assessment_lang == 'bn' %}মানসিক স্বাস্থ্য মূল্যায়ন{% else %}Mental Health Assessment{% endif %} | Mental Wellness Platform</title>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/mobile-navbar.css' %}">
     <script src="{% static 'js/mobile-navbar.js' %}" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="{% static 'js/navigation.js' %}" defer></script>
     <script src="{% static 'js/section-highlight.js' %}" defer></script>
     <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
-<body>
-    <!-- Navigation -->
+<body class="assessment-page assessment-lang-{{ assessment_lang|default:'en' }}">
     <nav class="navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
             <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Platform</a>
@@ -36,11 +36,19 @@
         </div>
     </nav>
 
-    <!-- Assessment Section -->
     <main class="assessment-container">
         <div class="assessment-header">
-            <h1>Mental Health Assessment</h1>
-            <p>Please answer these questions honestly to help us understand your mental wellness better.</p>
+            <div class="assessment-header-top">
+                <h1>{% if assessment_lang == 'bn' %}মানসিক স্বাস্থ্য মূল্যায়ন{% else %}Mental Health Assessment{% endif %}</h1>
+                <div class="assessment-language-switcher" role="navigation" aria-label="Assessment language switcher">
+                    <span>{% if assessment_lang == 'bn' %}ভাষা{% else %}Language{% endif %}</span>
+                    <div class="language-tabs">
+                        <a href="?lang=en" class="{% if assessment_lang != 'bn' %}active{% endif %}" aria-label="Switch assessment to English">English</a>
+                        <a href="?lang=bn" class="{% if assessment_lang == 'bn' %}active{% endif %}" aria-label="Switch assessment to Bangla">বাংলা</a>
+                    </div>
+                </div>
+            </div>
+            <p>{% if assessment_lang == 'bn' %}মানসিক সুস্থতা ভালোভাবে বুঝতে অনুগ্রহ করে এই প্রশ্নগুলোর উত্তর সততার সাথে দিন।{% else %}Please answer these questions honestly to help us understand your mental wellness better.{% endif %}</p>
         </div>
 
         {% if messages %}
@@ -55,105 +63,85 @@
 
         <form method="post" id="assessment-form">
             {% csrf_token %}
-            
-            {% for question in questions %}
-                <div class="question-card fade-in core-question" data-core-index="{{ forloop.counter0 }}" data-weight="{{ question.weight_value }}">
-                    <div class="question-text">
-                        <strong>{{ forloop.counter }}.</strong> {{ question.question_text }}
-                        <span class="question-meta">
-                            (Category: {{ question.category }}, Weight: {{ question.weight_value }})
-                        </span>
-                    </div>
-                    
-                    <div class="answer-options">
-                        <div class="answer-option">
-                            <input type="radio" id="question_{{ question.id }}_0" name="question_{{ question.id }}" value="0" required>
-                            <label for="question_{{ question.id }}_0">Never</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="question_{{ question.id }}_1" name="question_{{ question.id }}" value="1">
-                            <label for="question_{{ question.id }}_1">Rarely</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="question_{{ question.id }}_2" name="question_{{ question.id }}" value="2">
-                            <label for="question_{{ question.id }}_2">Sometimes</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="question_{{ question.id }}_3" name="question_{{ question.id }}" value="3">
-                            <label for="question_{{ question.id }}_3">Often</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="question_{{ question.id }}_4" name="question_{{ question.id }}" value="4">
-                            <label for="question_{{ question.id }}_4">Always</label>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
+            <input type="hidden" name="assessment_lang" value="{{ assessment_lang }}">
 
-            <div id="dynamic-question-area">
-                {% for module_key, module in dynamic_question_groups.items %}
-                <section class="question-card fade-in dynamic-question-group" data-module="{{ module_key }}" hidden>
-                    <div class="question-text">
-                        <strong>{{ module.label }}</strong>
-                    </div>
-
-                    {% for prompt in module.questions %}
-                    <div class="question-text dynamic-prompt">
-                        {{ prompt }}
-                    </div>
-                    <div class="answer-options">
-                        <div class="answer-option">
-                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_0" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="0">
-                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_0">Never</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_1" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="1">
-                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_1">Rarely</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_2" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="2">
-                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_2">Sometimes</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_3" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="3">
-                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_3">Often</label>
-                        </div>
-                        <div class="answer-option">
-                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.counter0 }}_4" name="dynamic_{{ module_key }}_{{ forloop.counter0 }}" value="4">
-                            <label for="dynamic_{{ module_key }}_{{ forloop.counter0 }}_4">Always</label>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </section>
-                {% endfor %}
-            </div>
-
-            {% if questions %}
-                <div class="submit-section">
-                    <div class="submit-actions">
-                        <button type="submit" class="btn-base btn-primary" aria-label="Submit assessment">
-                            <i class="fas fa-check"></i> Submit Assessment
-                        </button>
-                        <a href="{% url 'doctors_list' %}" class="btn-base btn-outline" aria-label="Skip assessment and browse doctors">
-                            <i class="fas fa-forward"></i> Skip
-                        </a>
-                    </div>
-                    <div class="skip-info">
-                        <p><i class="fas fa-info-circle"></i> Prefer to choose a doctor directly? Skip the assessment and browse our complete list of mental health professionals.</p>
-                    </div>
+            {% if assessment_setup_error %}
+                <div class="no-questions">
+                    <h3>{% if assessment_lang == 'bn' %}মূল্যায়ন সেটআপ অসম্পূর্ণ{% else %}Assessment Setup Incomplete{% endif %}</h3>
+                    <p>{% if assessment_lang == 'bn' %}অনুগ্রহ করে একজন প্রশাসকের সাথে যোগাযোগ করুন। মূল্যায়ন সম্পন্ন করার আগে ৭টি সক্রিয় মূল প্রশ্ন অবশ্যই কনফিগার করা থাকতে হবে।{% else %}Please contact an administrator. All 7 active core assessment questions must be configured before the assessment can be completed.{% endif %}</p>
+                    <a href="{% url 'patient_dashboard' %}" class="btn-base btn-secondary">{% if assessment_lang == 'bn' %}ড্যাশবোর্ডে ফিরুন{% else %}Back to Dashboard{% endif %}</a>
                 </div>
             {% else %}
-                <div class="no-questions">
-                    <div class="icon">📋</div>
-                    <h3>No Assessment Questions Available</h3>
-                    <p>Please check back later or contact support.</p>
-                    <a href="{% url 'patient_dashboard' %}" class="btn-base btn-secondary">Back to Dashboard</a>
+                {% for question in questions %}
+                    <div class="question-card fade-in core-question" data-core-index="{{ forloop.counter0 }}" data-weight="{{ question.weight_value }}">
+                        <div class="question-text">
+                            <strong>{{ forloop.counter }}.</strong> {{ question.localized_question_text }}
+                            <span class="question-meta">
+                                {% if assessment_lang == 'bn' %}(বিভাগ: {{ question.category }}, ওজন: {{ question.weight_value }}){% else %}(Category: {{ question.category }}, Weight: {{ question.weight_value }}){% endif %}
+                            </span>
+                        </div>
+
+                        <div class="answer-options">
+                            {% for option in question.localized_option_choices %}
+                                <div class="answer-option">
+                                    <input type="radio" id="question_{{ question.id }}_{{ option.option_order }}" name="question_{{ question.id }}" value="{{ option.score }}"{% if forloop.first %} required{% endif %}>
+                                    <label for="question_{{ question.id }}_{{ option.option_order }}">{{ option.option_text }}</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <div id="dynamic-question-area">
+                    {% for module_key, module in dynamic_question_groups.items %}
+                        <section class="question-card fade-in dynamic-question-group" data-module="{{ module_key }}" hidden>
+                            <div class="question-text">
+                                <strong>{{ module.label }}</strong>
+                            </div>
+
+                            {% for prompt in module.questions %}
+                                <div class="question-text dynamic-prompt">
+                                    {{ prompt }}
+                                </div>
+                                <div class="answer-options">
+                                    {% for option_label in answer_labels %}
+                                        <div class="answer-option">
+                                            <input type="radio" id="dynamic_{{ module_key }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" name="dynamic_{{ module_key }}_{{ forloop.parentloop.counter0 }}" value="{{ forloop.counter0 }}"{% if forloop.first %} required{% endif %}>
+                                            <label for="dynamic_{{ module_key }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}">{{ option_label }}</label>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </section>
+                    {% endfor %}
                 </div>
+
+                {% if questions %}
+                    <div class="submit-section">
+                        <div class="submit-actions">
+                            <button type="submit" class="btn-base btn-primary" aria-label="Submit assessment">
+                                <i class="fas fa-check"></i> {% if assessment_lang == 'bn' %}মূল্যায়ন জমা দিন{% else %}Submit Assessment{% endif %}
+                            </button>
+                            <a href="{% url 'doctors_list' %}" class="btn-base btn-outline" aria-label="Skip assessment and browse doctors">
+                                <i class="fas fa-forward"></i> {% if assessment_lang == 'bn' %}এড়িয়ে যান{% else %}Skip{% endif %}
+                            </a>
+                        </div>
+                        <div class="skip-info">
+                            <p><i class="fas fa-info-circle"></i> {% if assessment_lang == 'bn' %}সরাসরি একজন ডাক্তার বেছে নিতে চান? মূল্যায়ন এড়িয়ে আমাদের মানসিক স্বাস্থ্য পেশাদারদের সম্পূর্ণ তালিকা দেখুন।{% else %}Prefer to choose a doctor directly? Skip the assessment and browse our complete list of mental health professionals.{% endif %}</p>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="no-questions">
+                        <div class="icon">📋</div>
+                        <h3>{% if assessment_lang == 'bn' %}কোনো মূল্যায়ন প্রশ্ন পাওয়া যায়নি{% else %}No Assessment Questions Available{% endif %}</h3>
+                        <p>{% if assessment_lang == 'bn' %}অনুগ্রহ করে পরে আবার দেখুন বা সাপোর্টের সাথে যোগাযোগ করুন।{% else %}Please check back later or contact support.{% endif %}</p>
+                        <a href="{% url 'patient_dashboard' %}" class="btn-base btn-secondary">{% if assessment_lang == 'bn' %}ড্যাশবোর্ডে ফিরুন{% else %}Back to Dashboard{% endif %}</a>
+                    </div>
+                {% endif %}
             {% endif %}
         </form>
     </main>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
@@ -165,10 +153,12 @@
             </div>
         </div>
     </footer>
+
     <script>
         const profileAgeRaw = '{{ profile_age|default_if_none:"" }}';
         const profileAge = profileAgeRaw === '' ? null : Number(profileAgeRaw);
         const highThreshold = 0.67;
+        const savedAnswersKey = 'assessment_answers_v1';
 
         function selectedValue(index) {
             const question = document.querySelector(`.core-question[data-core-index="${index}"]`);
@@ -210,16 +200,56 @@
             setDynamicGroup('geriatric', profileAge !== null && Number.isFinite(profileAge) && profileAge > 60);
         }
 
-        document.querySelectorAll('.core-question input[type="radio"]').forEach(input => {
-            input.addEventListener('change', updateDynamicQuestions);
-        });
-        updateDynamicQuestions();
+        function saveAssessmentAnswers() {
+            const payload = {};
+            document.querySelectorAll('#assessment-form input[type="radio"]:checked').forEach(input => {
+                payload[input.name] = input.value;
+            });
+            sessionStorage.setItem(savedAnswersKey, JSON.stringify(payload));
+        }
 
-        // Mobile Navbar Toggle Function
+        function restoreAssessmentAnswers() {
+            try {
+                const payload = JSON.parse(sessionStorage.getItem(savedAnswersKey) || '{}');
+                document.querySelectorAll('#assessment-form input[type="radio"]').forEach(input => {
+                    if (payload[input.name] === input.value) {
+                        input.checked = true;
+                    }
+                });
+            } catch (error) {
+                sessionStorage.removeItem(savedAnswersKey);
+            }
+        }
+
+        document.querySelectorAll('#assessment-form input[type="radio"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const questionCard = this.closest('.question-card');
+                if (questionCard) {
+                    questionCard.classList.add('answered');
+                    const allOptions = questionCard.querySelectorAll('.answer-option');
+                    allOptions.forEach(option => option.classList.remove('selected'));
+                    const selectedOption = this.closest('.answer-option');
+                    if (selectedOption) {
+                        selectedOption.classList.add('selected');
+                    }
+                }
+                updateDynamicQuestions();
+                saveAssessmentAnswers();
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            restoreAssessmentAnswers();
+            updateDynamicQuestions();
+            const allQuestions = document.querySelectorAll('.question-card');
+            allQuestions.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.08}s`;
+            });
+        });
+
         function toggleNavbar() {
             const navbarNav = document.getElementById('navbarNav');
             const navbarToggle = document.querySelector('.navbar-toggle');
-            
             if (navbarNav) {
                 navbarNav.classList.toggle('active');
             }

@@ -62,6 +62,12 @@
                                     {{ question_form.question_text }}
                                     {% if question_form.question_text.errors %}<div class="text-danger">{{ question_form.question_text.errors }}</div>{% endif %}
                                 </div>
+                                <div class="form-group form-span-2">
+                                    <label class="form-label" for="{{ question_form.question_text_bn.id_for_label }}">Bangla question text</label>
+                                    {{ question_form.question_text_bn }}
+                                    <p class="field-help">{{ question_form.question_text_bn.help_text }}</p>
+                                    {% if question_form.question_text_bn.errors %}<div class="text-danger">{{ question_form.question_text_bn.errors }}</div>{% endif %}
+                                </div>
                                 <div class="form-group">
                                     <label class="form-label" for="{{ question_form.category.id_for_label }}">Category / domain</label>
                                     {{ question_form.category }}
@@ -188,6 +194,12 @@
                                     </div>
                                 </div>
                                 {% endfor %}
+                            </div>
+                            <div class="form-group form-span-2" style="margin-top: 1rem;">
+                                <label class="form-label" for="{{ question_form.option_choices_bn.id_for_label }}">Bangla option choices</label>
+                                {{ question_form.option_choices_bn }}
+                                <p class="field-help">{{ question_form.option_choices_bn.help_text }}</p>
+                                {% if question_form.option_choices_bn.errors %}<div class="text-danger">{{ question_form.option_choices_bn.errors }}</div>{% endif %}
                             </div>
                         </section>
                     </div>

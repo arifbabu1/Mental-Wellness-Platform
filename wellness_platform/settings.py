@@ -53,13 +53,28 @@ def _database_from_url(default_sqlite_path):
     return {'ENGINE': 'django.db.backends.sqlite3', 'NAME': default_sqlite_path}
 
 
+LOCAL_MANAGEMENT_COMMANDS = {
+    'runserver',
+    'check',
+    'migrate',
+    'makemigrations',
+    'collectstatic',
+    'populate_assessment',
+    'repair_core_assessment_questions',
+    'sync_chatbot_knowledge',
+    'check_chatbot_ai',
+    'test',
+    'shell',
+}
+
+
 _load_dotenv(BASE_DIR / '.env')
 
 # Security settings
-DEBUG = _env_bool('DEBUG', 'runserver' in sys.argv and 'DEBUG' not in os.environ)
+DEBUG = _env_bool('DEBUG', 'runserver' in sys.argv and 'DEBUG' not in os.environ or any(command in sys.argv for command in LOCAL_MANAGEMENT_COMMANDS))
 SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
-    if DEBUG:
+    if DEBUG or any(command in sys.argv for command in LOCAL_MANAGEMENT_COMMANDS):
         SECRET_KEY = 'django-insecure-local-development-only-change-me'
     else:
         raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG=False.')
@@ -125,7 +140,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.sites',
     'django.contrib.staticfiles',
-    'channels',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -200,12 +214,18 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 if importlib.util.find_spec('whitenoise') and not DEBUG and 'test' not in sys.argv:
+    static_manifest = BASE_DIR / 'staticfiles' / 'staticfiles.json'
+    staticfiles_backend = (
+        'whitenoise.storage.CompressedManifestStaticFilesStorage'
+        if static_manifest.exists()
+        else 'django.contrib.staticfiles.storage.StaticFilesStorage'
+    )
     STORAGES = {
         'default': {
             'BACKEND': 'django.core.files.storage.FileSystemStorage',
         },
         'staticfiles': {
-            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+            'BACKEND': staticfiles_backend,
         },
     }
 
@@ -240,35 +260,16 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', Fal
 SECURE_HSTS_PRELOAD = _env_bool('SECURE_HSTS_PRELOAD', False)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Channels configuration
-ASGI_APPLICATION = 'wellness_platform.asgi.application'
+# Hybrid emergency chatbot configuration. Gemini is optional and falls back to
+# local rule-based answers when disabled, unavailable, or unsafe to call.
+CHATBOT_AI_ENABLED = _env_bool('CHATBOT_AI_ENABLED', False)
+CHATBOT_AI_PROVIDER = os.environ.get('CHATBOT_AI_PROVIDER', 'gemini').strip().lower()
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-1.5-flash').strip() or 'gemini-1.5-flash'
+CHATBOT_TIMEOUT = int(os.environ.get('CHATBOT_TIMEOUT', '6'))
+CHATBOT_MAX_MESSAGE_LENGTH = int(os.environ.get('CHATBOT_MAX_MESSAGE_LENGTH', '1000'))
+CHATBOT_AUTO_SYNC_KNOWLEDGE = _env_bool('CHATBOT_AUTO_SYNC_KNOWLEDGE', False)
 
-# Channels Redis configuration (for production)
-# CHANNEL_LAYERS = ['channels.security.InsecureMiddleware']
-# CHANNELS_REDIS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             "hosts": [('127.0.0.1', 6379)],
-#         },
-#     }
-# }
-
-# For development, use in-memory channel layer
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
-
-# Offline emergency chatbot / Ollama configuration
-OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://127.0.0.1:11434')
-OLLAMA_CHAT_MODEL = os.environ.get('OLLAMA_CHAT_MODEL', 'llama3.2:1b')
-OLLAMA_EMBED_MODEL = os.environ.get('OLLAMA_EMBED_MODEL', 'nomic-embed-text')
-OLLAMA_CHAT_TIMEOUT = int(os.environ.get('OLLAMA_CHAT_TIMEOUT', '30'))
-OLLAMA_EMBED_TIMEOUT = int(os.environ.get('OLLAMA_EMBED_TIMEOUT', '5'))
-
-# WebSocket allowed origins
 CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS', [
     'http://127.0.0.1:8000',
     'http://localhost:8000',

@@ -1059,3 +1059,480 @@ svg {
         box-sizing: border-box !important;
     }
 }
+
+/* Final user-panel phone polish: loaded last to keep public pages compact. */
+@media (max-width: 767px) {
+    main.container,
+    .blog-main .container,
+    .features-section .container,
+    .top-doctors-section .container,
+    .packages-section .container,
+    .contact-section .container,
+    .about-hero .container,
+    .mission-section .container,
+    .team-section .container,
+    .values-section .container,
+    .tech-section .container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .hero-section,
+    .features-section,
+    .top-doctors-section,
+    .packages-section,
+    .contact-section,
+    .blog-hero,
+    .recommended-section,
+    .categories-section,
+    .featured-section,
+    .all-articles-section,
+    .mission-section,
+    .team-section,
+    .story-section,
+    .values-section,
+    .tech-section {
+        padding-top: 30px !important;
+        padding-bottom: 30px !important;
+    }
+
+    .section-header {
+        margin-bottom: 16px !important;
+        gap: 8px !important;
+    }
+
+    .section-header h2,
+    .contact-info h2,
+    .help-content h2 {
+        font-size: clamp(1.25rem, 5vw, 1.65rem) !important;
+        line-height: 1.2 !important;
+    }
+
+    .section-header p,
+    .contact-info p,
+    .help-content p {
+        font-size: 0.86rem !important;
+        line-height: 1.45 !important;
+    }
+
+    .features-section .stats-grid,
+    .top-doctors-grid,
+    .packages-grid,
+    .dashboard-container .stats-grid,
+    .categories-grid,
+    .articles-grid,
+    .recommended-grid,
+    .mission-grid,
+    .values-grid,
+    .tech-grid,
+    .team-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    .doctors-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        justify-items: stretch !important;
+    }
+
+    .features-section .card,
+    .top-doctor-card,
+    .package-card,
+    .dashboard-container .card,
+    .category-card,
+    .article-card,
+    .blog-card,
+    .mission-item,
+    .value-item,
+    .tech-item,
+    .team-member {
+        padding: 10px !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 22px rgba(8, 161, 247, 0.08) !important;
+    }
+
+    .features-section .card-body,
+    .article-content,
+    .article-footer,
+    .member-info {
+        padding: 10px !important;
+    }
+
+    .service-icon,
+    .package-icon,
+    .category-icon,
+    .mission-icon,
+    .value-icon,
+    .tech-icon {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        margin-bottom: 8px !important;
+        font-size: 1.05rem !important;
+    }
+
+    .top-doctor-photo,
+    .member-avatar {
+        width: 52px !important;
+        height: 52px !important;
+        font-size: 1.2rem !important;
+    }
+
+    .article-image,
+    .featured-image,
+    .member-image {
+        height: 118px !important;
+        overflow: hidden !important;
+    }
+
+    .article-image img,
+    .featured-image img,
+    .member-image img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    .doctor-card {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+        border-radius: 16px !important;
+    }
+
+    .doctor-header,
+    .doctor-body,
+    .doctor-footer {
+        padding: 10px !important;
+    }
+
+    .doctor-avatar {
+        width: 46px !important;
+        height: 46px !important;
+    }
+
+    .doctor-profile {
+        gap: 8px !important;
+    }
+
+    .doctor-basic-info h3,
+    .top-doctor-card h3,
+    .article-content h3,
+    .category-card h3,
+    .mission-item h3,
+    .value-item h3,
+    .tech-item h3,
+    .team-member h3,
+    .features-section .card h3 {
+        font-size: 0.86rem !important;
+        line-height: 1.25 !important;
+        margin-bottom: 4px !important;
+    }
+
+    .doctor-specialty,
+    .detail-item,
+    .badge,
+    .fee-label,
+    .top-doctor-card p,
+    .article-content p,
+    .category-card p,
+    .mission-item p,
+    .value-item p,
+    .tech-item p,
+    .team-member p,
+    .features-section .card p {
+        font-size: 0.72rem !important;
+        line-height: 1.35 !important;
+    }
+
+    .doctor-details,
+    .doctor-badges {
+        gap: 5px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .doctor-badges .badge:nth-child(3),
+    .article-meta,
+    .article-footer,
+    .category-card p {
+        display: none !important;
+    }
+
+    .fee-amount {
+        font-size: 0.95rem !important;
+    }
+
+    .doctor-actions .btn-book,
+    .top-doctor-btn,
+    .package-btn,
+    .btn-help {
+        width: 100% !important;
+        min-height: 36px !important;
+        padding: 8px 7px !important;
+        font-size: 0.76rem !important;
+        border-radius: 12px !important;
+        justify-content: center !important;
+    }
+
+    .search-filter-section {
+        padding: 10px !important;
+        margin-bottom: 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .search-filter-container {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .search-input {
+        padding-left: 38px !important;
+    }
+
+    .dropdown-toggle {
+        min-width: 0 !important;
+        width: 100% !important;
+        height: 44px !important;
+        padding: 0 14px !important;
+        justify-content: space-between !important;
+    }
+
+    .help-section,
+    .emergency-card {
+        padding: 16px 12px !important;
+        margin-top: 20px !important;
+        border-radius: 18px !important;
+    }
+
+    .help-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .contact-container {
+        gap: 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-section {
+        min-height: auto !important;
+        padding-top: 34px !important;
+        padding-bottom: 34px !important;
+    }
+
+    .hero-content h1,
+    .about-hero h1,
+    .blog-hero h1,
+    .doctors-header h1,
+    .welcome-section h1 {
+        font-size: clamp(1.35rem, 7vw, 1.9rem) !important;
+        line-height: 1.15 !important;
+    }
+
+    .hero-content p,
+    .about-hero p,
+    .blog-hero p,
+    .doctors-header p,
+    .welcome-section p {
+        font-size: 0.86rem !important;
+        margin-bottom: 10px !important;
+    }
+
+    .doctors-header,
+    .welcome-section,
+    .about-hero {
+        padding-top: 24px !important;
+        padding-bottom: 20px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .emergency-top-bar {
+        padding: 5px 0 !important;
+    }
+
+    .emergency-top-bar .container {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 8px !important;
+        align-items: center !important;
+        text-align: left !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .emergency-message {
+        width: auto !important;
+        max-width: none !important;
+        font-size: 0.68rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .emergency-top-bar .btn-base {
+        min-height: 30px !important;
+        padding: 6px 9px !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+    }
+
+    .features-section .stats-grid,
+    .top-doctors-grid,
+    .packages-grid,
+    .dashboard-container .stats-grid,
+    .categories-grid,
+    .articles-grid,
+    .recommended-grid,
+    .mission-grid,
+    .values-grid,
+    .tech-grid,
+    .team-grid,
+    .doctors-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .dashboard-cards-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .dashboard-card {
+        min-height: auto !important;
+    }
+
+    .dashboard-card .card-body {
+        max-height: none !important;
+    }
+
+    .doctor-body .detail-item:nth-child(3),
+    .doctor-body .detail-item:nth-child(4) {
+        display: none !important;
+    }
+
+    .contact-details li {
+        font-size: 0.78rem !important;
+        margin-bottom: 6px !important;
+    }
+
+    .emergency-card h3 {
+        font-size: 1rem !important;
+        margin-bottom: 6px !important;
+    }
+
+    .emergency-card p {
+        margin-bottom: 10px !important;
+    }
+}
+
+/* Doctor listing mobile filter fix: keep category names visible. */
+@media (max-width: 767px) {
+    .search-filter-section {
+        overflow: visible !important;
+        background: #ffffff !important;
+        border: 1px solid rgba(8, 161, 247, 0.16) !important;
+        box-shadow: 0 14px 34px rgba(8, 161, 247, 0.13) !important;
+    }
+
+    .search-filter-section,
+    .search-filter-container,
+    .search-box-wrapper,
+    .filter-dropdown-wrapper,
+    .filter-dropdown {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .search-filter-container {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    .search-input,
+    .dropdown-toggle {
+        height: 44px !important;
+        min-height: 44px !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(8, 161, 247, 0.2) !important;
+        background: #f8fcff !important;
+        box-shadow: none !important;
+    }
+
+    .search-input {
+        padding: 0 14px 0 40px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .dropdown-toggle {
+        display: flex !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 0 14px !important;
+        gap: 8px !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        color: #0f4c81 !important;
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+    }
+
+    .dropdown-toggle #selectedFilter,
+    .dropdown-toggle .dropdown-arrow,
+    .dropdown-toggle i {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 auto !important;
+    }
+
+    .dropdown-toggle #selectedFilter {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        text-align: left !important;
+    }
+
+    .dropdown-menu {
+        left: 0 !important;
+        right: 0 !important;
+        top: calc(100% + 8px) !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        max-height: 260px !important;
+        overflow-y: auto !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(8, 161, 247, 0.18) !important;
+        box-shadow: 0 18px 38px rgba(15, 76, 129, 0.18) !important;
+        z-index: 1200 !important;
+    }
+
+    .dropdown-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        min-height: 42px !important;
+        padding: 10px 12px !important;
+        font-size: 0.88rem !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .dropdown-item i {
+        width: 20px !important;
+        min-width: 20px !important;
+        text-align: center !important;
+        color: #08a1f7 !important;
+    }
+}

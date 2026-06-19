@@ -636,17 +636,17 @@
         
         
     .recommended-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
     }
     
     .categories-grid {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 15px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
     }
     
     .category-card {
-        padding: 20px;
+        padding: 16px;
     }
     
     .featured-image {
@@ -662,8 +662,8 @@
     }
     
     .articles-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
     }
     
     .modal-content {
@@ -689,7 +689,7 @@
 
 @media (max-width: 480px) {
     .blog-hero {
-        padding: 40px 0;
+        padding: 28px 0;
     }
     
     .hero-content h1 {
@@ -701,23 +701,23 @@
     }
     
     .category-card {
-        grid-template-columns: 1fr;
-        gap: 15px;
+        gap: 10px;
+        padding: 12px;
     }
     
     .manual-categories .category-list {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
     }
     
     .category-btn {
-        padding: 15px;
-        gap: 12px;
+        padding: 10px;
+        gap: 8px;
     }
     
     .category-icon {
-        width: 35px;
-        height: 35px;
-        font-size: 1.3rem;
+        width: 34px;
+        height: 34px;
+        font-size: 1rem;
     }
 }

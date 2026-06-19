@@ -1,6 +1,7 @@
-from django.urls import path
-from . import consumers
+"""Legacy WebSocket URL module.
 
-websocket_urlpatterns = [
-    path('ws/consultation/<str:room_name>/', consumers.SignalingConsumer.as_asgi()),
-]
+Kept empty so old imports do not fail, but normal deployment does not require
+Channels, Redis, Daphne, ASGI, or WebSockets.
+"""
+
+websocket_urlpatterns = []

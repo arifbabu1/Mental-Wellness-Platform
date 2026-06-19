@@ -278,9 +278,9 @@ run this manually or upgrade later.
 - Replace payment test mode with real gateway verification.
 - Replace the first-name-plus-phone password reset flow with signed token or
   email-based password reset.
-- Add rate limiting for login, reset, booking, and chatbot endpoints.
+- Add rate limiting for login, reset, and booking endpoints. The chatbot endpoint already includes a basic in-memory rate limit.
 - Move SQLite to a production database before real users depend on the site.
 - Review all mental-health emergency messaging with a qualified professional.
 - Add monitoring, backups, and error reporting.
-- Verify WebSocket/video consultation behavior on the final host. PythonAnywhere
-  WSGI deployments do not run ASGI WebSockets the same way as local Daphne.
+- Verify Jitsi/video consultation behavior on the final host. PythonAnywhere
+  should use the project WSGI file; the consultation room uses AJAX polling and does not require ASGI WebSockets.

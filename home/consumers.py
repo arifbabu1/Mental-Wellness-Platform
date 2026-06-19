@@ -1,3 +1,7 @@
-from .websocket.signaling import SignalingConsumer
+"""Legacy WebSocket consumer module.
 
-__all__ = ['SignalingConsumer']
+Channels/WebSockets are intentionally disabled for PythonAnywhere free-plan
+deployment. Critical consultation behavior uses Jitsi plus AJAX polling.
+"""
+
+__all__ = []

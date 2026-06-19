@@ -19,6 +19,7 @@ from .models import (
     BlogPost, BookedSlot, ClinicalAssessment, DailyTask, DailyTaskReminderLog,
     DoctorSchedule, HealthTaskTemplate, Notification, Prescription, TaskCompletion,
 )
+from .assessment_core import CORE_ASSESSMENT_WARNING
 from .system_config import get_admin_notification_email, get_email_connection_kwargs
 
 admin.site.site_header = 'Mental Wellness Platform Admin'
@@ -701,20 +702,20 @@ class ChatbotKnowledgeChunkAdmin(OptimizedAdminMixin, admin.ModelAdmin):
 
 @admin.register(AssessmentQuestion)
 class AssessmentQuestionAdmin(OptimizedAdminMixin, admin.ModelAdmin):
-    list_display = ('question_text', 'question_group_badge', 'category', 'track_number', 'option_count', 'weight_value', 'active_badge', 'created_at')
-    list_filter = ('is_active', 'required', 'category', 'question_type', 'created_at')
-    search_fields = ('question_text', 'category')
+    list_display = ('question_text', 'bangla_status_badge', 'question_group_badge', 'core_badge', 'category', 'track_number', 'core_order', 'option_count', 'weight_value', 'active_badge', 'created_at')
+    list_filter = ('is_core', 'is_active', 'required', 'is_required', 'category', 'question_type', 'created_at')
+    search_fields = ('question_text', 'question_text_bn', 'category')
     ordering = ('track_number', 'id')
     
     fieldsets = (
         ('Question Basic Information', {
-            'fields': ('question_text', 'category', 'question_type', 'weight_value', 'track_number')
+            'fields': ('question_text', 'question_text_bn', 'category', 'question_type', 'weight_value', 'track_number', 'is_core', 'core_order')
         }),
         ('Status and Scoring Controls', {
-            'fields': ('required', 'is_active', 'reverse_scoring')
+            'fields': ('required', 'is_required', 'is_active', 'reverse_scoring')
         }),
         ('Answer Options and Scores', {
-            'fields': ('option_choices',),
+            'fields': ('option_choices', 'option_choices_bn'),
             'description': 'Store option rows as JSON using option_text, score, and option_order. Standard scoring is Never=0, Rarely=1, Sometimes=2, Often=3, Always=4.'
         }),
     )
@@ -725,13 +726,42 @@ class AssessmentQuestionAdmin(OptimizedAdminMixin, admin.ModelAdmin):
             return status_badge('General', 'green')
         return status_badge('Dynamic', 'amber')
 
+    @admin.display(description='Bangla', ordering='question_text_bn')
+    def bangla_status_badge(self, obj):
+        return status_badge('Translated' if obj.question_text_bn else 'Missing', 'green' if obj.question_text_bn else 'amber')
+
     @admin.display(description='Options')
     def option_count(self, obj):
         return len(obj.option_choices or [])
 
+    @admin.display(description='Core', ordering='is_core')
+    def core_badge(self, obj):
+        return status_badge('Core' if obj.is_core else 'Editable', 'red' if obj.is_core else 'blue')
+
     @admin.display(description='Status', ordering='is_active')
     def active_badge(self, obj):
         return status_badge('Active' if obj.is_active else 'Inactive', 'green' if obj.is_active else 'gray')
+
+    def save_model(self, request, obj, form, change):
+        if obj.is_core and not obj.is_active:
+            obj.is_active = True
+            messages.warning(request, 'Core assessment questions must remain active.')
+        if obj.is_core:
+            obj.required = True
+            obj.is_required = True
+        super().save_model(request, obj, form, change)
+
+    def delete_model(self, request, obj):
+        if obj.is_core:
+            messages.warning(request, CORE_ASSESSMENT_WARNING)
+            return
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        core_count = queryset.filter(is_core=True).count()
+        if core_count:
+            messages.warning(request, CORE_ASSESSMENT_WARNING)
+        super().delete_queryset(request, queryset.filter(is_core=False))
 
 
 class AssessmentAnswerInline(admin.TabularInline):

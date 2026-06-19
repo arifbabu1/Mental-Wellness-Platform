@@ -1,4 +1,4 @@
-// Fallback responses used only when the local Django/Ollama chatbot endpoint is unavailable.
+// Browser fallback responses used only when the Django chatbot endpoint is unavailable.
 const emergencyResponses = {
   greeting: [
     "Hello! I'm here to help you 24/7. What's on your mind?",

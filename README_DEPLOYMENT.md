@@ -52,6 +52,11 @@ SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
 SECURE_HSTS_SECONDS=31536000
 PAYMENT_TEST_MODE=True
+CHATBOT_AI_ENABLED=True
+CHATBOT_AI_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-1.5-flash
+CHATBOT_TIMEOUT=6
 ```
 
 If Google login is not configured, leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty. The Google button will be hidden.
@@ -87,6 +92,7 @@ Google login uses a POST form because `SOCIALACCOUNT_LOGIN_ON_GET=False`. After 
 ```bash
 source .venv/bin/activate
 python manage.py migrate
+python manage.py populate_assessment
 python manage.py configure_site_domain
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
@@ -162,4 +168,4 @@ Current timing rules:
 - Static files missing: run `collectstatic --noinput` and confirm the `/static/` mapping.
 - Password reset emails not sending: configure SMTP environment variables or the admin-managed email config.
 - Google callback mismatch: confirm the redirect URI is exactly `https://yourusername.pythonanywhere.com/accounts/google/login/callback/` and run `python manage.py configure_site_domain`.
-- Chatbot unavailable: Ollama is optional. On PythonAnywhere free hosting it usually will not run, and the app falls back gracefully.
+- Chatbot unavailable: confirm `CHATBOT_AI_ENABLED`, `CHATBOT_AI_PROVIDER=gemini`, `GEMINI_API_KEY`, and `GEMINI_MODEL`. If Gemini is missing, blocked, timed out, or over quota, the Django local fallback still answers safely.

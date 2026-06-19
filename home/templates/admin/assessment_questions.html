@@ -40,6 +40,7 @@
                 <span class="question-badge badge-general">General {{ general_count|default:"0" }}</span>
                 <span class="question-badge badge-dynamic">Dynamic {{ dynamic_count|default:"0" }}</span>
                 <span class="question-badge badge-active">Active {{ active_count|default:"0" }}</span>
+                <span class="question-badge {% if missing_bangla_count %}badge-inactive{% else %}badge-active{% endif %}">Bangla missing {{ missing_bangla_count|default:"0" }}</span>
             </div>
         </div>
 
@@ -84,6 +85,7 @@
                 <thead>
                     <tr>
                         <th>Question</th>
+                        <th>Bangla</th>
                         <th>Group</th>
                         <th>Category / track</th>
                         <th>Trigger info</th>
@@ -100,6 +102,14 @@
                         <td>
                             <strong>{{ question.question_text|truncatechars:95 }}</strong>
                             <div class="text-muted">Type: {{ question.get_question_type_display }}{% if question.reverse_scoring %} | Reverse scoring{% endif %}</div>
+                        </td>
+                        <td>
+                            {% if question.question_text_bn %}
+                                <span class="question-badge badge-active"><i class="fas fa-check"></i> Translated</span>
+                                <div class="text-muted">{{ question.question_text_bn|truncatechars:70 }}</div>
+                            {% else %}
+                                <span class="question-badge badge-inactive"><i class="fas fa-language"></i> Missing</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if question.track_number <= 7 %}
@@ -125,7 +135,7 @@
                             {% if question.option_choices %}
                                 <div class="option-score-preview">
                                     {% for option in question.option_choices|slice:":3" %}
-                                        <span>{{ option.option_text|default:option.text }}={{ option.score }}</span>
+                                        <span>{% if option.option_text %}{{ option.option_text }}{% else %}{{ option.text }}{% endif %}={{ option.score }}</span>
                                     {% endfor %}
                                 </div>
                             {% endif %}
@@ -150,7 +160,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="no-data">
+                        <td colspan="10" class="no-data">
                             <div class="no-data-content">
                                 <i class="fas fa-clipboard-question"></i>
                                 <p>No assessment questions found.</p>

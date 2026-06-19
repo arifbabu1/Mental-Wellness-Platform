@@ -5,7 +5,9 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.contrib import admin
 from django.core import mail
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import resolve, reverse
@@ -18,10 +20,15 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.middleware import SessionMiddleware
 
 from .adapters import MentalWellnessSocialAccountAdapter
+from .admin import AssessmentQuestionAdmin
+from .assessment_core import CORE_ASSESSMENT_WARNING, ensure_core_assessment_questions
 from .models import (
     Appointment,
     AssessmentQuestion,
     BookedSlot,
+    ChatMessage,
+    ChatSession,
+    ChatbotKnowledgeChunk,
     ClinicalAssessment,
     Consultation,
     DailyTask,
@@ -132,11 +139,14 @@ class AssessmentViewTests(TestCase):
             ('Over the past two weeks, how often have you felt that you are a failure or have let yourself or your family down?', 'Self-esteem', 3),
         ]
         for index, (text, category, weight) in enumerate(questions, start=1):
-            AssessmentQuestion.objects.create(
-                question_text=text,
-                category=category,
-                weight_value=weight,
+            AssessmentQuestion.objects.update_or_create(
                 track_number=index,
+                defaults={
+                    'question_text': text,
+                    'category': category,
+                    'weight_value': weight,
+                    'is_active': True,
+                },
             )
         self.client.login(username='patient', password='pass1234')
 
@@ -164,6 +174,212 @@ class AssessmentViewTests(TestCase):
         self.assertEqual(assessment.result_summary['emotional_risk_level'], 'High')
         self.assertIn('addiction', assessment.dynamic_responses)
         self.assertContains(response, 'Recommendation Engine Summary')
+
+    def test_assessment_repairs_inactive_core_question_before_rendering(self):
+        ensure_core_assessment_questions()
+        AssessmentQuestion.objects.filter(track_number=7).update(is_active=False)
+
+        response = self.client.get(reverse('assessment'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Submit Assessment')
+        self.assertFalse(
+            AssessmentQuestion.objects.filter(is_core=True, core_order=7, is_active=False).exists()
+        )
+
+    def test_assessment_page_works_after_repair_recreates_missing_core(self):
+        ensure_core_assessment_questions()
+        AssessmentQuestion.objects.filter(is_core=True, core_order=7).delete()
+
+        response = self.client.get(reverse('assessment'))
+
+        self.assertEqual(AssessmentQuestion.objects.filter(is_core=True, core_order=7).count(), 1)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Submit Assessment')
+
+
+class CoreAssessmentProtectionTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username='core_admin',
+            email='core_admin@example.com',
+            password='pass1234',
+            role='admin',
+        )
+        ensure_core_assessment_questions()
+
+    def _message_request(self):
+        request = RequestFactory().post('/')
+        request.user = self.admin_user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request._messages = FallbackStorage(request)
+        return request
+
+    def test_core_question_cannot_be_deleted(self):
+        question = AssessmentQuestion.objects.get(is_core=True, core_order=1)
+
+        with self.assertRaises(ValidationError):
+            question.delete()
+
+        self.assertTrue(AssessmentQuestion.objects.filter(pk=question.pk).exists())
+
+    def test_core_question_cannot_be_deactivated(self):
+        question = AssessmentQuestion.objects.get(is_core=True, core_order=1)
+        question.is_active = False
+        question.save()
+
+        question.refresh_from_db()
+        self.assertTrue(question.is_active)
+        self.assertTrue(question.required)
+        self.assertTrue(question.is_required)
+
+    def test_bulk_delete_blocks_core_questions_and_deletes_non_core(self):
+        non_core = AssessmentQuestion.objects.create(
+            question_text='Temporary dynamic question',
+            category='Depression',
+            weight_value=1,
+            track_number=20,
+            question_type='likert_scale',
+            is_active=True,
+            is_core=False,
+        )
+        core = AssessmentQuestion.objects.get(is_core=True, core_order=1)
+        model_admin = AssessmentQuestionAdmin(AssessmentQuestion, admin.site)
+        request = self._message_request()
+
+        model_admin.delete_queryset(
+            request,
+            AssessmentQuestion.objects.filter(pk__in=[core.pk, non_core.pk]),
+        )
+
+        self.assertTrue(AssessmentQuestion.objects.filter(pk=core.pk).exists())
+        self.assertFalse(AssessmentQuestion.objects.filter(pk=non_core.pk).exists())
+        self.assertIn(CORE_ASSESSMENT_WARNING, [str(message) for message in request._messages])
+
+    def test_repair_command_recreates_missing_core_question(self):
+        AssessmentQuestion.objects.filter(is_core=True, core_order=7).delete()
+        output = StringIO()
+
+        call_command('repair_core_assessment_questions', stdout=output)
+
+        self.assertTrue(AssessmentQuestion.objects.filter(is_core=True, core_order=7, is_active=True).exists())
+        self.assertIn('created=1', output.getvalue())
+
+    def test_dynamic_question_can_be_deleted_and_deactivated(self):
+        question = AssessmentQuestion.objects.create(
+            question_text='Editable dynamic question',
+            category='Anxiety',
+            weight_value=1,
+            track_number=30,
+            question_type='likert_scale',
+            is_active=True,
+            is_core=False,
+        )
+
+        question.is_active = False
+        question.save()
+        question.refresh_from_db()
+        self.assertFalse(question.is_active)
+
+        question.delete()
+        self.assertFalse(AssessmentQuestion.objects.filter(pk=question.pk).exists())
+
+
+class ChatbotProductionReadinessTests(TestCase):
+    def post_chat(self, message, session_id=''):
+        return self.client.post(
+            reverse('emergency_chat'),
+            data=json.dumps({'message': message, 'session_id': session_id}),
+            content_type='application/json',
+        )
+
+    @override_settings(CHATBOT_AI_ENABLED=False)
+    def test_chatbot_works_with_ai_disabled(self):
+        response = self.post_chat('How can I book an appointment?')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn('response', payload)
+        self.assertIn('appointment', payload['response'].lower())
+        self.assertFalse(payload['is_emergency'])
+
+    @override_settings(CHATBOT_AI_ENABLED=True, GEMINI_API_KEY='')
+    def test_chatbot_falls_back_when_gemini_key_missing(self):
+        response = self.post_chat('I feel anxious and stressed')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('response', response.json())
+
+    @override_settings(CHATBOT_AI_ENABLED=True, GEMINI_API_KEY='fake-key')
+    @patch('home.rag_chatbot.request.urlopen', side_effect=TimeoutError)
+    def test_chatbot_falls_back_when_gemini_times_out(self, _urlopen):
+        response = self.post_chat('I feel overwhelmed')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn('response', payload)
+        self.assertIn('overloaded', payload['response'].lower())
+
+    @override_settings(CHATBOT_AI_ENABLED=True, GEMINI_API_KEY='fake-key')
+    @patch('home.rag_chatbot.request.urlopen')
+    def test_emergency_message_returns_local_response_before_gemini(self, mock_urlopen):
+        response = self.post_chat('I want to kill myself')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['is_emergency'])
+        self.assertIn('999', payload['response'])
+        mock_urlopen.assert_not_called()
+        emergency_log = EmergencyLog.objects.get()
+        self.assertIn('[redacted crisis message', emergency_log.message)
+
+    @override_settings(CHATBOT_AI_ENABLED=False)
+    @patch('home.views._emergency_rate_limit_exceeded', return_value=False)
+    def test_last_15_user_messages_memory_is_bounded(self, _rate_limit):
+        session_id = ''
+        for index in range(20):
+            response = self.post_chat(f'I feel stress number {index}', session_id=session_id)
+            self.assertEqual(response.status_code, 200)
+            session_id = response.json()['session_id']
+
+        session = ChatSession.objects.get(pk=session_id)
+        self.assertLessEqual(session.messages.count(), 30)
+        user_messages = list(session.messages.filter(role='user').order_by('created_at'))
+        self.assertEqual(len(user_messages), 15)
+        self.assertEqual(user_messages[0].content, 'I feel stress number 5')
+
+    def test_sync_chatbot_knowledge_command_is_idempotent(self):
+        first = StringIO()
+        second = StringIO()
+
+        call_command('sync_chatbot_knowledge', stdout=first)
+        first_count = ChatbotKnowledgeChunk.objects.count()
+        call_command('sync_chatbot_knowledge', stdout=second)
+
+        self.assertGreater(first_count, 0)
+        self.assertEqual(ChatbotKnowledgeChunk.objects.count(), first_count)
+        self.assertIn('created=', first.getvalue())
+        self.assertIn('unchanged=', second.getvalue())
+
+    @override_settings(CHATBOT_AI_ENABLED=True, GEMINI_API_KEY='super-secret-test-key')
+    @patch('home.management.commands.check_chatbot_ai.request.urlopen', side_effect=TimeoutError)
+    def test_check_chatbot_ai_never_prints_api_key(self, _urlopen):
+        output = StringIO()
+
+        call_command('check_chatbot_ai', stdout=output)
+
+        self.assertNotIn('super-secret-test-key', output.getvalue())
+        self.assertIn('Local fallback', output.getvalue())
+
+    def test_chatbot_endpoint_never_returns_500_for_invalid_input(self):
+        bad_json = self.client.post(reverse('emergency_chat'), data='{bad', content_type='application/json')
+        empty = self.client.post(reverse('emergency_chat'), data=json.dumps({'message': ''}), content_type='application/json')
+        normal = self.post_chat('hello')
+
+        self.assertEqual(bad_json.status_code, 400)
+        self.assertEqual(empty.status_code, 400)
+        self.assertEqual(normal.status_code, 200)
 
 
 class AuthenticationUpgradeTests(TestCase):

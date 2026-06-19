@@ -18,6 +18,7 @@ from .models import (
     TaskCompletion,
 )
 from .forms import AssessmentQuestionForm, AssessmentQuestionOptionForm
+from .assessment_core import CORE_ASSESSMENT_WARNING
 from .recommendation_engine import CORE_TRACKS, DYNAMIC_QUESTION_GROUPS
 
 # Custom decorator to check if user is a superuser for sensitive admin pages
@@ -374,6 +375,7 @@ def assessment_questions_manage(request):
     total_questions = AssessmentQuestion.objects.count()
     general_count = AssessmentQuestion.objects.filter(track_number__lte=7).count()
     dynamic_count = AssessmentQuestion.objects.filter(track_number__gt=7).count()
+    missing_bangla_count = AssessmentQuestion.objects.filter(question_text_bn__isnull=True).count() + AssessmentQuestion.objects.filter(question_text_bn='').count()
     return render(request, 'admin/assessment_questions.html', {
         'questions': questions,
         'total_questions': total_questions,
@@ -382,6 +384,7 @@ def assessment_questions_manage(request):
         'dynamic_count': dynamic_count,
         'active_count': AssessmentQuestion.objects.filter(is_active=True).count(),
         'inactive_count': AssessmentQuestion.objects.filter(is_active=False).count(),
+        'missing_bangla_count': missing_bangla_count,
         'category_choices': AssessmentQuestion.CATEGORY_CHOICES,
         'current_group': group_filter,
         'current_status': status_filter,
@@ -393,12 +396,13 @@ def assessment_questions_manage(request):
 
 def _clean_assessment_options(option_formset):
     cleaned_options = [
-        form.cleaned_data for form in option_formset
+        {**form.cleaned_data, '_source_order': index}
+        for index, form in enumerate(option_formset, start=1)
         if form.cleaned_data and not form.cleaned_data.get('DELETE') and (form.cleaned_data.get('option_text') or '').strip()
     ]
     cleaned_options = sorted(
         cleaned_options,
-        key=lambda item: (item.get('option_order') or 9999, item.get('option_text') or '')
+        key=lambda item: (item.get('option_order') or item['_source_order'])
     )
     return [
         {
@@ -462,6 +466,9 @@ def assessment_question_edit(request, question_id):
             if not question_form.errors:
                 updated_question = question_form.save(commit=False)
                 updated_question.option_choices = cleaned_options
+                if updated_question.is_core and not updated_question.is_active:
+                    updated_question.is_active = True
+                    messages.warning(request, 'Core assessment questions must remain active.')
                 updated_question.save()
                 messages.success(request, 'Assessment question updated successfully.')
                 return redirect('assessment_questions_manage')
@@ -475,6 +482,9 @@ def assessment_question_edit(request, question_id):
 @require_http_methods(['POST'])
 def assessment_question_delete(request, question_id):
     question = get_object_or_404(AssessmentQuestion, id=question_id)
+    if question.is_core:
+        messages.warning(request, CORE_ASSESSMENT_WARNING)
+        return redirect('assessment_questions_manage')
     question.delete()
     messages.success(request, 'Assessment question deleted successfully.')
     return redirect('assessment_questions_manage')

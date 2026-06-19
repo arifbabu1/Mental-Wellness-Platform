@@ -101,7 +101,7 @@ MentalWellnessPlatform/
 │   ├── settings.py             # Django settings
 │   ├── urls.py                # Main URL configuration
 │   ├── wsgi.py                # WSGI configuration
-│   └── asgi.py                # ASGI configuration
+│   └── asgi.py                # Minimal ASGI fallback; deploy with WSGI
 ├── home/                       # Main application
 │   ├── __init__.py
 │   ├── admin.py                # Django admin configuration

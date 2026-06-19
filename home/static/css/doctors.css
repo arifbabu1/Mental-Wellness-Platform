@@ -99,17 +99,19 @@
 
 /* Search and Filter Section */
 .search-filter-section {
-    background: var(--bg-primary);
-    padding: var(--spacing-lg);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-md);
-    margin-bottom: var(--spacing-2xl);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 16px;
+    border-radius: 22px;
+    box-shadow: 0 14px 36px rgba(8, 161, 247, 0.12);
+    border: 1px solid rgba(8, 161, 247, 0.12);
+    margin-bottom: 28px;
+    backdrop-filter: blur(10px);
 }
 
 .search-filter-container {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: var(--spacing-md);
+    gap: 12px;
     align-items: center;
 }
 
@@ -128,12 +130,12 @@
 
 .search-input {
     width: 100%;
-    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-md) var(--spacing-3xl);
-    border: 2px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
-    font-size: var(--font-size-base);
+    padding: 13px 16px 13px 48px;
+    border: 1px solid rgba(8, 161, 247, 0.18);
+    border-radius: 16px;
+    font-size: 0.95rem;
     transition: var(--transition);
-    background: var(--bg-primary);
+    background: #f8fcff;
 }
 
 .search-input:focus {
@@ -155,16 +157,16 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: var(--bg-primary);
-    border: 2px solid var(--border-color);
-    border-radius: var(--border-radius-lg);
+    padding: 13px 16px;
+    background: #f8fcff;
+    border: 1px solid rgba(8, 161, 247, 0.18);
+    border-radius: 16px;
     font-size: var(--font-size-sm);
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition);
     white-space: nowrap;
-    min-width: 200px;
+    min-width: 180px;
 }
 
 .dropdown-toggle:hover {
@@ -527,9 +529,9 @@
 .help-section {
     background: var(--gradient-secondary);
     color: var(--text-white);
-    padding: var(--spacing-3xl) 0;
-    border-radius: var(--border-radius-xl);
-    margin-top: var(--spacing-3xl);
+    padding: 28px 18px;
+    border-radius: 24px;
+    margin-top: 34px;
     position: relative;
     overflow: hidden;
 }
@@ -552,15 +554,15 @@
 }
 
 .help-content h2 {
-    font-size: var(--font-size-3xl);
-    margin-bottom: var(--spacing-md);
+    font-size: clamp(1.45rem, 3vw, 1.9rem);
+    margin-bottom: 8px;
 }
 
 .help-content p {
-    font-size: var(--font-size-lg);
+    font-size: 0.98rem;
     opacity: 0.9;
-    margin-bottom: var(--spacing-xl);
-    max-width: 600px;
+    margin-bottom: 16px;
+    max-width: 560px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -573,7 +575,7 @@
 }
 
 .btn-help {
-    padding: var(--spacing-md) var(--spacing-xl);
+    padding: 11px 18px;
     background: var(--bg-primary);
     color: var(--primary-color);
     border: none;
@@ -630,14 +632,14 @@
     }
 
     .doctors-grid {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-lg);
-        justify-items: center;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        justify-items: stretch;
     }
 
     .doctor-card {
         width: 100%;
-        max-width: 360px;
+        max-width: none;
     }
 
     .doctor-profile {
@@ -664,13 +666,13 @@
     }
 
     .help-actions {
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
     }
 
     .btn-help {
-        width: 100%;
-        max-width: 300px;
+        width: auto;
+        max-width: none;
     }
 }
 
@@ -680,11 +682,51 @@
     }
 
     .search-filter-section {
-        padding: var(--spacing-md);
+        padding: 10px;
+        margin-bottom: 16px;
+        border-radius: 18px;
+    }
+
+    .search-filter-container {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .search-input {
+        padding: 12px 14px 12px 38px;
+        font-size: 0.9rem;
+        border-radius: 14px;
+    }
+
+    .search-icon {
+        left: 12px;
+        font-size: 0.95rem;
+    }
+
+    .filter-dropdown-wrapper,
+    .filter-dropdown {
+        width: 100%;
+    }
+
+    .dropdown-toggle {
+        min-width: 0;
+        width: 100%;
+        height: 44px;
+        padding: 0 14px;
+        justify-content: space-between;
+        border-radius: 14px;
     }
 
     .dropdown-menu {
         max-height: 300px;
+        left: 0;
+        right: 0;
+        min-width: 0;
+    }
+
+    .doctors-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
     }
 
     .doctor-card {
@@ -695,21 +737,85 @@
     .doctor-header,
     .doctor-body,
     .doctor-footer {
-        padding: var(--spacing-md);
+        padding: 10px;
     }
 
     .doctor-avatar {
-        width: 60px;
-        height: 60px;
-        font-size: 28px;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+        border-width: 2px;
     }
 
     .doctor-profile {
         flex-direction: row;
         text-align: left;
+        gap: 8px;
     }
 
     .consultation-fee {
         flex-direction: column;
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+
+    .doctor-basic-info h3 {
+        font-size: 0.86rem;
+        line-height: 1.25;
+        margin-bottom: 3px;
+    }
+
+    .doctor-specialty,
+    .detail-item,
+    .fee-label,
+    .badge {
+        font-size: 0.72rem;
+    }
+
+    .doctor-details {
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .doctor-badges {
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+
+    .badge {
+        padding: 3px 6px;
+    }
+
+    .fee-amount {
+        font-size: 0.98rem;
+    }
+
+    .btn-book {
+        padding: 9px 6px;
+        font-size: 0.78rem;
+        border-radius: 12px;
+    }
+
+    .help-section {
+        padding: 18px 12px;
+        margin-top: 22px;
+    }
+
+    .help-content p {
+        font-size: 0.86rem;
+        margin-bottom: 12px;
+    }
+
+    .help-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .btn-help {
+        width: 100%;
+        padding: 9px 8px;
+        font-size: 0.8rem;
+        justify-content: center;
     }
 }

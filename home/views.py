@@ -9,6 +9,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.decorators import login_required
 
 from django.contrib import messages
+from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -22,7 +23,7 @@ from django.views.decorators.http import require_POST
 
 from django.utils import timezone
 
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 
 from django.db.models import Q
 
@@ -603,9 +604,19 @@ from .forms import CompleteSocialProfileForm
 from .recommendation_engine import (
     DYNAMIC_QUESTION_GROUPS,
     build_assessment_profile,
+    get_localized_dynamic_question_groups,
     get_dynamic_response_payload,
     recommend_doctors,
 )
+from .assessment_i18n import (
+    ASSESSMENT_LANGUAGE_LABELS,
+    STANDARD_OPTION_CHOICES,
+    STANDARD_OPTION_CHOICES_BN,
+    get_general_question_text,
+    localized_answer_labels,
+    normalize_assessment_lang,
+)
+from .assessment_core import ensure_core_assessment_questions, get_active_core_questions
 from .doctor_config import (
     DEFAULT_PRIMARY_FOCUS,
     DOCTOR_PRIMARY_FOCUS_CHOICES,
@@ -615,7 +626,11 @@ from .doctor_config import (
 )
 from .rag_chatbot import (
     chatbot_reply,
+    crisis_response,
+    detect_language,
     detect_emergency_payload,
+    is_crisis_query,
+    safe_fallback_response,
     extract_symptoms_from_history,
     get_chat_history,
     recommend_doctors_for_symptoms,
@@ -796,7 +811,18 @@ def home(request):
 
     """Landing page"""
 
-    return render(request, 'home/homepage.html')
+    try:
+        top_doctors = (
+            Doctor.objects.filter(is_available=True, available_online=True)
+            .select_related('user')
+            .prefetch_related('specializations')
+            .order_by('-availability_score', '-years_of_experience', 'id')[:10]
+        )
+    except DatabaseError:
+        logger.warning("Homepage top doctors unavailable because database is not ready.")
+        top_doctors = []
+
+    return render(request, 'home/homepage.html', {'top_doctors': top_doctors})
 
 
 
@@ -832,7 +858,7 @@ def _emergency_rate_limit_exceeded(request, limit=12, window_seconds=60):
 
 @require_POST
 def emergency_chat(request):
-    """Offline RAG/Ollama chatbot endpoint for the emergency page."""
+    """Hybrid chatbot endpoint with local emergency detection and fallback."""
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except json.JSONDecodeError:
@@ -842,14 +868,30 @@ def emergency_chat(request):
     session_id = (payload.get('session_id') or '').strip()
     if not message:
         return JsonResponse({'error': 'Message cannot be empty.'}, status=400)
-    if len(message) > 1000:
+    max_message_length = getattr(settings, 'CHATBOT_MAX_MESSAGE_LENGTH', 1000)
+    if len(message) > max_message_length:
         return JsonResponse({'error': 'Message is too long.'}, status=400)
     if _emergency_rate_limit_exceeded(request):
         return JsonResponse({'error': 'Too many requests. Please slow down and try again shortly.'}, status=429)
     user = request.user if request.user.is_authenticated else None
     if not request.session.session_key:
         request.session.save()
-    return JsonResponse(chatbot_reply(message, user, session_id, request.session.session_key))
+    try:
+        return JsonResponse(chatbot_reply(message, user, session_id, request.session.session_key))
+    except Exception:
+        logger.exception('Emergency chatbot failed; returning local fallback response.')
+        language = detect_language(message)
+        response_text = crisis_response(language) if is_crisis_query(message) else safe_fallback_response(message, language)
+        return JsonResponse({
+            'response': response_text,
+            'category': 'crisis' if is_crisis_query(message) else 'general_wellness',
+            'used_rag': False,
+            'session_id': session_id,
+            'language': language,
+            'is_emergency': is_crisis_query(message),
+            'doctors': [],
+            'fallback': True,
+        })
 
 
 def emergency_chat_history(request):
@@ -1811,11 +1853,62 @@ def assessment(request):
 
         return redirect('home')
 
+    requested_lang = request.GET.get('lang') or request.POST.get('assessment_lang') or request.session.get('assessment_lang')
+    assessment_lang = normalize_assessment_lang(requested_lang)
+    request.session['assessment_lang'] = assessment_lang
+    answer_labels = localized_answer_labels(assessment_lang)
+
     
 
-    questions = list(AssessmentQuestion.objects.all().order_by('track_number', 'id')[:7])
+    repair_failed = False
+    try:
+        ensure_core_assessment_questions()
+    except Exception:
+        logger.exception('Unable to repair core assessment questions before rendering assessment.')
+        repair_failed = True
+
+    questions = get_active_core_questions() if not repair_failed else []
+    assessment_setup_error = (
+        repair_failed
+        or
+        len(questions) < 7
+        or [question.core_order for question in questions] != list(range(1, 8))
+    )
+
+    def _localized_options(question):
+        if assessment_lang == 'bn':
+            if question.option_choices_bn:
+                return question.option_choices_bn
+            source_options = question.option_choices or []
+            if source_options:
+                localized = []
+                for index, option in enumerate(source_options, start=1):
+                    option_order = int(option.get('option_order') or index)
+                    localized.append({
+                        'option_order': option_order,
+                        'option_text': answer_labels[option_order - 1] if 1 <= option_order <= len(answer_labels) else option.get('option_text', ''),
+                        'score': option.get('score', 0),
+                    })
+                return localized
+            return STANDARD_OPTION_CHOICES_BN
+        return question.option_choices or STANDARD_OPTION_CHOICES
+
+    for question in questions:
+        localized_text = question.get_question_text(assessment_lang)
+        if assessment_lang == 'bn' and question.track_number <= 7 and not question.question_text_bn:
+            localized_text = get_general_question_text(question.track_number, 'bn') or question.question_text
+        question.localized_question_text = localized_text
+        question.localized_option_choices = _localized_options(question)
 
     if request.method == 'POST':
+        if assessment_setup_error:
+            messages.error(
+                request,
+                'মূল্যায়ন সেটআপ অসম্পূর্ণ। অনুগ্রহ করে একজন প্রশাসকের সাথে যোগাযোগ করুন এবং ৭টি মূল প্রশ্ন কনফিগার করুন।'
+                if assessment_lang == 'bn'
+                else 'Assessment setup is incomplete. Please contact an administrator to configure all 7 core questions.',
+            )
+            return redirect('assessment')
 
         total_score = 0
 
@@ -1895,8 +1988,13 @@ def assessment(request):
 
     context = {
         'questions': questions,
-        'dynamic_question_groups': DYNAMIC_QUESTION_GROUPS,
+        'assessment_setup_error': assessment_setup_error,
+        'dynamic_question_groups': get_localized_dynamic_question_groups(assessment_lang),
         'profile_age': request.user.age,
+        'assessment_lang': assessment_lang,
+        'assessment_language_label': ASSESSMENT_LANGUAGE_LABELS.get(assessment_lang, 'English'),
+        'answer_labels': answer_labels,
+        'assessment_languages': ASSESSMENT_LANGUAGE_LABELS.items(),
     }
 
     return render(request, 'patient/assessment.html', context)
@@ -4369,10 +4467,23 @@ def consultation_room(request, appointment_id):
     """Video consultation room"""
 
     try:
-        appointment = get_object_or_404(
-            Appointment.objects.select_related('patient', 'doctor', 'doctor__user'),
-            id=appointment_id,
+        appointment = (
+            Appointment.objects.select_related('patient', 'doctor', 'doctor__user')
+            .filter(id=appointment_id)
+            .first()
         )
+        if not appointment:
+            return render(
+                request,
+                'consultation/room_unavailable.html',
+                {
+                    'appointment_id': appointment_id,
+                    'unavailable_title': 'Consultation not found',
+                    'unavailable_message': 'We could not find this consultation. Please check your appointments or contact support.',
+                    'return_url_name': _consultation_redirect_name(request.user),
+                },
+                status=404,
+            )
 
         participant_role = _consultation_participant_role(request.user, appointment)
         if not participant_role:
@@ -4381,7 +4492,18 @@ def consultation_room(request, appointment_id):
                 appointment_id,
                 request.user.id,
             )
-            return _consultation_forbidden()
+            return render(
+                request,
+                'consultation/room_unavailable.html',
+                {
+                    'appointment': appointment,
+                    'appointment_id': appointment_id,
+                    'unavailable_title': 'Access denied',
+                    'unavailable_message': 'Only the assigned patient, assigned doctor, or an administrator can open this consultation room.',
+                    'return_url_name': _consultation_redirect_name(request.user),
+                },
+                status=403,
+            )
 
         access = _appointment_access_state(appointment)
         if not access['can_join'] and participant_role != 'admin':

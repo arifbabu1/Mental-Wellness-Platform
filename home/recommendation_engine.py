@@ -16,45 +16,89 @@ CORE_TRACKS = OrderedDict([
 DYNAMIC_QUESTION_GROUPS = OrderedDict([
     ('child', {
         'label': 'Child Mental Health',
+        'label_bn': 'শিশুদের মানসিক স্বাস্থ্য',
         'questions': [
             'How often are study focus issues affecting daily life?',
             'How often have there been noticeable behavior changes?',
             'How often is social isolation a concern?',
         ],
+        'questions_bn': [
+            'পড়াশোনায় মনোযোগের সমস্যা কতবার দৈনন্দিন জীবনে প্রভাব ফেলছে?',
+            'আচরণে উল্লেখযোগ্য পরিবর্তন কতবার দেখা যাচ্ছে?',
+            'সামাজিক বিচ্ছিন্নতা কতবার উদ্বেগের বিষয় হয়ে উঠছে?',
+        ],
     }),
     ('geriatric', {
         'label': 'Geriatric Mental Health',
+        'label_bn': 'বয়স্কদের মানসিক স্বাস্থ্য',
         'questions': [
             'How often are memory issues affecting daily life?',
             'How often does loneliness feel difficult to manage?',
             'How often are daily activities difficult to complete?',
         ],
+        'questions_bn': [
+            'স্মৃতিশক্তির সমস্যা কতবার দৈনন্দিন জীবনে প্রভাব ফেলছে?',
+            'একাকিত্ব কতবার সামলানো কঠিন লাগছে?',
+            'দৈনন্দিন কাজ কতবার শেষ করা কঠিন হচ্ছে?',
+        ],
     }),
     ('addiction', {
         'label': 'Addiction Screening',
+        'label_bn': 'আসক্তি স্ক্রিনিং',
         'questions': [
             'How often is it hard to control substance use or cravings?',
             'How often have attempts to cut down or stop failed?',
             'How often does dependency affect health, work, study, or relationships?',
         ],
+        'questions_bn': [
+            'মাদক বা তৃষ্ণা নিয়ন্ত্রণ করা কতবার কঠিন হয়?',
+            'কমানোর বা বন্ধ করার চেষ্টা কতবার ব্যর্থ হয়েছে?',
+            'নির্ভরশীলতা কতবার স্বাস্থ্য, কাজ, পড়াশোনা বা সম্পর্কের ওপর প্রভাব ফেলছে?',
+        ],
     }),
     ('family', {
         'label': 'Family and Relationship Stress',
+        'label_bn': 'পরিবার ও সম্পর্কের চাপ',
         'questions': [
             'How often do relationship conflicts increase your distress?',
             'How often do communication issues make problems harder?',
             'How often do you feel a lack of emotional support?',
         ],
+        'questions_bn': [
+            'সম্পর্কের দ্বন্দ্ব কতবার আপনার কষ্ট বাড়ায়?',
+            'যোগাযোগের সমস্যা কতবার বিষয়গুলোকে আরও কঠিন করে তোলে?',
+            'কতবার মনে হয় পর্যাপ্ত মানসিক সহায়তা পাচ্ছেন না?',
+        ],
     }),
     ('neurological', {
         'label': 'Neurological Symptoms',
+        'label_bn': 'স্নায়বিক উপসর্গ',
         'questions': [
             'How often do memory loss symptoms concern you?',
             'How often do confusion or disorientation symptoms occur?',
             'Have head injury history or neurological symptoms affected your wellbeing?',
         ],
+        'questions_bn': [
+            'স্মৃতিভ্রংশের উপসর্গ কতবার আপনাকে উদ্বিগ্ন করে?',
+            'বিভ্রান্তি বা দিশাহীনতার উপসর্গ কতবার দেখা দেয়?',
+            'মাথায় আঘাতের ইতিহাস বা স্নায়বিক উপসর্গ কি আপনার সুস্থতায় প্রভাব ফেলেছে?',
+        ],
     }),
 ])
+
+
+def get_localized_dynamic_question_groups(lang='en'):
+    lang = (lang or 'en').lower()
+    if lang != 'bn':
+        return DYNAMIC_QUESTION_GROUPS
+
+    localized = OrderedDict()
+    for module_key, group in DYNAMIC_QUESTION_GROUPS.items():
+        localized[module_key] = {
+            'label': group.get('label_bn') or group['label'],
+            'questions': group.get('questions_bn') or group['questions'],
+        }
+    return localized
 
 CONDITION_FOCUS_MAP = {
     'Depression': {'exact': {'Depression'}, 'partial': {'Emotional Healing', 'Talk Therapy', 'Stress', 'Sleep'}},
