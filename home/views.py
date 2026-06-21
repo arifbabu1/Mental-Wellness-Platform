@@ -1110,36 +1110,57 @@ def register(request):
         previous_treatment = request.POST.get('previous_mental_health_treatment', '').strip()
         concerns = request.POST.getlist('concerns')
         medications = request.POST.get('medications', '').strip()
+        terms = request.POST.get('terms', '')
+        newsletter = request.POST.get('newsletter', '')
+
+        # Prepare form data context for template
+        form_data = {
+            'username': username,
+            'email': email,
+            'phone': phone,
+            'first_name': first_name,
+            'last_name': last_name,
+            'address': address,
+            'age': age_raw,
+            'gender': gender,
+            'previous_mental_health_treatment': previous_treatment,
+            'concerns': concerns,
+            'medications': medications,
+            'terms': terms,
+            'newsletter': newsletter,
+        }
+
+        context = {**_auth_template_context(), 'form_data': form_data}
 
         if not username:
             messages.error(request, 'Username is required.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if not email:
             messages.error(request, 'Email address is required.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         try:
             validate_email(email)
         except ValidationError:
             messages.error(request, 'Please enter a valid email address.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if not phone or not BANGLADESH_MOBILE_RE.match(_digits_only(phone)):
             messages.error(request, 'Please enter a valid Bangladesh mobile number, for example 01XXXXXXXXX.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if not password or not confirm_password:
             messages.error(request, 'Please fill in both password fields.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if password != confirm_password:
             messages.error(request, 'Passwords do not match.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if User.objects.filter(username__iexact=username).exists():
             messages.error(request, 'Username already exists.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if User.objects.filter(email__iexact=email).exists():
             messages.error(request, 'Email already exists.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
         if gender and gender not in dict(User.GENDER_CHOICES):
             messages.error(request, 'Please choose a valid gender option.')
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
 
         user_age = None
         if age_raw:
@@ -1147,10 +1168,10 @@ def register(request):
                 user_age = int(age_raw)
             except (TypeError, ValueError):
                 messages.error(request, 'Please enter a valid age.')
-                return render(request, 'auth/register.html', _auth_template_context())
+                return render(request, 'auth/register.html', context)
             if user_age < 13 or user_age > 120:
                 messages.error(request, 'Age must be between 13 and 120.')
-                return render(request, 'auth/register.html', _auth_template_context())
+                return render(request, 'auth/register.html', context)
 
         password_probe = User(
             username=username,
@@ -1159,7 +1180,7 @@ def register(request):
             last_name=last_name,
         )
         if not _add_password_validation_errors(request, password, password_probe):
-            return render(request, 'auth/register.html', _auth_template_context())
+            return render(request, 'auth/register.html', context)
 
         user = User.objects.create_user(
             username=username,
@@ -1306,7 +1327,7 @@ def password_reset_request_view(request):
 
 def password_reset_send_view(request):
     if request.method != 'POST':
-        return redirect('forgot_password')
+        return render(request, 'auth/forgot_password.html', _auth_template_context())
 
     email = request.POST.get('email', '').strip().lower()
     if not email:
@@ -1316,7 +1337,8 @@ def password_reset_send_view(request):
     user = User.objects.filter(email__iexact=email, is_active=True).order_by('id').first()
     if not user:
         messages.error(request, 'No account found with that email address.')
-        return render(request, 'auth/forgot_password.html', _auth_template_context())
+        context = {**_auth_template_context(), 'email': email}
+        return render(request, 'auth/forgot_password.html', context)
 
     reset_link, uidb64, token = _build_password_reset_link(request, user)
     subject = 'Reset your Mental Wellness Platform password'
@@ -1327,7 +1349,26 @@ def password_reset_send_view(request):
         'If you did not request this reset, you can ignore this email.\n\n'
         'Mental Wellness Platform'
     )
-    send_configured_mail(subject, message, [user.email], fail_silently=False)
+    try:
+        sent_count = send_configured_mail(subject, message, [user.email], fail_silently=False)
+    except Exception as exc:
+        logger.warning("Password reset email failed for user %s: %s", user.id, exc)
+        messages.error(
+            request,
+            'We could not send the reset email right now. Please try again later or contact support.',
+        )
+        context = {**_auth_template_context(), 'email': email}
+        return render(request, 'auth/forgot_password.html', context)
+
+    if sent_count < 1:
+        logger.warning("Password reset email was not sent for user %s.", user.id)
+        messages.error(
+            request,
+            'We could not send the reset email right now. Please try again later or contact support.',
+        )
+        context = {**_auth_template_context(), 'email': email}
+        return render(request, 'auth/forgot_password.html', context)
+
     request.session['password_reset_request'] = {'uidb64': uidb64, 'token': token}
     messages.success(request, 'Password reset instructions have been sent to your email address.')
     return redirect('login')

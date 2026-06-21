@@ -152,7 +152,7 @@
                 </div>
                 <h3>Dr. {{ doctor.name|default:doctor.user.get_full_name|default:doctor.user.username }}</h3>
                 <p>{{ doctor.specialty|default:"Mental Health Specialist" }}</p>
-                <a href="{% url 'doctor_details' doctor.id %}" class="btn-base btn-gradient top-doctor-btn">View / Book</a>
+                <a href="{% url 'doctor_details' doctor_id=doctor.id %}" class="btn-base btn-gradient top-doctor-btn">View / Book</a>
               </article>
             {% empty %}
               <p class="top-doctors-empty">Doctors will appear here as soon as they are marked available.</p>

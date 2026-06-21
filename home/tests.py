@@ -459,6 +459,24 @@ class AuthenticationUpgradeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Please enter your account email address.')
 
+    def test_password_reset_verify_get_renders_request_form(self):
+        response = self.client.get(reverse('forgot_password_verify'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Forgot Password')
+        self.assertContains(response, 'name="email"')
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', EMAIL_HOST='')
+    def test_password_reset_handles_email_delivery_failure(self):
+        response = self.client.post(
+            reverse('forgot_password_verify'),
+            {'email': self.patient.email},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'We could not send the reset email right now.')
+        self.assertContains(response, f'value="{self.patient.email}"')
+
     def test_google_login_url_is_allauth_view(self):
         match = resolve('/accounts/google/login/')
 

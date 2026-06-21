@@ -16,20 +16,47 @@
     <link rel="stylesheet" href="{% static 'css/responsive-compact.css' %}">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar" role="navigation">
+    <!-- Emergency Top Bar -->
+    <header class="emergency-top-bar" role="banner">
         <div class="container">
-            <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand">Mental Wellness Platform</a>
-            <i class="fas fa-heart"></i> Mental Wellness Platform
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="{% url 'patient_dashboard' %}" aria-label="Go to Dashboard">Dashboard</a></li>
-                <li><a href="{% url 'assessment' %}" aria-label="Take Assessment">Assessment</a></li>
-                <li><a href="{% url 'doctors_list' %}" aria-label="View Doctors">Doctors</a></li>
-                <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
-                <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
-            </ul>
+            <span class="emergency-message">
+                Your life matters. If dark thoughts are overwhelming you, let us guide
+                you to the light. Call our hotline at
+                <strong>999</strong>
+            </span>
+            <a href="{% url 'emergency' %}" class="btn-base" aria-label="Get emergency help">Get Support</a>
         </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+      <div class="container">
+        <a href="{% if user.is_authenticated %}{% if user.role == 'patient' %}{% url 'patient_dashboard' %}{% elif user.role == 'doctor' %}{% url 'doctor_dashboard' %}{% else %}{% url 'home' %}{% endif %}{% else %}{% url 'home' %}{% endif %}" class="navbar-brand" aria-label="Mental Wellness Platform Home">Mental Wellness Platform</a>
+        <button class="navbar-toggle" aria-label="Toggle navigation menu">
+          <span class="hamburger"></span>
+        </button>
+        <ul class="navbar-nav" id="navbarNav">
+          <li><a href="{% url 'home' %}" aria-label="Home">Home</a></li>
+          <li><a href="{% url 'blogs' %}" aria-label="Mental Health Blogs">Blogs</a></li>
+          <li><a href="{% url 'about' %}" aria-label="About Us">About Us</a></li>
+          {% if user.is_authenticated %}
+            {% if user.role == 'patient' %}
+              <li><a href="{% url 'patient_dashboard' %}" aria-label="Patient Dashboard">Dashboard</a></li>
+              <li><a href="{% url 'assessment' %}" aria-label="Take Mental Health Assessment">Assessment</a></li>
+              <li><a href="{% url 'doctors_list' %}" aria-label="Browse Doctors">Doctors</a></li>
+              <li><a href="{% url 'patient_appointments' %}" aria-label="View Appointments">Appointments</a></li>
+            {% elif user.role == 'doctor' %}
+              <li><a href="{% url 'doctor_dashboard' %}" aria-label="Doctor Dashboard">Dashboard</a></li>
+            {% elif user.role == 'admin' %}
+              <li><a href="{% url 'admin_dashboard' %}" aria-label="Admin Dashboard">Dashboard</a></li>
+            {% endif %}
+            <li><a href="{% url 'logout' %}" aria-label="Logout from account">Logout</a></li>
+          {% else %}
+            <li><a href="{% url 'login' %}" aria-label="Login to your account">Login</a></li>
+            <li><a href="{% url 'register' %}" aria-label="Create a new account">Register</a></li>
+          {% endif %}
+        </ul>
+      </div>
     </nav>
 
     <!-- Main Content -->
@@ -544,3 +571,5 @@
     </style>
 </body>
 </html>
+
+
