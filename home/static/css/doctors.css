@@ -207,12 +207,17 @@
     border: 2px solid var(--border-color);
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-xl);
-    z-index: 1000;
+
+    /* Make sure it always overlays cards below on mobile */
+    z-index: 100000;
+    pointer-events: auto;
+
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
     transition: all 0.3s ease;
 }
+
 
 .dropdown-menu.show {
     opacity: 1;
