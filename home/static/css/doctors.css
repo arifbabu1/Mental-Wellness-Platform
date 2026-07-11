@@ -149,9 +149,17 @@
     position: relative;
 }
 
+/* Ensure dropdown overlays doctor cards on mobile (and elsewhere) */
 .filter-dropdown {
     position: relative;
+    z-index: 10;
 }
+
+/* Override any stacking context issues */
+.dropdown-menu {
+    z-index: 10000;
+}
+
 
 .dropdown-toggle {
     display: flex;
